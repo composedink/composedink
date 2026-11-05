@@ -134,7 +134,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       component `meta`, `files`. Frontmatter lives inside `mdx`. `doc.read` returns base64url
       `encodeFrontiers`, the text, and empty `dim`/`alts`/`blocks` arrays where nothing exists
       (real absence, not fake ops).
-- [ ] **Store.** `$COMPOSED_HOME/docs/<docId>/snapshot.loro` plus `updates/<n>.loro`, written only
+- [x] **Store.** `$COMPOSED_HOME/docs/<docId>/snapshot.loro` plus `updates/<n>.loro`, written only
       by the studio authority with temp file → `fsync` → rename before any acknowledgement. No
       `fs.watch`, no per-peer files, no compaction yet.
 - [ ] **`composed studio`** is the authority in this plan. It serves: the editor UI (Vite dev
@@ -177,7 +177,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       `parseLock`. Manifest data (`kind`, `props`, `sample`, `editor`) is extracted from the
       literal AST of `block.tsx` (Rolldown `parseAst`); block.tsx is never executed. Reject
       expressions, unknown keys and non-finite numbers.
-- [ ] `component.create` writes the template files into the component's `files` map, including
+- [x] `component.create` writes the template files into the component's `files` map, including
       `package.json`. For the tracer the template is `composed:lachieh/hello`:
 
   ```tsx
@@ -218,7 +218,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       the hash covers sorted file bytes, the exact dependency resolutions and the build settings.
       Note `@module-federation/vite` 1.23's caveat that named imports of `import:false` shares
       need the share present in the host scope — the host supplies all three (Task 4).
-- [ ] **Fallback evaluator.** `fallback.ts` is rejected if its module graph has any import,
+- [x] **Fallback evaluator.** `fallback.ts` is rejected if its module graph has any import,
       `require` or dynamic import. Evaluation runs in a `node:worker_threads` Worker that creates
       a `vm` context with `vm.constants.DONT_CONTEXTIFY`, `codeGeneration: { strings: false,
       wasm: false }`, `microtaskMode: "afterEvaluate"`, no host objects or functions bridged in,
@@ -230,7 +230,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       `vm.createContext` is escapable through the constructor chain; `DONT_CONTEXTIFY` makes it
       throw.) This contains the author's own code; P3 adds a process/origin boundary for
       untrusted code. An escape blocks completion.
-- [ ] **Preview export.** Validate each block usage's literal JSX props, apply schema defaults,
+- [x] **Preview export.** Validate each block usage's literal JSX props, apply schema defaults,
       hash the canonical sorted JSON, evaluate the fallback per distinct instance and write
       `instances[<hash>] = { props, markdown }`. Lock fields: `composed: 1`, `mode: "preview"`,
       `doc`, `base`, `view: "full"`, `sha256` of the exact UTF-8 MDX (used only by composed to
@@ -391,3 +391,61 @@ version as `vite-plus`. Resolution (hellotimber's pattern, now in Task 1): catal
 `vite: npm:@voidzero-dev/vite-plus-core@1.5.0`, `vite-plus: 1.5.0`, `overrides.vite: catalog:`,
 `peerDependencyRules.allowAny: [vite]`. After `vp install` the example builds and `vp run -r test`
 is 8/8. `vp env doctor` is global-CLI only; ignore it in this workspace.
+
+**2026-11-05, stop 3 (R1, after both permitted fallbacks).** Resumed the inherited source;
+fixed its host TypeScript errors, the mismatch in remote-name hashing (`id + version` in the
+builder versus `id + "@" + version` in the loader), and studio's rejection of `/?doc=tracer`.
+Added the packaged studio asset path and a real `tests/tracer.ts` harness. The harness creates
+an isolated example and home, types into CodeMirror, invokes the CLI in separate processes,
+restarts studio, exports, builds/prerenders, and drives Chromium. No hellotimber files changed.
+
+Command: `mise exec -- node --experimental-strip-types tests/tracer.ts` (three host variants).
+Runtime-only Vite host: build/prerender succeeded; fallback SSR and remote interaction worked,
+but `window.__composedReactIdentity === window.__composedRemoteReactIdentity` returned `false`.
+The remote gets test-only React identity instrumentation through `component.write`; the copied
+host router gets the host identity instrumentation. Two clicks reached `clicked 2` before the
+identity assertion. Log: `test-results/r1-runtime-only.log`.
+
+First permitted fallback: example host `@module-federation/vite`, three singleton shares,
+`hostInitInjectLocation: "entry"`. Prerender failed: `ERR_MODULE_NOT_FOUND` for
+`dist/server/server.js`; federation emitted `dist/server/assets/server-<hash>.js` instead.
+Log: `test-results/tracer-host-plugin.log`.
+
+Verified installed `@tanstack/react-start@1.169.4` exports `./plugin/rsbuild`; applied the
+second permitted fallback **only to the example host** using `@rsbuild/core@2.3.1`,
+`@rsbuild/plugin-react` and `@mdx-js/loader`. Remotes remain Vite-built. The installed Start
+prerender API accepts `prerender.filter`; filtering to `/posts/tracer` prevents its generated
+root page from failing with 404. Rsbuild builds and prerenders one page successfully, serves
+fallback SSR, loads the remote and reaches `clicked 2`, but the strict React identity assertion
+still returns `false`. Stopped as required by Toolchain fallback; no further workaround was
+attempted. Log: `test-results/tracer-rsbuild.log`. The example remains on this last attempted
+fallback, with its Vite config retained for tests only.
+
+Evidence so far: assertions **1 and 2 pass** (typing → separate CLI → studio restart; exact MDX
+and real version/schema/instance). Assertion 3 has dev SSR fallback and successful production
+prerender evidence, but lacks the complete no-component-import trace/production fetch check.
+Assertion 4's interaction subcheck passes; its strict React identity subcheck **fails**.
+Assertions 5 and 6 were not reached; **R3 is untested**. Chromium's screenshot calls timed out
+waiting for capture even though DOM assertions and forced pointer clicks worked; no screenshot
+is claimed. The harness currently bounds those attempts and logs their failures. Task 5 remains
+incomplete; the spec helper, full bundle/trace checks, screenshot evidence and final assertion
+accounting still need finishing after R1 is resolved. Tasks 2–4 also remain uncommitted and
+unticked pending complete acceptance. No completed-task implementation commit is claimed.
+
+The harness runs with mise's Node 22.22.3. Vite+'s task/child runtime independently selected
+Node 26.12.0 in some logs despite the mise pin; the example e2e script now explicitly invokes
+`mise exec -- node` to retain Node 22 for the authority/evaluator. Version matrix:
+`test-results/versions.json` (regenerated after Rsbuild installation).
+
+Final gates for stop 3: `mise exec -- vp check --fix` passes (53 files, no warnings/errors);
+`mise exec -- vp run -r test` passes (8/8 workspace tasks); `mise exec -- vp run
+host-tanstack#build` passes and prerenders one page. The requested `mise exec -- vp run
+host-tanstack#e2e` was also attempted after those gates, but Chromium closed during the initial
+studio navigation (`page.goto: Target page, context or browser has been closed`), before its
+assertions. This final runner failure is separate from the reproducible direct tracer R1
+failure documented above. Logs: `test-results/stop3-{check,tests,build,e2e}.log`.
+`test-results/assertions.json` preserves cross-run assertion accounting; do not mistake the
+last attempt's empty `tracer.json` for the earlier successful assertion evidence.
+Checked individual store/template/evaluator/export steps have focused tests; their enclosing
+tasks remain incomplete and have no implementation commit. All inherited and new partial
+implementation remains in the working tree for the next run.

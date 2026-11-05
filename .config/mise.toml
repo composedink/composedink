@@ -1,0 +1,7 @@
+[tools]
+node = "22.22.3"
+pnpm = "11"
+"npm:vite-plus" = "latest"
+
+[env]
+_.path = ["node_modules/.bin"]

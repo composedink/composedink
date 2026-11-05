@@ -10,20 +10,20 @@ the contracts and decisions; plan 01 contains the complete first slice.
 > discrepancy; do not improvise. No placeholder operation or future command counts as
 > completion. CLI/MCP lists contain only implemented operations.
 
-| # | Plan | Builds | Depends on | Status |
-|---|---|---|---|---|
-| 01 | [Tracer bullet](./01-tracer-bullet.md) | source workspace, explicit studio/web serving + preview subscription, real MF remote, lock-only example | — | not started |
-| 02 | [Authority and store durability](./02-authority-store-durability.md) | election/inline/stale recovery, local receipts/history, full-history compaction | 01 | not started |
-| 03 | [Editor](./03-editor.md) | R2 gate, reliable binding/transport, source UI, undo foundation | 02 | not started |
-| 04 | [Alternatives, agent apply and MCP](./04-alternatives-agent-mcp.md) | alternatives UI/ops, base apply, detached stash, capability adapters | 03 | not started |
-| 05 | [Dim, stash and clean view](./05-dim-stash-clean-view.md) | marks/projection mapping, complete writing UI | 04 | not started |
-| 06 | [Lint](./06-lint.md) | Harper/style rules, worker, underlines | 05 | not started |
-| 07 | [Model rewrites](./07-model-rewrites.md) | OpenAI-compatible provider and proposed rewrites | 05 | not started |
-| 08 | [Component authoring and preview](./08-component-authoring-preview.md) | checks, own npm dependencies, file sync, sustained live preview | 03, 05 | not started |
-| 09 | [Publish and artifact server](./09-publish-artifact-server.md) | immutable PUT/GET, release locks, outside import, npm tarballs | 02, 04, 05, 08 | not started |
-| 10 | [hellotimber adoption](./10-hellotimber-adoption.md) | npm/real-server consumer migration, formatter round-trip | 12 | not started |
-| 11 | [Desktop shell](./11-desktop-shell.md) | packaged macOS Tauri app/sidecar | 03–09 | not started |
-| 12 | [Deploy](./12-deploy.md) | cdn.composed.ink container, npm integrations, author scope config | 09 | not started |
+| #   | Plan                                                                   | Builds                                                                                                  | Depends on     | Status      |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------- | ----------- |
+| 01  | [Tracer bullet](./01-tracer-bullet.md)                                 | source workspace, explicit studio/web serving + preview subscription, real MF remote, lock-only example | —              | in progress |
+| 02  | [Authority and store durability](./02-authority-store-durability.md)   | election/inline/stale recovery, local receipts/history, full-history compaction                         | 01             | not started |
+| 03  | [Editor](./03-editor.md)                                               | R2 gate, reliable binding/transport, source UI, undo foundation                                         | 02             | not started |
+| 04  | [Alternatives, agent apply and MCP](./04-alternatives-agent-mcp.md)    | alternatives UI/ops, base apply, detached stash, capability adapters                                    | 03             | not started |
+| 05  | [Dim, stash and clean view](./05-dim-stash-clean-view.md)              | marks/projection mapping, complete writing UI                                                           | 04             | not started |
+| 06  | [Lint](./06-lint.md)                                                   | Harper/style rules, worker, underlines                                                                  | 05             | not started |
+| 07  | [Model rewrites](./07-model-rewrites.md)                               | OpenAI-compatible provider and proposed rewrites                                                        | 05             | not started |
+| 08  | [Component authoring and preview](./08-component-authoring-preview.md) | checks, own npm dependencies, file sync, sustained live preview                                         | 03, 05         | not started |
+| 09  | [Publish and artifact server](./09-publish-artifact-server.md)         | immutable PUT/GET, release locks, outside import, npm tarballs                                          | 02, 04, 05, 08 | not started |
+| 10  | [hellotimber adoption](./10-hellotimber-adoption.md)                   | npm/real-server consumer migration, formatter round-trip                                                | 12             | not started |
+| 11  | [Desktop shell](./11-desktop-shell.md)                                 | packaged macOS Tauri app/sidecar                                                                        | 03–09          | not started |
+| 12  | [Deploy](./12-deploy.md)                                               | cdn.composed.ink container, npm integrations, author scope config                                       | 09             | not started |
 
 Dependency order is `01 → 02 → 03 → 04 → 05`, then `06/07/08`, then `09 → 12 → 10`.
 Plan 11 follows the completed writing/component units through 09. The default execution
@@ -52,20 +52,20 @@ Every unit runs `mise exec -- vp check --fix` and `mise exec -- vp run -r test`,
 row below. These are commands implementers create/execute, **not evidence already run**.
 Root boundary tests are included in the common test gate.
 
-| Plan | Additional commands | Completion evidence |
-|---|---|---|
-| 01 | `mise exec -- vp run host-tanstack#build`; `mise exec -- vp run host-tanstack#e2e` | all six tracer assertions, strict React identity, R2 cases, no-JS/blocked remote, component.write → rebuild/re-export → SSR ≤2 seconds |
-| 02 | `mise exec -- vp run @composedink/core#durability`; tracer e2e | stale rename race/barrier, link-before-ready crash, starting wait, rename-failure retry, durable receipts/old bases |
-| 03 | `mise exec -- vp run composed-web#test`; `mise exec -- vp run composed-web#e2e`; tracer e2e | binding equality, ordered socket ops, reconnect and separate keystroke/operation undo |
-| 04 | `mise exec -- vp run @composedink/core#test`; `mise exec -- vp run composed-cli#test`; web e2e | Loro ¶2/¶4, deletion/replacement/partial deletion, edge sides, inside-range edit survives flip; MCP capability |
-| 05 | core tests, web e2e, tracer e2e using the same commands above | independent clean-map oracle, hidden text retained, mark/flip/stash/undo UI |
-| 06 | `mise exec -- vp run @composedink/lint#test`; core tests; web e2e | positioned diagnostics, stale replies discarded, measured changed-paragraph latency |
-| 07 | core/CLI tests; web e2e | HTTP-double rewrites, pending concurrent edits, failure/cancel/retry behavior |
-| 08 | core/CLI tests; tracer e2e | real file sync, bundled own dependency, ≤2-second small-fixture refresh, last-good retention |
-| 09 | `mise exec -- vp run composed-server#test`; core tests; tracer e2e; `mise exec -- vp pack` in each public package | immutable retry/409, release offline build, preview fallback/warning, idempotent outside import, old-MDX/current-lock rejection |
-| 10 | **In hellotimber:** `mise exec -- vp install`; `mise exec -- vp check --fix`; `mise exec -- vp run website#test`; `mise exec -- vp run website#build` | folder migration preserves metadata/routes/feed summaries; Nitro SSR response (JS off), draft preview warnings, formatter/import round-trip, existing figures |
-| 11 | `mise exec -- vp run composed-desktop#smoke`; web e2e; core durability | packaged app persists across relaunch, CLI sees edits, one authority without development Node |
-| 12 | server/core tests; tracer build/e2e; `mise exec -- vp pack` per public package; deployment/npm smoke in plan | HTTPS immutable URLs, npm-installed host, author scope → real server; human DNS/TLS confirmed |
+| Plan | Additional commands                                                                                                                                   | Completion evidence                                                                                                                                           |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01   | `mise exec -- vp run host-tanstack#build`; `mise exec -- vp run host-tanstack#e2e`                                                                    | all six tracer assertions, strict React identity, R2 cases, no-JS/blocked remote, component.write → rebuild/re-export → SSR ≤2 seconds                        |
+| 02   | `mise exec -- vp run @composedink/core#durability`; tracer e2e                                                                                        | stale rename race/barrier, link-before-ready crash, starting wait, rename-failure retry, durable receipts/old bases                                           |
+| 03   | `mise exec -- vp run composed-web#test`; `mise exec -- vp run composed-web#e2e`; tracer e2e                                                           | binding equality, ordered socket ops, reconnect and separate keystroke/operation undo                                                                         |
+| 04   | `mise exec -- vp run @composedink/core#test`; `mise exec -- vp run composed-cli#test`; web e2e                                                        | Loro ¶2/¶4, deletion/replacement/partial deletion, edge sides, inside-range edit survives flip; MCP capability                                                |
+| 05   | core tests, web e2e, tracer e2e using the same commands above                                                                                         | independent clean-map oracle, hidden text retained, mark/flip/stash/undo UI                                                                                   |
+| 06   | `mise exec -- vp run @composedink/lint#test`; core tests; web e2e                                                                                     | positioned diagnostics, stale replies discarded, measured changed-paragraph latency                                                                           |
+| 07   | core/CLI tests; web e2e                                                                                                                               | HTTP-double rewrites, pending concurrent edits, failure/cancel/retry behavior                                                                                 |
+| 08   | core/CLI tests; tracer e2e                                                                                                                            | real file sync, bundled own dependency, ≤2-second small-fixture refresh, last-good retention                                                                  |
+| 09   | `mise exec -- vp run composed-server#test`; core tests; tracer e2e; `mise exec -- vp pack` in each public package                                     | immutable retry/409, release offline build, preview fallback/warning, idempotent outside import, old-MDX/current-lock rejection                               |
+| 10   | **In hellotimber:** `mise exec -- vp install`; `mise exec -- vp check --fix`; `mise exec -- vp run website#test`; `mise exec -- vp run website#build` | folder migration preserves metadata/routes/feed summaries; Nitro SSR response (JS off), draft preview warnings, formatter/import round-trip, existing figures |
+| 11   | `mise exec -- vp run composed-desktop#smoke`; web e2e; core durability                                                                                | packaged app persists across relaunch, CLI sees edits, one authority without development Node                                                                 |
+| 12   | server/core tests; tracer build/e2e; `mise exec -- vp pack` per public package; deployment/npm smoke in plan                                          | HTTPS immutable URLs, npm-installed host, author scope → real server; human DNS/TLS confirmed                                                                 |
 
 **Update Status** (`not started → in progress → done`) only as verified work lands.
 Commit messages name the changed package/behavior; stage only assigned files. A design

@@ -25,20 +25,20 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
 `vite.config.ts`, the generated `pnpm-lock.yaml`; a `package.json`, `tsconfig.json`,
 `vite.config.ts` and `README.md` for each package and app below; `tests/boundaries.test.ts`.
 
-- [ ] `.config/mise.toml` pins an exact Node 22 patch **≥ 22.8** (required by
+- [x] `.config/mise.toml` pins an exact Node 22 patch **≥ 22.8** (required by
       `vm.constants.DONT_CONTEXTIFY`, Task 3) and the Vite+ CLI. Never install tools globally.
 
   ```toml
   [tools]
-  node = "22.x.y"          # exact patch ≥ 22.8
+  node = "22.x.y" # exact patch ≥ 22.8
   pnpm = "11"
   "npm:vite-plus" = "latest"
-
+  
   [env]
   _.path = ["node_modules/.bin"]
   ```
 
-- [ ] `pnpm-workspace.yaml` declares the members and a catalog. The versions below are inputs to
+- [x] `pnpm-workspace.yaml` declares the members and a catalog. The versions below are inputs to
       verify, not proven compatible; `vp install` resolves them and the generated lock is
       committed. Add every external dependency a package uses to the catalog and reference it
       with `catalog:`.
@@ -61,18 +61,18 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
     # @tanstack/{react-start,react-router,router-plugin}, @vitejs/plugin-react, @playwright/test
   ```
 
-- [ ] Root `package.json` is private, `"type": "module"`, scripts
+- [x] Root `package.json` is private, `"type": "module"`, scripts
       `"test": "vp test run"`, `"tracer": "node --experimental-strip-types tests/tracer.ts"`,
       `"tracer:inspect": "node --experimental-strip-types tests/tracer.ts --inspect-hosts"`.
       Root `vite.config.ts` test block includes `tests/**/*.test.ts` only; `tests/tracer.ts` is
       a script, not a test module.
-- [ ] Root `tsconfig.json`: `target ES2022`, `module ESNext`, `moduleResolution Bundler`,
+- [x] Root `tsconfig.json`: `target ES2022`, `module ESNext`, `moduleResolution Bundler`,
       `strict`, `noEmit`, `allowImportingTsExtensions`, `skipLibCheck`; includes root `tests`
       only. Each package's `tsconfig.json` extends it with
       `"include": ["src", "tests", "vite.config.ts"]` (adjusted to what the package has); React
       packages add `"jsx": "react-jsx"` and `lib: ["ES2022", "DOM", "DOM.Iterable"]`; Node
       packages add `"types": ["node"]`. Never alias sibling source paths.
-- [ ] Every library package has this shape (name, exports and deps substituted). No `build`
+- [x] Every library package has this shape (name, exports and deps substituted). No `build`
       script, no `main`/`types`; React is a peer **and** dev dependency where used. Public
       packaging with `vp pack` arrives in plan 09.
 
@@ -88,17 +88,17 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
   }
   ```
 
-| Directory / name | Public entries | Internal deps | Minimal contract in this plan |
-|---|---|---|---|
-| `packages/core` · `@composedink/core` | `.` → `src/index.ts` (pure reads/types); `./node` → `src/node.ts` | blocks | `openStore`, `bind`, authority lifecycle, the ops above |
-| `packages/blocks` · `@composedink/blocks` | `.` → `src/index.ts` | — | `defineBlock`, `PropsSchema`, `PropsOf`, `validateProps`, `staticValue`, `SHARED_SINGLETONS`, `ExportLock`, `LockedBlock`, `parseLock` |
-| `packages/host-runtime` · `@composedink/host-runtime` | `.` → `src/index.ts` | blocks | `blockLoader(shared).load(lockedBlock)` |
-| `packages/host-tanstack` · `@composedink/host-tanstack` | `./remark` → `src/remark.ts`; `./block` → `src/block.tsx` | blocks, host-runtime | `remarkComposed`, `ComposedBlock` |
-| `apps/cli` · `composed-cli` | `bin.composed` → an executable launcher that runs Node with TS stripping on `src/main.ts` | core/node, blocks, web (assets) | `composed studio`, generated commands |
-| `apps/web` · `composed-web` | app (may build) | core (browser entry), blocks | the editor page binding `mdx` |
-| `examples/host-tanstack` · `host-tanstack` | app | host-tanstack, blocks | the real TanStack Start host |
+| Directory / name                                        | Public entries                                                                            | Internal deps                   | Minimal contract in this plan                                                                                                          |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core` · `@composedink/core`                   | `.` → `src/index.ts` (pure reads/types); `./node` → `src/node.ts`                         | blocks                          | `openStore`, `bind`, authority lifecycle, the ops above                                                                                |
+| `packages/blocks` · `@composedink/blocks`               | `.` → `src/index.ts`                                                                      | —                               | `defineBlock`, `PropsSchema`, `PropsOf`, `validateProps`, `staticValue`, `SHARED_SINGLETONS`, `ExportLock`, `LockedBlock`, `parseLock` |
+| `packages/host-runtime` · `@composedink/host-runtime`   | `.` → `src/index.ts`                                                                      | blocks                          | `blockLoader(shared).load(lockedBlock)`                                                                                                |
+| `packages/host-tanstack` · `@composedink/host-tanstack` | `./remark` → `src/remark.ts`; `./block` → `src/block.tsx`                                 | blocks, host-runtime            | `remarkComposed`, `ComposedBlock`                                                                                                      |
+| `apps/cli` · `composed-cli`                             | `bin.composed` → an executable launcher that runs Node with TS stripping on `src/main.ts` | core/node, blocks, web (assets) | `composed studio`, generated commands                                                                                                  |
+| `apps/web` · `composed-web`                             | app (may build)                                                                           | core (browser entry), blocks    | the editor page binding `mdx`                                                                                                          |
+| `examples/host-tanstack` · `host-tanstack`              | app                                                                                       | host-tanstack, blocks           | the real TanStack Start host                                                                                                           |
 
-- [ ] `tests/boundaries.test.ts` walks every `import`/`export … from`/`import()` specifier and
+- [x] `tests/boundaries.test.ts` walks every `import`/`export … from`/`import()` specifier and
       asserts: only the edges in the table (plus `core → blocks`, `host-tanstack → host-runtime`,
       `cli → web`); no relative path escapes a package; no deep import of another package's
       `src` (exports maps reject them too); mutating Loro calls on `mdx`/`files`
@@ -120,7 +120,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       `doc.getText("mdx").toString()`. The upstream plugin ignores `by: "local"` events
       (`sync.ts` ~42) and returns on the first non-text diff (~65) and on a wrong-target text diff.
       If either case desynchronises, keep one corrected plugin in `apps/web/src/editor/sync.ts`
-      that *continues* scanning the batch, keeps the undo manager and the single text sync path,
+      that _continues_ scanning the batch, keeps the undo manager and the single text sync path,
       and record the version plus an upstream issue link. Never add a second sync listener.
 - [ ] `core/src/model/keys.ts` is the only list of container names: post `meta`, `mdx`, `deps`;
       component `meta`, `files`. Frontmatter lives inside `mdx`. `doc.read` returns base64url
@@ -179,7 +179,11 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
   import fallback from "./fallback";
   function Hello({ name }: { name: string }) {
     const [n, setN] = React.useState(0);
-    return <button onClick={() => setN(n + 1)}>Hello {name}; clicked {n}</button>;
+    return (
+      <button onClick={() => setN(n + 1)}>
+        Hello {name}; clicked {n}
+      </button>
+    );
   }
   export default defineBlock({
     kind: "inline",
@@ -266,7 +270,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
 ```ts
 // tests/tracer.ts — outline; implement helpers, no shell sleeps.
 const home = await mkdtemp(join(tmpdir(), "composed-tracer-"));
-const example = await copyExample(home);                       // temp copy of examples/host-tanstack
+const example = await copyExample(home); // temp copy of examples/host-tanstack
 const studio = await spawnReady("studio", { home, ports: await freePorts(2) });
 await cli(["new", "post", "tracer"], { home });
 await cli(["component", "create", "lachieh/hello", "--kind", "inline"], { home });

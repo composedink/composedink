@@ -1,0 +1,2 @@
+import "../../core/src/model/text.ts";
+import "@composedink/core/src/model/text.ts";

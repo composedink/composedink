@@ -1,0 +1,17 @@
+{
+  "name": "composedink",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vp test run",
+    "tracer": "node --experimental-strip-types tests/tracer.ts",
+    "tracer:inspect": "node --experimental-strip-types tests/tracer.ts --inspect-hosts"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "packageManager": "pnpm@12.16.1"
+}

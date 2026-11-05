@@ -172,7 +172,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
 `packages/core/src/{bundle,export}.ts`, `src/model/{projection,component-template}.ts`,
 `src/fallback/{worker,evaluator}.ts`, `tests/{bundle,fallback,export}.test.ts`.
 
-- [ ] Implement the design's `defineBlock`, `PropSchema`/`PropsSchema`, `PropsOf`,
+- [x] Implement the design's `defineBlock`, `PropSchema`/`PropsSchema`, `PropsOf`,
       `validateProps`, `staticValue`, `SHARED_SINGLETONS`, `ExportLock`, `LockedBlock`,
       `parseLock`. Manifest data (`kind`, `props`, `sample`, `editor`) is extracted from the
       literal AST of `block.tsx` (Rolldown `parseAst`); block.tsx is never executed. Reject
@@ -204,7 +204,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
   export default ({ name }: { name: string }) => `Hello, **${name}**.`;
   ```
 
-- [ ] **Build.** The authority materializes `$COMPOSED_HOME/build/<id>/<sourceHash>/` with the
+- [x] **Build.** The authority materializes `$COMPOSED_HOME/build/<id>/<sourceHash>/` with the
       component files and a generated `package.json` whose devDependencies are `react` and
       `react-dom` at the catalog versions and `@composedink/blocks` as `link:<path>` to the
       workspace package (the path comes from the authority's own install location; plan 09/12
@@ -461,3 +461,13 @@ neither host federation nor Rsbuild is required.
 registry, CLI, authenticated editor stream and preview subscription. Restart persistence
 and independent CLI reads pass tracer assertion 1; exact export passes assertion 2.
 Store/ops/export and R2 binding regressions pass in the workspace suite.
+
+
+**Task 3 verified.** Completed block schemas/static props/locks, literal manifest
+extraction, frozen-lock federation builds, worker/VM fallback evaluation and preview
+export refresh. The remote build now explicitly uses production JSX and an empty
+bootstrap entry: inheriting studio's development environment had bundled an unshared
+`react/jsx-dev-runtime` (and the direct block entry also emitted React). The build
+regression runs under development NODE_ENV and rejects any bundled React implementation.
+Workspace tests pass, including evaluator escape/resource denial cases, locked export
+refresh and lock validation. Tracer assertions 2–4 confirm real artifacts and fallback HTML.

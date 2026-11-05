@@ -276,6 +276,8 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
 
 ## Task 5 — Collect executable evidence
 
+- [x] All six assertions, production/module/asset evidence, screenshots and final gates pass.
+
 **Files:** `tests/tracer.ts` (orchestrator), `examples/host-tanstack/tests/tracer.spec.ts`
 (Playwright), test-only React identity instrumentation in the example and the template.
 
@@ -450,7 +452,6 @@ Checked individual store/template/evaluator/export steps have focused tests; the
 tasks remain incomplete and have no implementation commit. All inherited and new partial
 implementation remains in the working tree for the next run.
 
-
 **2026-11-05, stop 3 resolved.** The failed R1 assertion compared module namespace
 objects; federation re-exports the host module, so namespaces differ while its functions
 are shared. The corrected test compares `useState` and `createElement`. The example is
@@ -462,7 +463,6 @@ registry, CLI, authenticated editor stream and preview subscription. Restart per
 and independent CLI reads pass tracer assertion 1; exact export passes assertion 2.
 Store/ops/export and R2 binding regressions pass in the workspace suite.
 
-
 **Task 3 verified.** Completed block schemas/static props/locks, literal manifest
 extraction, frozen-lock federation builds, worker/VM fallback evaluation and preview
 export refresh. The remote build now explicitly uses production JSX and an empty
@@ -472,7 +472,6 @@ regression runs under development NODE_ENV and rejects any bundled React impleme
 Workspace tests pass, including evaluator escape/resource denial cases, locked export
 refresh and lock validation. Tracer assertions 2–4 confirm real artifacts and fallback HTML.
 
-
 **Task 4 verified.** The runtime-only Vite/Start example prerenders /posts/tracer.
 The loader shares host React functions; hydration swaps the fallback for the real
 interactive remote, and blocked remote loading preserves fallback with one warning.
@@ -481,3 +480,28 @@ The allowed `composedLockReload()` Vite plugin now invalidates sibling MDX in ea
 environment. The tracer's lock-only SSR regression failed before this plugin and
 passes with it (`test-results/lock-only-ssr.html`); no server restart is needed.
 Production module membership is recorded in `server-module-trace.json`.
+
+**Task 5 verified (2026-11-05).** All six assertions pass in the same successful
+`mise exec -- vp run host-tanstack#e2e` run. Final output:
+`{"1":true,"2":true,"3":true,"4":true,"5":true,"6":true,"6-ms":595.5895830000009}`
+(additional interaction/identity/dev SSR subchecks also pass).
+Evidence accounting is `test-results/assertions.json`, with durable-read/export fixtures,
+production prerender HTML, server module membership, loaded asset membership, warning
+accounting and the updated/lock-only SSR HTML. Screenshots:
+`production-fallback.png`, `fallback.png`, `remote.png`, `failed.png`.
+Resolved versions: `test-results/versions.json`.
+
+The first-navigation browser closure was not a page/context lifetime error:
+`test-results/browser-debug.log` records headless shell GPU subprocesses failing to find
+`icudtl.dat`, followed by SIGTRAP. A forced Playwright browser reinstall did not repair
+that headless-shell failure. The full Chromium channel passes navigation and screenshot
+capture (`browser-smoke.png`); the harness explicitly selects that channel. Screenshots
+use `page.screenshot` with a 10 s timeout and preserve failure text if capture fails.
+The harness owns process groups and terminates descendants before removing its temp home;
+asset listeners stop before teardown to avoid reads against closed contexts.
+
+Final gates: `vp check --fix` passes without lint/type warnings or errors; `vp run -r test`
+passes 8/8 tasks (core 16, blocks 3, boundaries 2, browser binding 1);
+`vp run host-tanstack#build` passes and prerenders one page; `vp run host-tanstack#e2e`
+exits 0 with assertions 1–6 passing. Logs: `test-results/resume-{check,tests,build,e2e}.log`.
+R1 and R3 are resolved. No remaining stop. No hellotimber files changed.

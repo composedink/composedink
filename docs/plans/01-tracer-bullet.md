@@ -245,15 +245,15 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
 `packages/host-tanstack/src/block.tsx`, tests beside each;
 `examples/host-tanstack/{package.json,vite.config.ts,src/router.tsx,src/routes/__root.tsx,src/routes/posts.$slug.tsx,fixtures/tracer.mdx}`.
 
-- [ ] `blockLoader(shared)` creates one `createInstance({ name: "composed_host", remotes: [],
+- [x] `blockLoader(shared)` creates one `createInstance({ name: "composed_host", remotes: [],
       shared })` per page, `registerRemotes` once per `(id, version)` name, then
       `loadRemote(\`${name}/block\`)`. The host passes the three real module objects; the runtime
       imports no React.
-- [ ] `ComposedBlock` renders `<span|div data-composed={id} data-state="fallback">{children}</…>`
+- [x] `ComposedBlock` renders `<span|div data-composed={id} data-state="fallback">{children}</…>`
       identically on the server and at hydration, loads the remote after mount, and renders it with
       `data-state="remote"`. A load or render error (error boundary) keeps the fallback, sets
       `data-state="failed"` and logs one `console.warn` naming id and version.
-- [ ] `remarkComposed` reads the sibling `composed.lock.json` only. For each JSX element whose
+- [x] `remarkComposed` reads the sibling `composed.lock.json` only. For each JSX element whose
       tag is in `lock.blocks`: evaluate props with `staticValue`, apply defaults, hash, and require
       the hash in `instances`; otherwise fail at `file:line` with `composed export <doc>`. It
       **never** verifies a whole-file MDX hash (hellotimber's formatter rewrites MDX on commit).
@@ -263,11 +263,11 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       lock pass through untouched. In a production build a `mode: "preview"` lock renders the
       fallback only (no remote registration) and emits one build warning naming the post and the
       fix command — it never fails the build.
-- [ ] The injected lock import must put the lock into Vite's module graph so a lock change
+- [x] The injected lock import must put the lock into Vite's module graph so a lock change
       invalidates the MDX module (R3). If it doesn't under TanStack Start's SSR environment, add a
       small Vite plugin that invalidates the sibling `index.mdx` on a lock change, with a
       regression test.
-- [ ] The example registers `/posts/$slug`, compiles folder MDX with `@mdx-js/rollup` +
+- [x] The example registers `/posts/$slug`, compiles folder MDX with `@mdx-js/rollup` +
       `remarkComposed`, and enables prerendering of `/posts/tracer` using the installed TanStack
       Start API (verify the option name against the installed version rather than assuming). The
       committed `fixtures/tracer.mdx` is a template only: the tracer copies the example into the
@@ -471,3 +471,13 @@ bootstrap entry: inheriting studio's development environment had bundled an unsh
 regression runs under development NODE_ENV and rejects any bundled React implementation.
 Workspace tests pass, including evaluator escape/resource denial cases, locked export
 refresh and lock validation. Tracer assertions 2–4 confirm real artifacts and fallback HTML.
+
+
+**Task 4 verified.** The runtime-only Vite/Start example prerenders /posts/tracer.
+The loader shares host React functions; hydration swaps the fallback for the real
+interactive remote, and blocked remote loading preserves fallback with one warning.
+A lock-only change reproduced stale compiled Markdown despite the injected import.
+The allowed `composedLockReload()` Vite plugin now invalidates sibling MDX in each
+environment. The tracer's lock-only SSR regression failed before this plugin and
+passes with it (`test-results/lock-only-ssr.html`); no server restart is needed.
+Production module membership is recorded in `server-module-trace.json`.

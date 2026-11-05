@@ -130,14 +130,14 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       Vite must not pre-bundle Loro: set `optimizeDeps: { exclude: ["loro-crdt", "loro-codemirror"] }`
       wherever Vite serves it (the probe's dev server and the studio's `apps/web` middleware);
       pre-bundling breaks the WASM import with `Cannot read properties of undefined (reading 'memory')`.
-- [ ] `core/src/model/keys.ts` is the only list of container names: post `meta`, `mdx`, `deps`;
+- [x] `core/src/model/keys.ts` is the only list of container names: post `meta`, `mdx`, `deps`;
       component `meta`, `files`. Frontmatter lives inside `mdx`. `doc.read` returns base64url
       `encodeFrontiers`, the text, and empty `dim`/`alts`/`blocks` arrays where nothing exists
       (real absence, not fake ops).
 - [x] **Store.** `$COMPOSED_HOME/docs/<docId>/snapshot.loro` plus `updates/<n>.loro`, written only
       by the studio authority with temp file → `fsync` → rename before any acknowledgement. No
       `fs.watch`, no per-peer files, no compaction yet.
-- [ ] **`composed studio`** is the authority in this plan. It serves: the editor UI (Vite dev
+- [x] **`composed studio`** is the authority in this plan. It serves: the editor UI (Vite dev
       middleware for `apps/web` in development; built assets when packaged), the operations
       WebSocket on `127.0.0.1:4747`, the immutable artifact server on `127.0.0.1:4848` with CORS,
       and the preview subscription (next task). It writes `workspace.lock` with
@@ -145,22 +145,22 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       can't leave an empty lock. Every other CLI command connects to the socket; if no studio is
       running it exits with `fix: composed studio`. **No election, inline owner or stale-lock
       recovery ships here** (plan 02).
-- [ ] **Operations registry.** `core/src/ops/registry.ts` defines each op once: name, Zod input,
+- [x] **Operations registry.** `core/src/ops/registry.ts` defines each op once: name, Zod input,
       mutation flag, CLI mapping, run. The CLI command list and socket validation are generated
       from it; it lists only the ops in this plan's scope. The authority runs ops on one
       serialized queue. Socket frames: `{doc, bytes, seq}` for binding updates; `{request, name,
       input}` for ops; acknowledgements carry the durable head. Loopback sessions carry an
       ephemeral token issued at page load and an `Origin` check; the token never reaches
       component code.
-- [ ] **Typing path.** The editor streams binding updates unchanged; the authority imports them
+- [x] **Typing path.** The editor streams binding updates unchanged; the authority imports them
       unchanged, then runs the normalization hook (only `mdx`/`deps` invariants exist yet — do not
       invent alternative handling), persists, then broadcasts and acknowledges. A disconnected
       editor keeps unacknowledged updates and replays them; Loro's import is idempotent.
-- [ ] `component.write --base <frontiers> --file <relative path>` reads stdin, applies to a fork at
+- [x] `component.write --base <frontiers> --file <relative path>` reads stdin, applies to a fork at
       `base`, merges through the model. Reject absolute paths, `..` and symlink escapes.
       `new post <slug>` creates an empty document; the tracer types the frontmatter and body in
       the editor. `new --from <file>` arrives with `doc.apply` in plan 04.
-- [ ] **Preview subscription (minimal).** When a component document changes, the studio rebuilds
+- [x] **Preview subscription (minimal).** When a component document changes, the studio rebuilds
       it (Task 3), evaluates fallbacks, and regenerates the preview pair of every post pinned to
       that component `@dev` and previously exported in this session. Plan 08 adds last-good
       retention and two-way file sync. The studio never loads remotes in its own origin; the live
@@ -449,3 +449,15 @@ last attempt's empty `tracer.json` for the earlier successful assertion evidence
 Checked individual store/template/evaluator/export steps have focused tests; their enclosing
 tasks remain incomplete and have no implementation commit. All inherited and new partial
 implementation remains in the working tree for the next run.
+
+
+**2026-11-05, stop 3 resolved.** The failed R1 assertion compared module namespace
+objects; federation re-exports the host module, so namespaces differ while its functions
+are shared. The corrected test compares `useState` and `createElement`. The example is
+back on runtime-only Vite + TanStack Start with Rollup MDX and `import.meta.glob`;
+neither host federation nor Rsbuild is required.
+
+**Task 2 verified.** Completed the inherited authority, durable store, scoped operation
+registry, CLI, authenticated editor stream and preview subscription. Restart persistence
+and independent CLI reads pass tracer assertion 1; exact export passes assertion 2.
+Store/ops/export and R2 binding regressions pass in the workspace suite.

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vp test run"
+    "test": "vp test run",
+    "build": "vp build"
   },
   "dependencies": {
     "@codemirror/commands": "catalog:",

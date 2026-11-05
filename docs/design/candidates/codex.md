@@ -100,39 +100,56 @@ A component's `block.ts` owns schema, kind, presentation, fallback and direct de
 Public core types are opaque branded strings decoded at ingress: `DocId`, `Base`, `CursorRange`, `AltId`, `RequestId`, `ComponentId`, `ArtifactHash`. `Base` encodes document ID, schema, Loro frontiers and, for exports, projection identity. These signatures describe the operations contract; all commands return serializable values and typed errors.
 
 ```ts
-type Result<T> = { ok: true; value: T } | { ok: false; error:
-  { code: "invalid" | "missing-base" | "conflict" | "unavailable";
-    message: string; recovery?: string } };
+type Result<T> =
+  | { ok: true; value: T }
+  | {
+      ok: false;
+      error: {
+        code: "invalid" | "missing-base" | "conflict" | "unavailable";
+        message: string;
+        recovery?: string;
+      };
+    };
 type Read = { mdx: string; base: Base; alternatives: readonly AltView[] };
 type Mutation = { doc: DocId; base: Base; request: RequestId };
-type ExportBundle = {slug:string; files:Readonly<Record<string,string>>; base:Base};
+type ExportBundle = { slug: string; files: Readonly<Record<string, string>>; base: Base };
 interface Operations {
   doc: {
-    create(x: {kind:"post" | "idea"; slug:string; title:string}): Promise<Result<DocId>>;
-    read(x: {doc: DocId}): Promise<Result<Read>>;
-    apply(x: Mutation & {mdx: string; mode: "propose" | "import"}):
-      Promise<Result<{base: Base; proposals: readonly AltId[]}>>;
-    export(x: {doc: DocId; dim: "include" | "omit"}): Promise<Result<ExportBundle>>;
+    create(x: { kind: "post" | "idea"; slug: string; title: string }): Promise<Result<DocId>>;
+    read(x: { doc: DocId }): Promise<Result<Read>>;
+    apply(
+      x: Mutation & { mdx: string; mode: "propose" | "import" },
+    ): Promise<Result<{ base: Base; proposals: readonly AltId[] }>>;
+    export(x: { doc: DocId; dim: "include" | "omit" }): Promise<Result<ExportBundle>>;
   };
   alt: {
-    propose(x: Mutation & {range: CursorRange; versions: readonly string[]}): Promise<Result<AltId>>;
-    choose(x: Mutation & {alt: AltId; index: number}): Promise<Result<Base>>;
-    keep(x: Mutation & {alt: AltId; leftovers: "discard" | "stash"}): Promise<Result<Base>>;
+    propose(
+      x: Mutation & { range: CursorRange; versions: readonly string[] },
+    ): Promise<Result<AltId>>;
+    choose(x: Mutation & { alt: AltId; index: number }): Promise<Result<Base>>;
+    keep(x: Mutation & { alt: AltId; leftovers: "discard" | "stash" }): Promise<Result<Base>>;
   };
-  ghost(x: Mutation & {range: CursorRange; dim: boolean}): Promise<Result<Base>>;
-  stash(x: Mutation & ({action:"cut"; range:CursorRange} |
-    {action:"restore"; item:string; at:CursorRange})): Promise<Result<Base>>;
-  lint(x: {doc:DocId}): Promise<Result<readonly Diagnostic[]>>;
-  comment(x: Mutation & {range:CursorRange; question?:string; body:string}): Promise<Result<string>>;
-  deps: { add(x: Mutation & {alias:string; id:ComponentId}): Promise<Result<Base>> };
-  blocks: { list(x:{doc:DocId}): Promise<Result<readonly BlockDescriptor[]>> };
+  ghost(x: Mutation & { range: CursorRange; dim: boolean }): Promise<Result<Base>>;
+  stash(
+    x: Mutation &
+      (
+        | { action: "cut"; range: CursorRange }
+        | { action: "restore"; item: string; at: CursorRange }
+      ),
+  ): Promise<Result<Base>>;
+  lint(x: { doc: DocId }): Promise<Result<readonly Diagnostic[]>>;
+  comment(
+    x: Mutation & { range: CursorRange; question?: string; body: string },
+  ): Promise<Result<string>>;
+  deps: { add(x: Mutation & { alias: string; id: ComponentId }): Promise<Result<Base>> };
+  blocks: { list(x: { doc: DocId }): Promise<Result<readonly BlockDescriptor[]>> };
   component: {
-    create(x:{scope:string; name:string}): Promise<Result<DocId>>;
-    read(x:{doc:DocId}): Promise<Result<{files:Record<string,string>; base:Base}>>;
-    apply(x:Mutation & {files:Record<string,string>}): Promise<Result<Base>>;
-    check(x:{doc:DocId}): Promise<Result<CheckReport>>;
-    render(x:{doc:DocId; props:JsonObject}): Promise<Result<RenderReport>>;
-    publish(x:Mutation & {version:string}): Promise<Result<ComponentId>>;
+    create(x: { scope: string; name: string }): Promise<Result<DocId>>;
+    read(x: { doc: DocId }): Promise<Result<{ files: Record<string, string>; base: Base }>>;
+    apply(x: Mutation & { files: Record<string, string> }): Promise<Result<Base>>;
+    check(x: { doc: DocId }): Promise<Result<CheckReport>>;
+    render(x: { doc: DocId; props: JsonObject }): Promise<Result<RenderReport>>;
+    publish(x: Mutation & { version: string }): Promise<Result<ComponentId>>;
   };
 }
 ```
@@ -144,41 +161,47 @@ interface Operations {
 declare function defineBlock<const S extends PropsSchema>(x: {
   kind: "block" | "inline";
   props: S;
-  editor: {label:string; sample: Infer<S>};
-  dependencies: Readonly<Record<string,string>>;
+  editor: { label: string; sample: Infer<S> };
+  dependencies: Readonly<Record<string, string>>;
   fallback: (props: Infer<S>) => string; // Markdown, evaluated only in sandbox
-  load: () => Promise<{default: React.ComponentType<Infer<S>>}>;
+  load: () => Promise<{ default: React.ComponentType<Infer<S>> }>;
 }): BlockDefinition<S>;
 
 // block.ts
 export default defineBlock({
-  kind:"block", props:{type:"object", properties:{attempts:{type:"integer", minimum:1}},
-    required:["attempts"], additionalProperties:false},
-  editor:{label:"Retry chart", sample:{attempts:3}}, dependencies:{},
-  fallback: ({attempts}) => `**Retry chart:** ${attempts} attempts.`,
+  kind: "block",
+  props: {
+    type: "object",
+    properties: { attempts: { type: "integer", minimum: 1 } },
+    required: ["attempts"],
+    additionalProperties: false,
+  },
+  editor: { label: "Retry chart", sample: { attempts: 3 } },
+  dependencies: {},
+  fallback: ({ attempts }) => `**Retry chart:** ${attempts} attempts.`,
   load: () => import("./RetryChart"),
 });
 
 // @composedink/host-runtime: used inside isolated frame, never server-side
 declare function loadBlock(lock: LockedBlock): Promise<LoadedBlock>;
 // @composedink/host-tanstack and /vite exports
-declare function blocksFor(slug:string, existing?:MDXComponents): MDXComponents;
-declare function Block(p:{post:string; name:string; props:JsonObject}): React.ReactNode;
-declare function composed(p:{content:string}): Plugin;
+declare function blocksFor(slug: string, existing?: MDXComponents): MDXComponents;
+declare function Block(p: { post: string; name: string; props: JsonObject }): React.ReactNode;
+declare function composed(p: { content: string }): Plugin;
 ```
 
 Ownership is explicit:
 
-| Owner | Sole mutable state / supported path |
-|---|---|
-| `core` session | Authoritative Loro containers; every mutation through operations/transaction executor. No Loro objects escape. |
-| `core` resolver | Dependency closure; only `deps.add` or an explicit dependency update changes it. |
-| `apps/local` | Single local service, SQLite journal, filesystem exports, build jobs, local authenticated IPC/HTTP and SSE. CLI and Tauri both connect here. |
-| `editor` | Selection, panels, disposable optimistic binding replica. `loro-codemirror` writes only this replica; trusted editor updates enter the core executor, which reconciles choosers and acknowledges durable commits. |
-| `blocks` | Manifest validation; no document mutation or execution of account code. |
-| `lint` | Derived diagnostics in a worker; accepts immutable snapshots, returns base-tagged results. |
-| `host-runtime` | Federation instance/cache inside frame; immutable-version registration only. |
-| `host-tanstack` | MDX resolver/plugin and parent frame lifecycle; derived fallback and lock artifacts only. |
+| Owner           | Sole mutable state / supported path                                                                                                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core` session  | Authoritative Loro containers; every mutation through operations/transaction executor. No Loro objects escape.                                                                                                    |
+| `core` resolver | Dependency closure; only `deps.add` or an explicit dependency update changes it.                                                                                                                                  |
+| `apps/local`    | Single local service, SQLite journal, filesystem exports, build jobs, local authenticated IPC/HTTP and SSE. CLI and Tauri both connect here.                                                                      |
+| `editor`        | Selection, panels, disposable optimistic binding replica. `loro-codemirror` writes only this replica; trusted editor updates enter the core executor, which reconciles choosers and acknowledges durable commits. |
+| `blocks`        | Manifest validation; no document mutation or execution of account code.                                                                                                                                           |
+| `lint`          | Derived diagnostics in a worker; accepts immutable snapshots, returns base-tagged results.                                                                                                                        |
+| `host-runtime`  | Federation instance/cache inside frame; immutable-version registration only.                                                                                                                                      |
+| `host-tanstack` | MDX resolver/plugin and parent frame lifecycle; derived fallback and lock artifacts only.                                                                                                                         |
 
 The local service runs headless for CLI or is started by Tauri; a workspace lock elects one process. The editor replica is a transport/view cache, never another source of truth. One binding path handles typing and undo; no second CodeMirror text-to-core listener. Core owns the normalized transaction and its undo grouping. The binding replica sends proposed Loro updates to that executor; the executor stages and normalizes them before committing, then sends a canonical acknowledgement. No raw update bypasses chooser rules. Binding-update reconciliation is an explicit spike, not assumed library behavior.
 

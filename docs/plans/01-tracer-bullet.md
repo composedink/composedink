@@ -122,6 +122,9 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       If either case desynchronises, keep one corrected plugin in `apps/web/src/editor/sync.ts`
       that _continues_ scanning the batch, keeps the undo manager and the single text sync path,
       and record the version plus an upstream issue link. Never add a second sync listener.
+      Vite must not pre-bundle Loro: set `optimizeDeps: { exclude: ["loro-crdt", "loro-codemirror"] }`
+      wherever Vite serves it (the probe's dev server and the studio's `apps/web` middleware);
+      pre-bundling breaks the WASM import with `Cannot read properties of undefined (reading 'memory')`.
 - [ ] `core/src/model/keys.ts` is the only list of container names: post `meta`, `mdx`, `deps`;
       component `meta`, `files`. Frontmatter lives inside `mdx`. `doc.read` returns base64url
       `encodeFrontiers`, the text, and empty `dim`/`alts`/`blocks` arrays where nothing exists
@@ -197,9 +200,13 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
   ```
 
 - [ ] **Build.** The authority materializes `$COMPOSED_HOME/build/<id>/<sourceHash>/` with the
-      component files and a generated `package.json` whose devDependencies are `react`,
-      `react-dom` and `@composedink/blocks` at the catalog versions, installs with
-      `pnpm install --frozen-lockfile --ignore-scripts`, and builds with Vite's programmatic API
+      component files and a generated `package.json` whose devDependencies are `react` and
+      `react-dom` at the catalog versions and `@composedink/blocks` as `link:<path>` to the
+      workspace package (the path comes from the authority's own install location; plan 09/12
+      switch this to the published npm version). Resolve the lock first with
+      `pnpm install --lockfile-only --ignore-scripts`, include the generated `pnpm-lock.yaml` in
+      the build inputs (so `sourceHash` covers exact resolutions), then install with
+      `pnpm install --frozen-lockfile --ignore-scripts`, and build with Vite's programmatic API
       plus `@module-federation/vite`: `exposes: { "./block": "./block.tsx" }`, remote name
       derived from `(id, version)`, shared `react`, `react-dom`, `react/jsx-runtime` as singletons
       with `import: false`; every other dependency is bundled. Version is `0.1.0-dev.<hash>` where
@@ -321,3 +328,19 @@ stop and report R1 with logs — it blocks completion.
 
 No iframe isolation (every component is the author's own). No hellotimber edits or deployment.
 No command, op or service placeholder for a later plan.
+
+## Implementation log
+
+**2026-11-05, stop 1 (resolved).** Task 1 scaffold committed as `c27e543`. The Task 2 browser
+spike failed before its assertions with `Cannot read properties of undefined (reading 'memory')`
+— Vite's dependency pre-bundling of `loro-crdt` (stack inside `node_modules/.vite/deps/`), not
+Loro itself. Resolution: `optimizeDeps.exclude` (now in Task 2). Task 3's build recipe asked for
+`--frozen-lockfile` with no lockfile source and no resolution for `@composedink/blocks`.
+Resolution: `--lockfile-only` first, lock in the build inputs, `link:` to the workspace package
+until plans 09/12 (now in Task 3).
+
+**R2 reproduced.** With the other container's event ordered before `mdx` in one import batch
+(the fixture creates and writes that container first), `loro-codemirror` 0.3.3 leaves the editor
+at `before` while Loro holds `before after`, for both a map event and a text event on another
+container (`test-results/r2.json`). The corrected sync plugin in `apps/web/src/editor/sync.ts`
+is therefore required, with this probe as its regression test.

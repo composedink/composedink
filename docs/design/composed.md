@@ -52,22 +52,25 @@ The publish command prints the actual version (use it in `deps pin`). Export wri
 
 ```ts
 // website/vite.config.ts: inside writingMdx(), retain its query-exclusion wrapper.
-import { remarkComposed } from '@composedink/host-tanstack/remark';
+import { remarkComposed } from "@composedink/host-tanstack/remark";
 // mdx options:
 // remarkPlugins: [remarkFrontmatter, [remarkComposed, { production: process.env.NODE_ENV === 'production' }]]
 
 // website/src/writing/posts.ts
-const FILES = import.meta.glob<FrontmatterModule>('../../content/writing/*/index.mdx', {
-  query: '?frontmatter', import: 'default', eager: true,
+const FILES = import.meta.glob<FrontmatterModule>("../../content/writing/*/index.mdx", {
+  query: "?frontmatter",
+  import: "default",
+  eager: true,
 });
 export function slugOfFile(file: string): string {
-  const slug = file.split('/').at(-2)!;
+  const slug = file.split("/").at(-2)!;
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) throw new Error(`${file}: invalid post folder`);
   return slug;
 }
 // website/src/writing/bodies.ts: compiled MDX, WITHOUT ?frontmatter
-const MODULES = import.meta.glob<MDXContent>('../../content/writing/*/index.mdx', {
-  import: 'default', eager: true,
+const MODULES = import.meta.glob<MDXContent>("../../content/writing/*/index.mdx", {
+  import: "default",
+  eager: true,
 });
 ```
 
@@ -79,16 +82,16 @@ const MODULES = import.meta.glob<MDXContent>('../../content/writing/*/index.mdx'
 
 Every post/component is a Loro document. `core/src/model/keys.ts` enumerates container names once. “Writer” below means the authoritative policy writer; the editor replica produces only typing history imported unchanged by that authority.
 
-| Doc | Container | Type and contents | Single authoritative writer |
-|---|---|---|---|
-| post | `meta` | Map: schema, id, kind:"post", slug, createdAt | authority model/meta via ops |
-| post | `mdx` | Text: full MDX including frontmatter; dim mark (`expand:"none"`) | authority model/text; imports editor typing unchanged |
-| post | `alts` | Map AltId → Map: start/end encoded cursors, versions list of `{text?,dim?,by,at}` | authority model/alternatives |
-| post | `stash` | MovableList: stable id, text, dim spans, by, at, reason `alt\|cut\|detached` | authority model/stash |
-| post | `deps` | Map Tag → `{id,version:semver\|"dev"}` intent | authority model/deps |
-| component | `meta` | Map: schema, id, kind:"component", scope, name | authority model/meta |
-| component | `files` | Map relative path → Text, including package.json | authority model/files |
-| component | `releases` | Map Version → immutable `{frontiers,sourceHash,artifactHash,at}` | authority model/releases via publish op |
+| Doc       | Container  | Type and contents                                                                 | Single authoritative writer                           |
+| --------- | ---------- | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| post      | `meta`     | Map: schema, id, kind:"post", slug, createdAt                                     | authority model/meta via ops                          |
+| post      | `mdx`      | Text: full MDX including frontmatter; dim mark (`expand:"none"`)                  | authority model/text; imports editor typing unchanged |
+| post      | `alts`     | Map AltId → Map: start/end encoded cursors, versions list of `{text?,dim?,by,at}` | authority model/alternatives                          |
+| post      | `stash`    | MovableList: stable id, text, dim spans, by, at, reason `alt\|cut\|detached`      | authority model/stash                                 |
+| post      | `deps`     | Map Tag → `{id,version:semver\|"dev"}` intent                                     | authority model/deps                                  |
+| component | `meta`     | Map: schema, id, kind:"component", scope, name                                    | authority model/meta                                  |
+| component | `files`    | Map relative path → Text, including package.json                                  | authority model/files                                 |
+| component | `releases` | Map Version → immutable `{frontiers,sourceHash,artifactHash,at}`                  | authority model/releases via publish op               |
 
 Exactly one alternative version slot has **no `text` property**; that slot is active and reads the live cursor range. An inactive empty string is valid. There is no stored active index. A flip saves the current snippet and marks, installs the chosen snippet and marks, and removes its stored text in one commit. Alternatives cannot partly overlap: a proposal widens over intersections, absorbs them, and stashes their inactive versions. Edge typing stays outside a range; typing across a boundary dissolves it and stashes inactive versions. Normalization validates one empty slot and repairs violations deterministically without discarding snippets.
 
@@ -102,57 +105,127 @@ Device paths, scope→server mappings (default `https://cdn.composed.ink`), endp
 
 ```ts
 export type DocHandle = string;
-export type Frontiers = string & { readonly __brand: 'Frontiers' };
-export type RequestId = string & { readonly __brand: 'RequestId' };
+export type Frontiers = string & { readonly __brand: "Frontiers" };
+export type RequestId = string & { readonly __brand: "RequestId" };
 export type AltId = string;
 export type ComponentId = `composed:${string}/${string}`;
-export type Version = `${number}.${number}.${number}` | `${number}.${number}.${number}-dev.${string}`;
-export type View = 'full' | 'clean';
-export type Author = {kind:'human'} | {kind:'agent';name:string} | {kind:'model';model:string};
-export type Selection = {base:Frontiers;view:View} &
-  ({from:number;to:number} | {quote:string;nth?:number}); // UTF-16 offsets; nth is zero-based
-export type Mutation<T> = T & {request?:RequestId};
-export interface AltView {id:AltId;from:number;to:number;active:number;count:number;
-  versions?:{text:string;by:Author}[]}
-export interface BlockUse {tag:string;from:number;to:number;props:Record<string,JsonValue>}
-export interface StashItem {id:string;text:string;dim:[number,number][];by:Author;at:number;
-  reason:'alt'|'cut'|'detached'}
-export interface Diagnostic {from:number;to:number;code:string;message:string}
-export interface DocRead {doc:string;slug:string;base:Frontiers;view:View;text:string;
-  dim:[number,number][];alts:AltView[];blocks:BlockUse[]}
-export type ApplyResult = {mode:'direct';head:Frontiers} |
-  {mode:'propose';head:Frontiers;alternatives:AltId[];detached:string[]};
-export interface Operations {
-  'doc.create'(i:Mutation<{slug:string}>):Promise<{doc:string}>;
-  'doc.list'(i:{}):Promise<{slug:string;title?:string;doc:string}[]>;
-  'doc.read'(i:{doc:DocHandle;view?:View;versions?:boolean}):Promise<DocRead>;
-  'doc.import'(i:Mutation<{doc:DocHandle;file:string}>):Promise<{head:Frontiers;imported:boolean}>;
-  'doc.apply'(i:Mutation<{doc:DocHandle;base:Frontiers;view?:View;text:string;
-    mode:'propose'|'direct';by:Author}>):Promise<ApplyResult>;
-  'alt.propose'(i:Mutation<{doc:DocHandle;at:Selection;versions:string[];by:Author}>):
-    Promise<{alt?:AltId;detached:string[]}>;
-  'alt.rewrite'(i:Mutation<{doc:DocHandle;at:Selection;instruction?:string;count?:number}>):
-    Promise<{alt?:AltId;detached:string[]}>;
-  'alt.flip'(i:Mutation<{doc:DocHandle;alt:AltId;to:number|'next'|'prev'}>):Promise<{active:number}>;
-  'alt.resolve'(i:Mutation<{doc:DocHandle;alt:AltId;rest:'stash'|'ghost'}>):Promise<void>;
-  'ghost.set'(i:Mutation<{doc:DocHandle;at:Selection;dim:boolean}>):Promise<void>;
-  'stash.add'(i:Mutation<{doc:DocHandle;at:Selection}>):Promise<{item:string}>;
-  'stash.list'(i:{doc:DocHandle}):Promise<StashItem[]>;
-  'stash.restore'(i:Mutation<{doc:DocHandle;item:string;at:Selection}>):Promise<void>;
-  'lint'(i:{doc:DocHandle}):Promise<Diagnostic[]>;
-  'blocks.list'(i:{doc:DocHandle}):Promise<BlockUse[]>;
-  'deps.add'(i:Mutation<{doc:DocHandle;component:ComponentId;version:Version|'dev';as?:string}>):Promise<{tag:string}>;
-  'deps.pin'(i:Mutation<{doc:DocHandle;tag:string;version:Version|'dev'}>):Promise<void>;
-  'component.create'(i:Mutation<{id:ComponentId;kind:'block'|'inline'}>):Promise<void>;
-  'component.read'(i:{id:ComponentId;path?:string}):Promise<{base:Frontiers;files:Record<string,string>}>;
-  'component.write'(i:Mutation<{id:ComponentId;base:Frontiers;files:Record<string,string>}>):Promise<{head:Frontiers}>;
-  'component.check'(i:{id:ComponentId}):Promise<{ok:boolean;diagnostics:Diagnostic[];manifest?:Manifest}>;
-  'component.publish'(i:Mutation<{id:ComponentId;bump:'patch'|'minor'|'major'}>):Promise<{version:Version;url:string}>;
-  'export'(i:Mutation<{doc:DocHandle;view:View;to?:string;mode?:'release'|'preview'}>):Promise<ExportResult>;
+export type Version =
+  | `${number}.${number}.${number}`
+  | `${number}.${number}.${number}-dev.${string}`;
+export type View = "full" | "clean";
+export type Author =
+  | { kind: "human" }
+  | { kind: "agent"; name: string }
+  | { kind: "model"; model: string };
+export type Selection = { base: Frontiers; view: View } & (
+  | { from: number; to: number }
+  | { quote: string; nth?: number }
+); // UTF-16 offsets; nth is zero-based
+export type Mutation<T> = T & { request?: RequestId };
+export interface AltView {
+  id: AltId;
+  from: number;
+  to: number;
+  active: number;
+  count: number;
+  versions?: { text: string; by: Author }[];
 }
-export interface ExportResult {directory:string;lock:ExportLock}
-export function openStore(home?:string):Promise<Store>; // private Store implementation
-export function bind(store:Store):Operations;
+export interface BlockUse {
+  tag: string;
+  from: number;
+  to: number;
+  props: Record<string, JsonValue>;
+}
+export interface StashItem {
+  id: string;
+  text: string;
+  dim: [number, number][];
+  by: Author;
+  at: number;
+  reason: "alt" | "cut" | "detached";
+}
+export interface Diagnostic {
+  from: number;
+  to: number;
+  code: string;
+  message: string;
+}
+export interface DocRead {
+  doc: string;
+  slug: string;
+  base: Frontiers;
+  view: View;
+  text: string;
+  dim: [number, number][];
+  alts: AltView[];
+  blocks: BlockUse[];
+}
+export type ApplyResult =
+  | { mode: "direct"; head: Frontiers }
+  | { mode: "propose"; head: Frontiers; alternatives: AltId[]; detached: string[] };
+export interface Operations {
+  "doc.create"(i: Mutation<{ slug: string }>): Promise<{ doc: string }>;
+  "doc.list"(i: {}): Promise<{ slug: string; title?: string; doc: string }[]>;
+  "doc.read"(i: { doc: DocHandle; view?: View; versions?: boolean }): Promise<DocRead>;
+  "doc.import"(
+    i: Mutation<{ doc: DocHandle; file: string }>,
+  ): Promise<{ head: Frontiers; imported: boolean }>;
+  "doc.apply"(
+    i: Mutation<{
+      doc: DocHandle;
+      base: Frontiers;
+      view?: View;
+      text: string;
+      mode: "propose" | "direct";
+      by: Author;
+    }>,
+  ): Promise<ApplyResult>;
+  "alt.propose"(
+    i: Mutation<{ doc: DocHandle; at: Selection; versions: string[]; by: Author }>,
+  ): Promise<{ alt?: AltId; detached: string[] }>;
+  "alt.rewrite"(
+    i: Mutation<{ doc: DocHandle; at: Selection; instruction?: string; count?: number }>,
+  ): Promise<{ alt?: AltId; detached: string[] }>;
+  "alt.flip"(
+    i: Mutation<{ doc: DocHandle; alt: AltId; to: number | "next" | "prev" }>,
+  ): Promise<{ active: number }>;
+  "alt.resolve"(
+    i: Mutation<{ doc: DocHandle; alt: AltId; rest: "stash" | "ghost" }>,
+  ): Promise<void>;
+  "ghost.set"(i: Mutation<{ doc: DocHandle; at: Selection; dim: boolean }>): Promise<void>;
+  "stash.add"(i: Mutation<{ doc: DocHandle; at: Selection }>): Promise<{ item: string }>;
+  "stash.list"(i: { doc: DocHandle }): Promise<StashItem[]>;
+  "stash.restore"(i: Mutation<{ doc: DocHandle; item: string; at: Selection }>): Promise<void>;
+  lint(i: { doc: DocHandle }): Promise<Diagnostic[]>;
+  "blocks.list"(i: { doc: DocHandle }): Promise<BlockUse[]>;
+  "deps.add"(
+    i: Mutation<{ doc: DocHandle; component: ComponentId; version: Version | "dev"; as?: string }>,
+  ): Promise<{ tag: string }>;
+  "deps.pin"(i: Mutation<{ doc: DocHandle; tag: string; version: Version | "dev" }>): Promise<void>;
+  "component.create"(i: Mutation<{ id: ComponentId; kind: "block" | "inline" }>): Promise<void>;
+  "component.read"(i: {
+    id: ComponentId;
+    path?: string;
+  }): Promise<{ base: Frontiers; files: Record<string, string> }>;
+  "component.write"(
+    i: Mutation<{ id: ComponentId; base: Frontiers; files: Record<string, string> }>,
+  ): Promise<{ head: Frontiers }>;
+  "component.check"(i: {
+    id: ComponentId;
+  }): Promise<{ ok: boolean; diagnostics: Diagnostic[]; manifest?: Manifest }>;
+  "component.publish"(
+    i: Mutation<{ id: ComponentId; bump: "patch" | "minor" | "major" }>,
+  ): Promise<{ version: Version; url: string }>;
+  export(
+    i: Mutation<{ doc: DocHandle; view: View; to?: string; mode?: "release" | "preview" }>,
+  ): Promise<ExportResult>;
+}
+export interface ExportResult {
+  directory: string;
+  lock: ExportLock;
+}
+export function openStore(home?: string): Promise<Store>; // private Store implementation
+export function bind(store: Store): Operations;
 ```
 
 `JsonValue` is recursive JSON; `Manifest` is the static block definition without component/fallback functions. `Store` is an opaque node-entry handle. Errors carry `{code,message,fix?}`: UnknownDoc, UnknownBase, QuoteNotFound, AmbiguousQuote, TargetBusy, UnpinnedDependency, BuildFailed, VersionExists, ProviderFailed, RequestConflict, InvalidInvariant, InvalidProps, FallbackFailed, UnauthorizedDirect and RecoveryRequired.
@@ -163,48 +236,86 @@ export function bind(store:Store):Operations;
 
 ```ts
 export type PropSchema =
- | {type:'string';enum?:readonly string[];default?:string;description?:string}
- | {type:'number'|'integer';minimum?:number;maximum?:number;default?:number;description?:string}
- | {type:'boolean';default?:boolean;description?:string}
- | {type:'array';items:PropSchema;maxItems?:number;description?:string}
- | {type:'object';properties:Record<string,PropSchema>;required?:readonly string[]};
-export type PropsSchema = Extract<PropSchema,{type:'object'}>;
+  | { type: "string"; enum?: readonly string[]; default?: string; description?: string }
+  | {
+      type: "number" | "integer";
+      minimum?: number;
+      maximum?: number;
+      default?: number;
+      description?: string;
+    }
+  | { type: "boolean"; default?: boolean; description?: string }
+  | { type: "array"; items: PropSchema; maxItems?: number; description?: string }
+  | { type: "object"; properties: Record<string, PropSchema>; required?: readonly string[] };
+export type PropsSchema = Extract<PropSchema, { type: "object" }>;
 export type PropsOf<S extends PropsSchema> = // type-level mapping, not a runtime evaluator
-  { [K in keyof S['properties'] as K extends RequiredKeys<S> ? K : never]: ValueOf<S['properties'][K]> } &
-  { [K in keyof S['properties'] as K extends RequiredKeys<S> ? never : K]?: ValueOf<S['properties'][K]> };
+  {
+    [K in keyof S["properties"] as K extends RequiredKeys<S> ? K : never]: ValueOf<
+      S["properties"][K]
+    >;
+  } & {
+    [K in keyof S["properties"] as K extends RequiredKeys<S> ? never : K]?: ValueOf<
+      S["properties"][K]
+    >;
+  };
 export interface BlockDefinition<S extends PropsSchema> {
- readonly kind:'block'|'inline'; readonly props:S; readonly sample:PropsOf<S>;
- readonly editor?:{readonly label?:string};
- readonly component:React.ComponentType<PropsOf<S>>;
- readonly fallback:(props:PropsOf<S>)=>string;
+  readonly kind: "block" | "inline";
+  readonly props: S;
+  readonly sample: PropsOf<S>;
+  readonly editor?: { readonly label?: string };
+  readonly component: React.ComponentType<PropsOf<S>>;
+  readonly fallback: (props: PropsOf<S>) => string;
 }
-export function defineBlock<const S extends PropsSchema>(d:BlockDefinition<S>):BlockDefinition<S>;
-export function validateProps(schema:PropsSchema,value:unknown):PropIssue[];
-export function staticValue(node:EstreeExpression):JsonValue;
-export const SHARED_SINGLETONS = ['react','react-dom','react/jsx-runtime'] as const;
-export interface ExportLock {composed:1;mode:'release'|'preview';doc:string;base:Frontiers;
- view:View;sha256:string;blocks:Record<string,LockedBlock>}
-export interface LockedBlock {id:ComponentId;version:Version;kind:'block'|'inline';entry:string;
- sourceHash:string;props:PropsSchema;
- instances:Record<string,{props:Record<string,JsonValue>;markdown:string}>}
-export function parseLock(json:unknown):ExportLock;
+export function defineBlock<const S extends PropsSchema>(d: BlockDefinition<S>): BlockDefinition<S>;
+export function validateProps(schema: PropsSchema, value: unknown): PropIssue[];
+export function staticValue(node: EstreeExpression): JsonValue;
+export const SHARED_SINGLETONS = ["react", "react-dom", "react/jsx-runtime"] as const;
+export interface ExportLock {
+  composed: 1;
+  mode: "release" | "preview";
+  doc: string;
+  base: Frontiers;
+  view: View;
+  sha256: string;
+  blocks: Record<string, LockedBlock>;
+}
+export interface LockedBlock {
+  id: ComponentId;
+  version: Version;
+  kind: "block" | "inline";
+  entry: string;
+  sourceHash: string;
+  props: PropsSchema;
+  instances: Record<string, { props: Record<string, JsonValue>; markdown: string }>;
+}
+export function parseLock(json: unknown): ExportLock;
 ```
 
 `RequiredKeys` reads the schema's required tuple; `ValueOf` recursively maps the five schema branches. Unknown object properties fail validation. `PropIssue` includes a property path and message. Defaults are applied before canonicalization; sorted JSON keys, finite numbers and UTF-8 SHA-256 identify each instance. Extraction, runtime validation and type mapping handle the same exhaustive schema subset.
 
 ```tsx
 // block.tsx; props, sample and editor metadata must be literal AST values.
-import { defineBlock } from '@composedink/blocks';
-import fallback from './fallback';
-import { RetryChart } from './RetryChart';
-export default defineBlock({kind:'block',
- props:{type:'object',properties:{attempts:{type:'integer',minimum:1,maximum:12},
- base:{type:'number',default:250}},required:['attempts']},
- sample:{attempts:6},component:RetryChart,fallback});
+import { defineBlock } from "@composedink/blocks";
+import fallback from "./fallback";
+import { RetryChart } from "./RetryChart";
+export default defineBlock({
+  kind: "block",
+  props: {
+    type: "object",
+    properties: {
+      attempts: { type: "integer", minimum: 1, maximum: 12 },
+      base: { type: "number", default: 250 },
+    },
+    required: ["attempts"],
+  },
+  sample: { attempts: 6 },
+  component: RetryChart,
+  fallback,
+});
 // fallback.ts: no imports, re-exports, require or dynamic import; checked at build.
-export default ({attempts,base=250}:{attempts:number;base?:number}) =>
- '| Attempt | Delay |\n|---|---|\n' + Array.from({length:attempts},(_,i)=>
- `| ${i+1} | ${base*2**i} ms |`).join('\n');
+export default ({ attempts, base = 250 }: { attempts: number; base?: number }) =>
+  "| Attempt | Delay |\n|---|---|\n" +
+  Array.from({ length: attempts }, (_, i) => `| ${i + 1} | ${base * 2 ** i} ms |`).join("\n");
 ```
 
 At export a Worker evaluates each distinct instance of the author's own `fallback.ts`. Pin an exact Node 22 patch ≥22.8 in mise and require `vm.constants.DONT_CONTEXTIFY` with `codeGeneration:{strings:false,wasm:false}` and `microtaskMode:"afterEvaluate"`. No host object/function bridges; JSON in/out only. Terminate the Worker on timeout. Test process/require/fetch denial, `this.constructor.constructor`, `({}).constructor.constructor`, `Error.prepareStackTrace`, `Function.prototype.constructor`, async infinite loop and sync loop. Ordinary `vm.createContext` is escapable through `this.constructor.constructor("return process")()`; DONT_CONTEXTIFY must make it throw. This contains own fallback code; P3 adds a process/origin boundary for untrusted code. Fallback output is Markdown, parsed with raw HTML/MDX execution disabled.
@@ -248,35 +359,34 @@ Verification uses real operations with temporary homes, spawned CLI/MCP clients,
 
 The final decisions supersede candidate assertions. Rejected alternatives and reasons:
 
-| Rejected | Reason / accepted choice |
-|---|---|
-| B per-peer files, fs.watch multiwriter import, any-process compaction | one elected authority owns history and policy; no racing compaction |
-| A permanent apps/local daemon and SQLite journal | short commands may own inline; long-running commands auto-start studio; full-history Loro files plus intents/receipts provide recovery |
-| A canonical rewrite of incoming typing history | import bytes unchanged, then explicit normalization commit |
-| browser ops / second CodeMirror sync listener | local events are ignored; authority ops return as imports |
-| separate frontmatter map/text, AST authority or second Markdown copy | full source belongs to mdx; host owns frontmatter schema |
-| frontiers in YAML/comment and composed.json | sidecar lock avoids host metadata conflicts and carries exact projection/instances |
-| stored active index, cursor-keyed alternatives | one missing-text slot derives activity; random AltId separates identity from anchors |
-| host fetch/import of fallback.mjs, federated SSR | export materializes Markdown; host builds have no component execution/network dependency |
-| Zod/Valibot component schemas, separate block.json | literal typed schema is extractable without running account modules or duplicating metadata |
-| A load callback/dependencies inside defineBlock | B component signature retained; package.json owns component dependencies |
-| B React-only components / post deps as exact lock / transitive roll-up | bundle own dependencies; export lock resolves intent; roll-up deferred to P5 |
-| MVP server bundling | server lacks synced source until P2; local authority builds |
-| iframe on every MVP/published block | own authored code already trusted like existing figures; avoid iframe UX/integration cost |
-| A blocksFor/post resolver and general Vite integration | B remark injection leaves PostPage and FIGURES intact |
-| protocol, preview, ai, editor packages now | no second runtime consumer; editor stays in web, rewrite in core |
-| agent direct flag authorized by by:human | capability belongs to adapter; attribution cannot grant permission |
-| silently reattach deleted proposals / diff against latest | stash detached work; fork at exported/read base preserves concurrent edits |
-| host-in-ID and global discovery now | device scope map, absolute locked URLs, unchanged composed IDs |
-| mobile runtime choice now | P4 webview IME/selection/WASM spike decides Tauri mobile versus Expo DOM |
-| RSS fallback bodies | hellotimber intentionally publishes summaries |
+| Rejected                                                               | Reason / accepted choice                                                                                                               |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| B per-peer files, fs.watch multiwriter import, any-process compaction  | one elected authority owns history and policy; no racing compaction                                                                    |
+| A permanent apps/local daemon and SQLite journal                       | short commands may own inline; long-running commands auto-start studio; full-history Loro files plus intents/receipts provide recovery |
+| A canonical rewrite of incoming typing history                         | import bytes unchanged, then explicit normalization commit                                                                             |
+| browser ops / second CodeMirror sync listener                          | local events are ignored; authority ops return as imports                                                                              |
+| separate frontmatter map/text, AST authority or second Markdown copy   | full source belongs to mdx; host owns frontmatter schema                                                                               |
+| frontiers in YAML/comment and composed.json                            | sidecar lock avoids host metadata conflicts and carries exact projection/instances                                                     |
+| stored active index, cursor-keyed alternatives                         | one missing-text slot derives activity; random AltId separates identity from anchors                                                   |
+| host fetch/import of fallback.mjs, federated SSR                       | export materializes Markdown; host builds have no component execution/network dependency                                               |
+| Zod/Valibot component schemas, separate block.json                     | literal typed schema is extractable without running account modules or duplicating metadata                                            |
+| A load callback/dependencies inside defineBlock                        | B component signature retained; package.json owns component dependencies                                                               |
+| B React-only components / post deps as exact lock / transitive roll-up | bundle own dependencies; export lock resolves intent; roll-up deferred to P5                                                           |
+| MVP server bundling                                                    | server lacks synced source until P2; local authority builds                                                                            |
+| iframe on every MVP/published block                                    | own authored code already trusted like existing figures; avoid iframe UX/integration cost                                              |
+| A blocksFor/post resolver and general Vite integration                 | B remark injection leaves PostPage and FIGURES intact                                                                                  |
+| protocol, preview, ai, editor packages now                             | no second runtime consumer; editor stays in web, rewrite in core                                                                       |
+| agent direct flag authorized by by:human                               | capability belongs to adapter; attribution cannot grant permission                                                                     |
+| silently reattach deleted proposals / diff against latest              | stash detached work; fork at exported/read base preserves concurrent edits                                                             |
+| host-in-ID and global discovery now                                    | device scope map, absolute locked URLs, unchanged composed IDs                                                                         |
+| mobile runtime choice now                                              | P4 webview IME/selection/WASM spike decides Tauri mobile versus Expo DOM                                                               |
+| RSS fallback bodies                                                    | hellotimber intentionally publishes summaries                                                                                          |
 
 Accepted costs: binding replica, serialized local writes, retained history, two-file export recovery, layout shifts on remote swap, JSON props without children, full-page preview reloads, and HTTPS/immutable-URL trust for ESM (sourceHash is provenance, not browser-enforced remote SRI). MVP remote execution is in-page. P3 introduces sandboxed usercontent for untrusted components in editor/preview/share hosts; published blogs retain in-page remotes by explicit decision.
 
 Resolved: IDs are `composed:<scope>/<name>`; author scope config resolves artifact servers; v1 never uses federated SSR; mobile is P4 pending evidence. P2 adds sync/accounts/tokens/relay, ideas, remote MCP and server builds; P3 sharing/comments/render sandbox; P4 mobile/local inference; P5 listing/npm export and dependency roll-up. No placeholders ship for these.
 
 First unit: [01 tracer bullet](../plans/01-tracer-bullet.md). R1 federation compatibility/React identity, R2 both binding early returns, and R3 injected-lock invalidation are **to be proven by** its evidence. The old async host fallback-import risk is removed. Clean mapping, cursor edges, lint latency and desktop packaging have explicit later checks. No candidate's “proven” phrasing represents an executed experiment.
-
 
 ### Tracer evidence and MVP units
 
@@ -289,20 +399,20 @@ The tracer is one post with `<Hello name="Lachlan" />`, one inline block with a 
 5. A blocked remoteEntry leaves fallback, failed state and one warning.
 6. component.write changes fallback.ts; the studio subscription rebuilds, evaluates fallbacks and re-exports preview pairs for posts pinned to that component @dev. Write → new dev SSR response takes at most two seconds; no component.edit needed. The tracer copies example content into its temp home and exports there; committed input lives under examples/host-tanstack/fixtures/, never content/tracer/index.mdx.
 
-| Unit | Scope | Depends on | Completion evidence |
-|---|---|---|---|
-| 01 | explicit studio, preview subscription, minimal editor R2 spike | — | six assertions above |
-| 02 | election/inline/stale recovery, store durability and local receipts | 01 | owner contention, fault points, old bases survive compaction |
-| 03 | editor transport/undo foundation, repeat R2 gate | 02 | ordered imports, reconnect, view equality |
-| 04 | alternatives + agent apply + MCP, corresponding UI | 03 | stale-base human edit survives, detached stash, capability checks |
-| 05 | dim/stash/clean mapping, corresponding UI | 04 | independent projection oracle and UI round trip |
-| 06 | lint | 05 | positioned diagnostics and measured incremental latency |
-| 07 | model rewrites | 05 | provider double proposes, never overwrites |
-| 08 | component authoring/live preview | 03,05 | own bundled dependency, checked file sync, last-good preview |
-| 09 | publish/artifact server/release import | 02,04,05,08 | immutable retries, offline host build, tarball consumer |
-| 10 | separately authorized hellotimber adoption | 12 | folder globs, real build, no-JS fallback, summary feed unchanged |
-| 11 | desktop | 03–09 | packaged relaunch/CLI visibility/one authority |
-| 12 | deploy server + npm integrations, device scope config | 09 | cdn.composed.ink, npm installs, real locked URLs |
+| Unit | Scope                                                               | Depends on  | Completion evidence                                               |
+| ---- | ------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------- |
+| 01   | explicit studio, preview subscription, minimal editor R2 spike      | —           | six assertions above                                              |
+| 02   | election/inline/stale recovery, store durability and local receipts | 01          | owner contention, fault points, old bases survive compaction      |
+| 03   | editor transport/undo foundation, repeat R2 gate                    | 02          | ordered imports, reconnect, view equality                         |
+| 04   | alternatives + agent apply + MCP, corresponding UI                  | 03          | stale-base human edit survives, detached stash, capability checks |
+| 05   | dim/stash/clean mapping, corresponding UI                           | 04          | independent projection oracle and UI round trip                   |
+| 06   | lint                                                                | 05          | positioned diagnostics and measured incremental latency           |
+| 07   | model rewrites                                                      | 05          | provider double proposes, never overwrites                        |
+| 08   | component authoring/live preview                                    | 03,05       | own bundled dependency, checked file sync, last-good preview      |
+| 09   | publish/artifact server/release import                              | 02,04,05,08 | immutable retries, offline host build, tarball consumer           |
+| 10   | separately authorized hellotimber adoption                          | 12          | folder globs, real build, no-JS fallback, summary feed unchanged  |
+| 11   | desktop                                                             | 03–09       | packaged relaunch/CLI visibility/one authority                    |
+| 12   | deploy server + npm integrations, device scope config               | 09          | cdn.composed.ink, npm installs, real locked URLs                  |
 
 Run 12 before 10: deploy the container at Lachlan-owned `cdn.composed.ink`, publish `@composedink/{blocks,host-runtime,host-tanstack}` from `vp pack` outputs to Lachlan-created npm org `composedink`, and configure the author device scope → server. DNS/TLS are human tasks in plan 12.
 

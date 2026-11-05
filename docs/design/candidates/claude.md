@@ -57,10 +57,17 @@ $ git -C ~/projects/lachieh/hellotimber commit -am "post: how I built" && git pu
 ```ts
 // website/vite.config.ts
 import { remarkComposed } from "@composedink/host-tanstack/remark";
-const plugin = mdx({ remarkPlugins: [remarkFrontmatter, remarkComposed], rehypePlugins: [/* shiki */] });
+const plugin = mdx({
+  remarkPlugins: [remarkFrontmatter, remarkComposed],
+  rehypePlugins: [/* shiki */],
+});
 
 // website/src/writing/posts.ts and bodies.ts: posts become folders
-const FILES = import.meta.glob("../../content/writing/*/index.mdx", { query: "?frontmatter", import: "default", eager: true });
+const FILES = import.meta.glob("../../content/writing/*/index.mdx", {
+  query: "?frontmatter",
+  import: "default",
+  eager: true,
+});
 // slugOfFile: `…/writing/how-i-built/index.mdx` → `how-i-built`
 ```
 
@@ -74,26 +81,26 @@ The MDX source stays `<RetryChart attempts={6} base={250} />`. `PostPage`, `FIGU
 
 **Documents.** Every post and component is its own Loro doc. The container keys are listed once, in `core/src/model/keys.ts`.
 
-| Doc | Container | Type | Content | Writer |
-|---|---|---|---|---|
-| post | `meta` | Map | `kind:"post"`, `slug`, `createdAt` | `doc.create`, `doc.rename` |
-| post | `mdx` | Text | full MDX source, frontmatter included; mark `dim:true` (`expand:"none"`) | keystrokes (editor) and `core/model` |
-| post | `alts` | Map `AltId → Map` | `start`, `end`: encoded `Cursor` bytes; `versions`: List of `{ text?, dim?, by, at }` | `core/model/alternatives` |
-| post | `stash` | MovableList | `{ text, dim, by, at, reason: "alt" \| "cut" }` | `core/model/stash` |
-| post | `deps` | Map `Tag → Pin` | `"composed:lachieh/retry-chart@0.2.0"` or `…@dev` | `core/model/deps` |
-| component | `meta` | Map | `kind:"component"`, `scope`, `name` | `component.create` |
-| component | `files` | Map `path → Text` | `block.tsx`, `fallback.ts`, other relative modules | `core/model/files` |
-| component | `releases` | Map `Version → Map` | `{ frontiers, sourceHash, fallbackIntegrity, at }`, immutable once written | `component.publish` |
+| Doc       | Container  | Type                | Content                                                                               | Writer                               |
+| --------- | ---------- | ------------------- | ------------------------------------------------------------------------------------- | ------------------------------------ |
+| post      | `meta`     | Map                 | `kind:"post"`, `slug`, `createdAt`                                                    | `doc.create`, `doc.rename`           |
+| post      | `mdx`      | Text                | full MDX source, frontmatter included; mark `dim:true` (`expand:"none"`)              | keystrokes (editor) and `core/model` |
+| post      | `alts`     | Map `AltId → Map`   | `start`, `end`: encoded `Cursor` bytes; `versions`: List of `{ text?, dim?, by, at }` | `core/model/alternatives`            |
+| post      | `stash`    | MovableList         | `{ text, dim, by, at, reason: "alt" \| "cut" }`                                       | `core/model/stash`                   |
+| post      | `deps`     | Map `Tag → Pin`     | `"composed:lachieh/retry-chart@0.2.0"` or `…@dev`                                     | `core/model/deps`                    |
+| component | `meta`     | Map                 | `kind:"component"`, `scope`, `name`                                                   | `component.create`                   |
+| component | `files`    | Map `path → Text`   | `block.tsx`, `fallback.ts`, other relative modules                                    | `core/model/files`                   |
+| component | `releases` | Map `Version → Map` | `{ frontiers, sourceHash, fallbackIntegrity, at }`, immutable once written            | `component.publish`                  |
 
 **Invariants and the facts they protect**
 
-- *Text.* `mdx` is the only copy of the post's text. The active version of an alternative is the text between its cursors, so a stored version slot holds `text` only while it is inactive. The active index is the one slot without `text`. It is derived, never stored, so it can't disagree with the text. A flip writes the text range and two slots in one commit.
-- *Alternatives* never partly overlap. A proposal that intersects an existing alternative widens to cover it and absorbs it, and the absorbed alternative's inactive versions move to the stash. Nothing is lost and nothing nests. Inactive versions carry their dim spans, so flipping keeps the marks.
-- *Dim* is only a mark. `view: "clean"` (dim omitted) is a projection computed from the marks, never stored.
-- *Frontmatter* lives in `mdx`. composed doesn't own the host's frontmatter schema (hellotimber's parser rejects unknown keys), so the host's parser is its only validator. This deviates from "export = `to_string()` + frontmatter": export is exactly the projection of `mdx`.
-- *Dependencies.* `deps` holds direct pins and *is* the lock. A dev pin resolves at export to `<next>-dev.<sourceHash[0..8]>`. `sourceHash` (sha256 of the sorted files) and the dev version are derived. Released versions exist only in `releases`. The artifact server is a cache addressed by `(id, version)`, and the integrity hash shows whether it agrees.
-- *Manifest* (`kind`, props schema, editor label, sample) is derived from the literal fields of the `defineBlock` call by AST extraction (Rolldown `parseAst`). It is never stored and never produced by running code.
-- *Device-local state* (export targets, registry URLs, model endpoint, publish token) lives in `$COMPOSED_HOME/config.json`, never in a doc: absolute paths and secrets are per device.
+- _Text._ `mdx` is the only copy of the post's text. The active version of an alternative is the text between its cursors, so a stored version slot holds `text` only while it is inactive. The active index is the one slot without `text`. It is derived, never stored, so it can't disagree with the text. A flip writes the text range and two slots in one commit.
+- _Alternatives_ never partly overlap. A proposal that intersects an existing alternative widens to cover it and absorbs it, and the absorbed alternative's inactive versions move to the stash. Nothing is lost and nothing nests. Inactive versions carry their dim spans, so flipping keeps the marks.
+- _Dim_ is only a mark. `view: "clean"` (dim omitted) is a projection computed from the marks, never stored.
+- _Frontmatter_ lives in `mdx`. composed doesn't own the host's frontmatter schema (hellotimber's parser rejects unknown keys), so the host's parser is its only validator. This deviates from "export = `to_string()` + frontmatter": export is exactly the projection of `mdx`.
+- _Dependencies._ `deps` holds direct pins and _is_ the lock. A dev pin resolves at export to `<next>-dev.<sourceHash[0..8]>`. `sourceHash` (sha256 of the sorted files) and the dev version are derived. Released versions exist only in `releases`. The artifact server is a cache addressed by `(id, version)`, and the integrity hash shows whether it agrees.
+- _Manifest_ (`kind`, props schema, editor label, sample) is derived from the literal fields of the `defineBlock` call by AST extraction (Rolldown `parseAst`). It is never stored and never produced by running code.
+- _Device-local state_ (export targets, registry URLs, model endpoint, publish token) lives in `$COMPOSED_HOME/config.json`, never in a doc: absolute paths and secrets are per device.
 
 **Store.** `$COMPOSED_HOME/docs/<docId>/snapshot.loro` plus `updates/<peer>-<counter>.loro`. Every process has a random peer ID and writes only its own update files (temp file, then rename). Compaction writes a new snapshot by rename, then deletes only the update files it read. Any process may compact, so no daemon owns the store. Processes never share a mutable file; each one imports new update files (`fs.watch`), and Loro's idempotent import makes them converge.
 
@@ -102,21 +109,40 @@ The MDX source stays `<RetryChart attempts={6} base={250} />`. `PostPage`, `FIGU
 **Core operations** (`@composedink/core/node`). This is the only mutation path outside the editor's keystrokes.
 
 ```ts
-export type DocHandle = string;                                       // slug or id; the store resolves it
-export type Frontiers = string & { readonly __brand: "Frontiers" };   // base64url(encodeFrontiers)
+export type DocHandle = string; // slug or id; the store resolves it
+export type Frontiers = string & { readonly __brand: "Frontiers" }; // base64url(encodeFrontiers)
 export type ComponentId = `composed:${string}/${string}`;
-export type Version = `${number}.${number}.${number}` | `${number}.${number}.${number}-dev.${string}`;
+export type Version =
+  | `${number}.${number}.${number}`
+  | `${number}.${number}.${number}-dev.${string}`;
 export type View = "full" | "clean";
-export type Author = { kind: "human" } | { kind: "agent"; name: string } | { kind: "model"; model: string };
-export type Selection = { base: Frontiers; view: View } &
-  ({ from: number; to: number } | { quote: string; nth?: number });    // the editor uses offsets, agents use quotes
+export type Author =
+  | { kind: "human" }
+  | { kind: "agent"; name: string }
+  | { kind: "model"; model: string };
+export type Selection = { base: Frontiers; view: View } & (
+  | { from: number; to: number }
+  | { quote: string; nth?: number }
+); // the editor uses offsets, agents use quotes
 
 export interface DocRead {
-  doc: string; slug: string; base: Frontiers; view: View; text: string;
-  dim: [number, number][]; alts: AltView[]; blocks: BlockUse[];
+  doc: string;
+  slug: string;
+  base: Frontiers;
+  view: View;
+  text: string;
+  dim: [number, number][];
+  alts: AltView[];
+  blocks: BlockUse[];
 }
-export interface AltView { id: AltId; from: number; to: number; active: number; count: number;
-  versions?: { text: string; by: Author }[] }                          // only with { versions: true }
+export interface AltView {
+  id: AltId;
+  from: number;
+  to: number;
+  active: number;
+  count: number;
+  versions?: { text: string; by: Author }[];
+} // only with { versions: true }
 export type ApplyResult =
   | { mode: "direct"; head: Frontiers }
   | { mode: "propose"; head: Frontiers; alternatives: AltId[] };
@@ -125,32 +151,80 @@ export interface Operations {
   "doc.create"(i: { slug: string }): Promise<{ doc: string }>;
   "doc.list"(i: {}): Promise<{ slug: string; title?: string; doc: string }[]>;
   "doc.read"(i: { doc: DocHandle; view?: View; versions?: boolean }): Promise<DocRead>;
-  "doc.apply"(i: { doc: DocHandle; base: Frontiers; view?: View; text: string;
-                   mode?: "propose" | "direct"; by: Author }): Promise<ApplyResult>;
-  "alt.propose"(i: { doc: DocHandle; at: Selection; versions: string[]; by: Author }): Promise<{ alt: AltId }>;
-  "alt.rewrite"(i: { doc: DocHandle; at: Selection; instruction?: string; count?: number }): Promise<{ alt: AltId }>;
-  "alt.flip"(i: { doc: DocHandle; alt: AltId; to: number | "next" | "prev" }): Promise<{ active: number }>;
+  "doc.apply"(i: {
+    doc: DocHandle;
+    base: Frontiers;
+    view?: View;
+    text: string;
+    mode?: "propose" | "direct";
+    by: Author;
+  }): Promise<ApplyResult>;
+  "alt.propose"(i: {
+    doc: DocHandle;
+    at: Selection;
+    versions: string[];
+    by: Author;
+  }): Promise<{ alt: AltId }>;
+  "alt.rewrite"(i: {
+    doc: DocHandle;
+    at: Selection;
+    instruction?: string;
+    count?: number;
+  }): Promise<{ alt: AltId }>;
+  "alt.flip"(i: {
+    doc: DocHandle;
+    alt: AltId;
+    to: number | "next" | "prev";
+  }): Promise<{ active: number }>;
   "alt.resolve"(i: { doc: DocHandle; alt: AltId; rest: "stash" | "ghost" }): Promise<void>;
   "ghost.set"(i: { doc: DocHandle; at: Selection; dim: boolean }): Promise<void>;
-  "stash.add"(i: { doc: DocHandle; at: Selection }): Promise<{ item: number }>;  // cut to stash
+  "stash.add"(i: { doc: DocHandle; at: Selection }): Promise<{ item: number }>; // cut to stash
   "stash.list"(i: { doc: DocHandle }): Promise<StashItem[]>;
   "stash.restore"(i: { doc: DocHandle; item: number; at: Selection }): Promise<void>;
-  "lint"(i: { doc: DocHandle }): Promise<Diagnostic[]>;
+  lint(i: { doc: DocHandle }): Promise<Diagnostic[]>;
   "blocks.list"(i: { doc: DocHandle }): Promise<BlockUse[]>;
-  "deps.add"(i: { doc: DocHandle; component: ComponentId; version: Version | "dev"; as?: string }): Promise<{ tag: string }>;
+  "deps.add"(i: {
+    doc: DocHandle;
+    component: ComponentId;
+    version: Version | "dev";
+    as?: string;
+  }): Promise<{ tag: string }>;
   "deps.pin"(i: { doc: DocHandle; tag: string; version: Version | "dev" }): Promise<void>;
   "component.create"(i: { id: ComponentId; kind: "block" | "inline" }): Promise<void>;
-  "component.read"(i: { id: ComponentId; path?: string }): Promise<{ base: Frontiers; files: Record<string, string> }>;
-  "component.write"(i: { id: ComponentId; base: Frontiers; files: Record<string, string> }): Promise<{ head: Frontiers }>;
-  "component.check"(i: { id: ComponentId }): Promise<{ ok: boolean; diagnostics: Diagnostic[]; manifest?: Manifest }>;
-  "component.publish"(i: { id: ComponentId; bump: "patch" | "minor" | "major" }): Promise<{ version: Version; url: string }>;
-  "export"(i: { doc: DocHandle; to?: string; mode?: "release" | "preview" }): Promise<ExportResult>;
+  "component.read"(i: {
+    id: ComponentId;
+    path?: string;
+  }): Promise<{ base: Frontiers; files: Record<string, string> }>;
+  "component.write"(i: {
+    id: ComponentId;
+    base: Frontiers;
+    files: Record<string, string>;
+  }): Promise<{ head: Frontiers }>;
+  "component.check"(i: {
+    id: ComponentId;
+  }): Promise<{ ok: boolean; diagnostics: Diagnostic[]; manifest?: Manifest }>;
+  "component.publish"(i: {
+    id: ComponentId;
+    bump: "patch" | "minor" | "major";
+  }): Promise<{ version: Version; url: string }>;
+  export(i: { doc: DocHandle; to?: string; mode?: "release" | "preview" }): Promise<ExportResult>;
 }
 export function openStore(home?: string): Promise<Store>;
-export function bind(store: Store): Operations;                     // every adapter calls this
-export type ComposedError = { code: "UnknownDoc" | "UnknownBase" | "QuoteNotFound" | "AmbiguousQuote"
-  | "TargetBusy" | "UnpinnedDependency" | "BuildFailed" | "VersionExists" | "ProviderFailed";
-  message: string; fix?: string };                                     // `fix` is the exact command to run
+export function bind(store: Store): Operations; // every adapter calls this
+export type ComposedError = {
+  code:
+    | "UnknownDoc"
+    | "UnknownBase"
+    | "QuoteNotFound"
+    | "AmbiguousQuote"
+    | "TargetBusy"
+    | "UnpinnedDependency"
+    | "BuildFailed"
+    | "VersionExists"
+    | "ProviderFailed";
+  message: string;
+  fix?: string;
+}; // `fix` is the exact command to run
 ```
 
 Each operation is defined once in `core/src/ops/registry.ts` as `{ name, input: zod schema, cli?: { command, positional }, run }`. The CLI commands, the MCP tools (`doc.read` → `doc_read`, JSON Schema from `z.toJSONSchema`) and the studio's WebSocket op routing are generated from that registry. Adding an operation in one place exposes it everywhere, and none of those surfaces can list an operation that doesn't exist.
@@ -197,8 +271,14 @@ import fallback from "./fallback";
 import { RetryChart } from "./RetryChart";
 export default defineBlock({
   kind: "block",
-  props: { type: "object", properties: { attempts: { type: "integer", minimum: 1, maximum: 12 },
-           base: { type: "number", default: 250 } }, required: ["attempts"] },
+  props: {
+    type: "object",
+    properties: {
+      attempts: { type: "integer", minimum: 1, maximum: 12 },
+      base: { type: "number", default: 250 },
+    },
+    required: ["attempts"],
+  },
   sample: { attempts: 6 },
   component: RetryChart,
   fallback,
@@ -212,8 +292,10 @@ export default ({ attempts, base = 250 }: { attempts: number; base?: number }) =
 **Host runtime** (`@composedink/host-runtime`). Module Federation mechanics, no React import:
 
 ```ts
-export type SharedLibs = Record<(typeof SHARED_SINGLETONS)[number], unknown>;  // the type forces every singleton
-export function blockLoader(shared: SharedLibs): { load(block: LockedBlock): Promise<BlockDefinition<PropsSchema>> };
+export type SharedLibs = Record<(typeof SHARED_SINGLETONS)[number], unknown>; // the type forces every singleton
+export function blockLoader(shared: SharedLibs): {
+  load(block: LockedBlock): Promise<BlockDefinition<PropsSchema>>;
+};
 ```
 
 It wraps one `createInstance({ name: "composed_host", remotes: [], shared })` per page. `load` calls `registerRemotes([{ name: remoteName(id, version), entry, type: "module" }])` once per name, then `loadRemote(\`${name}/block\`)`. Every version has a unique remote name, so re-registering never needs `force`.
@@ -225,15 +307,15 @@ It wraps one `createInstance({ name: "composed_host", remotes: [], shared })` pe
 
 **State writers and the one path per task**
 
-| State | Only writer | Path |
-|---|---|---|
-| `mdx` keystrokes | the editor replica, through the loro-codemirror sync plugin | typing |
-| every other post/component change | `core/src/model/*`, called only by `ops` | `bind(store)[op]` via CLI, MCP or the studio socket |
-| update files | the owning process (by peer) | `store.commit` |
-| target `index.mdx` + `composed.lock.json` | the `export` op, holding `$COMPOSED_HOME/targets/<docId>.pid` (`TargetBusy` otherwise) | `composed export` / `composed preview` |
-| component working directory | the human or agent editing it; the reverse direction only through `component edit` | `component.write` |
-| server artifacts | `PUT` from `component.publish`; same bytes → 200, different bytes → 409 | publish |
-| device config | `composed config` | CLI |
+| State                                     | Only writer                                                                            | Path                                                |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `mdx` keystrokes                          | the editor replica, through the loro-codemirror sync plugin                            | typing                                              |
+| every other post/component change         | `core/src/model/*`, called only by `ops`                                               | `bind(store)[op]` via CLI, MCP or the studio socket |
+| update files                              | the owning process (by peer)                                                           | `store.commit`                                      |
+| target `index.mdx` + `composed.lock.json` | the `export` op, holding `$COMPOSED_HOME/targets/<docId>.pid` (`TargetBusy` otherwise) | `composed export` / `composed preview`              |
+| component working directory               | the human or agent editing it; the reverse direction only through `component edit`     | `component.write`                                   |
+| server artifacts                          | `PUT` from `component.publish`; same bytes → 200, different bytes → 409                | publish                                             |
+| device config                             | `composed config`                                                                      | CLI                                                 |
 
 Importing outside edits isn't a separate path. Before writing, `export` compares the target file with the lock. If the file is neither the projection at `lock.base` nor the current projection, it first runs `doc.apply({ base: lock.base, view: lock.view, text: file, mode: "direct", by: human })`. `composed import <doc>` is that same step without the write.
 
@@ -252,15 +334,16 @@ Inside core, `model` imports only loro-crdt, blocks and lint; `store` imports ne
 
 ### 1.4 Behavior
 
-**Editor ↔ store.** The browser holds an *editor replica* bound to `mdx` with loro-codemirror. One WebSocket per doc to `composed studio` carries binary updates in both directions plus `{op, input}` calls. Updates from a keystroke are sent before any later op on the same socket, so an op's `Selection.base` (the editor's frontiers) is always known to the studio when the op arrives. The studio runs the op on its own replica, persists it and broadcasts the update. The editor applies it as an import. (loro-codemirror ignores `by: "local"` events, so ops can't run on the editor replica.)
+**Editor ↔ store.** The browser holds an _editor replica_ bound to `mdx` with loro-codemirror. One WebSocket per doc to `composed studio` carries binary updates in both directions plus `{op, input}` calls. Updates from a keystroke are sent before any later op on the same socket, so an op's `Selection.base` (the editor's frontiers) is always known to the studio when the op arrives. The studio runs the op on its own replica, persists it and broadcasts the update. The editor applies it as an import. (loro-codemirror ignores `by: "local"` events, so ops can't run on the editor replica.)
 
 **apply.**
+
 1. Resolve `base`. A frontier unknown to the doc is an `UnknownBase` error.
 2. `fork = doc.forkAt(base)`.
 3. Project the fork in `view`. Diff the projection against the input text with a scratch `LoroText.update` and read the deltas.
 4. Map projection offsets to text offsets. Dimmed spans omitted from the clean view are skipped, and an insert at an omitted span's edge lands before it.
-5. *direct*: apply the deltas to the fork, then `doc.import(fork.export({ mode: "update", from: doc.oplogVersion() }))`. Concurrent edits made since `base` merge in by CRDT.
-6. *propose*: the text isn't touched. Each hunk widens to its unit (sentence inside a paragraph; whole list item, heading, code block or JSX element otherwise, from the MDX parse), and its anchors come from `fork.getText("mdx").getCursor(…)`. Cursor IDs are valid in the main doc, so a proposal lands on the right words even after concurrent edits. Then `alt.propose`.
+5. _direct_: apply the deltas to the fork, then `doc.import(fork.export({ mode: "update", from: doc.oplogVersion() }))`. Concurrent edits made since `base` merge in by CRDT.
+6. _propose_: the text isn't touched. Each hunk widens to its unit (sentence inside a paragraph; whole list item, heading, code block or JSX element otherwise, from the MDX parse), and its anchors come from `fork.getText("mdx").getCursor(…)`. Cursor IDs are valid in the main doc, so a proposal lands on the right words even after concurrent edits. Then `alt.propose`.
 
 **Failure and recovery.** Every write is one Loro commit in one update file, so a crash loses at most the in-flight op, and temp files without a rename are ignored. Export writes `index.mdx`, then the lock. A crash in between leaves a file equal to the current projection, which is treated as a no-op rather than an outside edit, so changes are never applied twice. On the host: a failed remote keeps the fallback; an integrity mismatch, a non-literal prop, an invalid prop or a preview lock in production fails the build with the file and line; a missing preview server fails the dev SSR with `run composed preview <doc>`. A component build failure leaves the last good dev build in the lock and reports `BuildFailed` with Vite's diagnostics.
 
@@ -268,7 +351,7 @@ Inside core, `model` imports only loro-crdt, blocks and lint; `store` imports ne
 
 ## 2. Tracer bullet
 
-**Slice.** One post doc whose `mdx` holds `<Hello name="Lachlan" />`, typed in the browser editor. One inline component, `composed:lachieh/hello`, from the `component.create` template: props `{ name: string }`, fallback ``Hello, **${name}**.``, and a component with a `useState` click counter. `composed preview` builds it and serves it. The post is exported into `examples/host-tanstack/content/tracer/index.mdx`, compiled by `remarkComposed` and prerendered by TanStack Start (`tanstackStart({ prerender: { enabled: true } })`). In the browser the fallback swaps to the remote.
+**Slice.** One post doc whose `mdx` holds `<Hello name="Lachlan" />`, typed in the browser editor. One inline component, `composed:lachieh/hello`, from the `component.create` template: props `{ name: string }`, fallback `Hello, **${name}**.`, and a component with a `useState` click counter. `composed preview` builds it and serves it. The post is exported into `examples/host-tanstack/content/tracer/index.mdx`, compiled by `remarkComposed` and prerendered by TanStack Start (`tanstackStart({ prerender: { enabled: true } })`). In the browser the fallback swaps to the remote.
 
 **Real:** the Loro doc and the per-peer update-file store with `fs.watch` import; `doc.create`, `doc.read`, `deps.add` (dev pins) and `export` (preview mode) through the operations registry and the generated CLI; the studio WebSocket and loro-codemirror editor replica; the `defineBlock` types, AST manifest extraction and the Vite + `@module-federation/vite` dev build (`exposes: { "./block": "./block.tsx" }`, singletons `import: false`) plus the separate `fallback.mjs`; host-runtime's `createInstance` sharing the host's React; `remarkComposed`; `ComposedBlock`; prerender.
 
@@ -289,19 +372,19 @@ A human sees a post reading "Hello, **Lachlan**." that becomes a clickable count
 
 Each unit ends with `mise exec -- vp check --fix` and `vp run -r test` green, plus the unit's own evidence. No unit leaves an unimplemented command or operation: the CLI and MCP list only what the registry implements.
 
-| # | Unit | Scope and files | Depends on | Completion evidence |
-|---|---|---|---|---|
-| U1 | Tracer bullet | §2. Creates `packages/{core,blocks,host-runtime,host-tanstack}`, `apps/{cli,web}`, `examples/host-tanstack`, the root `tests/boundaries.test.ts` and the mise/Vite+ workspace | none | §2 evidence 1–6; the boundary test fails on a fixture deep import |
-| U2 | Store durability | compaction, crash-safe writes, `UnknownBase`, peer uniqueness (`core/src/store`) | U1 | two spawned processes write 500 ops each concurrently → both sets present and replicas equal; `kill -9` mid-write → the store opens with every committed op |
-| U3 | Alternatives + agent apply | `core/src/model/{alternatives,apply}.ts`, `alt.propose/flip/resolve(rest:"stash")`, `doc.apply` direct/propose, `stash.list`, generated CLI + `composed mcp` | U2 | workflow 3 test: read base, another process edits ¶2, `apply --propose` editing ¶4 → ¶2 edit kept, ¶4 unchanged, one alternative whose flip yields the agent's text; quote selection errors (`QuoteNotFound`, `AmbiguousQuote`); MCP client lists `doc_read` and a call round-trips; absorb rule moves the inner versions to the stash |
-| U4 | Dim, stash, clean view | `ghost.set`, `stash.add/restore`, `alt.resolve(rest:"ghost")`, projection mapping in apply and export | U3 | property test: random dims + random edits applied through `view:"clean"` never alter dimmed text; a flip preserves dim spans; export in the clean view omits dim |
-| U5 | Editor | `apps/web/src/editor/`: Markdown/MDX styling, alternative markers and `Alt-↑/↓`, keep keys, dim decorations, stash panel, block chips (tag, version, prop errors); ops over the socket | U4 | Playwright: select, propose (via CLI), flip with keys, reload → state persisted; an import batch mixing `alts` and `mdx` changes leaves the view equal to `mdx` (R2) |
-| U6 | Lint | `packages/lint`: harper.js on prose ranges, rules (long sentence, passive, adverbs, simpler words, mid-sentence bold, long bullets, block props via `validateProps`); editor underlines; `composed lint` | U5 | fixture post → expected diagnostics with positions; editor shows underlines; 5,000-word incremental lint under 50 ms in Chrome (R5) |
-| U7 | Model rewrites | `core/src/rewrite.ts` (OpenAI-compatible `/v1/chat/completions`, endpoint in device config), `alt.rewrite`, `Mod-Shift-R` | U5 | tests against an in-process HTTP double return three versions as one alternative; `ProviderFailed` leaves the text unchanged; manual check with Ollama `llama3.2` |
-| U8 | Component authoring + live preview | `component.read/write/check` (tsc against materialized files, manifest extraction, `fallback.ts` import rule), `composed component edit` (two-way sync with per-file base), dev rebuild on doc change in `composed preview` | U1 | saving `block.tsx` in the synced directory reloads the example host page with the change in ≤2 s; a non-literal `props` → `component.check` reports it at line and column; a type error is reported, and the last good build stays served |
-| U9 | Publish | `apps/server` (artifact `PUT`/`GET`, immutable cache and CORS headers, token from env, filesystem storage, container image); `component.publish`, `deps.pin`; release export (`UnpinnedDependency`), outside-edit import, `TargetBusy`; production guard in `remarkComposed`; `vp pack` + npm publish of `blocks`, `host-runtime`, `host-tanstack` | U4, U8 | e2e against a local server: publish → republishing the same bytes returns 200, different bytes 409; release export → production build of the example host contains the fallback and loads the remote from the server URL; hand-edit `index.mdx`, then `composed export` → the edit is in the doc and the file; a preview lock fails `vp build` |
-| U10 | hellotimber adoption | in hellotimber: add `@composedink/host-tanstack`, `remarkComposed`, folder posts; `composed new --from website/content/writing/how-i-built-a-nokia-3310.mdx` | U9 | `vp run website#build` + `vp run website#test` green; the post page's SSR HTML matches its pre-migration output |
-| U11 | Desktop shell | `apps/desktop` (Tauri 2, macOS): the window loads the studio served by the bundled `composed` sidecar | U5 (spike R8 first) | the app launches, an edit persists, `composed cat` in a terminal sees it |
+| #   | Unit                               | Scope and files                                                                                                                                                                                                                                                                                                                                    | Depends on          | Completion evidence                                                                                                                                                                                                                                                                                                                            |
+| --- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U1  | Tracer bullet                      | §2. Creates `packages/{core,blocks,host-runtime,host-tanstack}`, `apps/{cli,web}`, `examples/host-tanstack`, the root `tests/boundaries.test.ts` and the mise/Vite+ workspace                                                                                                                                                                      | none                | §2 evidence 1–6; the boundary test fails on a fixture deep import                                                                                                                                                                                                                                                                              |
+| U2  | Store durability                   | compaction, crash-safe writes, `UnknownBase`, peer uniqueness (`core/src/store`)                                                                                                                                                                                                                                                                   | U1                  | two spawned processes write 500 ops each concurrently → both sets present and replicas equal; `kill -9` mid-write → the store opens with every committed op                                                                                                                                                                                    |
+| U3  | Alternatives + agent apply         | `core/src/model/{alternatives,apply}.ts`, `alt.propose/flip/resolve(rest:"stash")`, `doc.apply` direct/propose, `stash.list`, generated CLI + `composed mcp`                                                                                                                                                                                       | U2                  | workflow 3 test: read base, another process edits ¶2, `apply --propose` editing ¶4 → ¶2 edit kept, ¶4 unchanged, one alternative whose flip yields the agent's text; quote selection errors (`QuoteNotFound`, `AmbiguousQuote`); MCP client lists `doc_read` and a call round-trips; absorb rule moves the inner versions to the stash         |
+| U4  | Dim, stash, clean view             | `ghost.set`, `stash.add/restore`, `alt.resolve(rest:"ghost")`, projection mapping in apply and export                                                                                                                                                                                                                                              | U3                  | property test: random dims + random edits applied through `view:"clean"` never alter dimmed text; a flip preserves dim spans; export in the clean view omits dim                                                                                                                                                                               |
+| U5  | Editor                             | `apps/web/src/editor/`: Markdown/MDX styling, alternative markers and `Alt-↑/↓`, keep keys, dim decorations, stash panel, block chips (tag, version, prop errors); ops over the socket                                                                                                                                                             | U4                  | Playwright: select, propose (via CLI), flip with keys, reload → state persisted; an import batch mixing `alts` and `mdx` changes leaves the view equal to `mdx` (R2)                                                                                                                                                                           |
+| U6  | Lint                               | `packages/lint`: harper.js on prose ranges, rules (long sentence, passive, adverbs, simpler words, mid-sentence bold, long bullets, block props via `validateProps`); editor underlines; `composed lint`                                                                                                                                           | U5                  | fixture post → expected diagnostics with positions; editor shows underlines; 5,000-word incremental lint under 50 ms in Chrome (R5)                                                                                                                                                                                                            |
+| U7  | Model rewrites                     | `core/src/rewrite.ts` (OpenAI-compatible `/v1/chat/completions`, endpoint in device config), `alt.rewrite`, `Mod-Shift-R`                                                                                                                                                                                                                          | U5                  | tests against an in-process HTTP double return three versions as one alternative; `ProviderFailed` leaves the text unchanged; manual check with Ollama `llama3.2`                                                                                                                                                                              |
+| U8  | Component authoring + live preview | `component.read/write/check` (tsc against materialized files, manifest extraction, `fallback.ts` import rule), `composed component edit` (two-way sync with per-file base), dev rebuild on doc change in `composed preview`                                                                                                                        | U1                  | saving `block.tsx` in the synced directory reloads the example host page with the change in ≤2 s; a non-literal `props` → `component.check` reports it at line and column; a type error is reported, and the last good build stays served                                                                                                      |
+| U9  | Publish                            | `apps/server` (artifact `PUT`/`GET`, immutable cache and CORS headers, token from env, filesystem storage, container image); `component.publish`, `deps.pin`; release export (`UnpinnedDependency`), outside-edit import, `TargetBusy`; production guard in `remarkComposed`; `vp pack` + npm publish of `blocks`, `host-runtime`, `host-tanstack` | U4, U8              | e2e against a local server: publish → republishing the same bytes returns 200, different bytes 409; release export → production build of the example host contains the fallback and loads the remote from the server URL; hand-edit `index.mdx`, then `composed export` → the edit is in the doc and the file; a preview lock fails `vp build` |
+| U10 | hellotimber adoption               | in hellotimber: add `@composedink/host-tanstack`, `remarkComposed`, folder posts; `composed new --from website/content/writing/how-i-built-a-nokia-3310.mdx`                                                                                                                                                                                       | U9                  | `vp run website#build` + `vp run website#test` green; the post page's SSR HTML matches its pre-migration output                                                                                                                                                                                                                                |
+| U11 | Desktop shell                      | `apps/desktop` (Tauri 2, macOS): the window loads the studio served by the bundled `composed` sidecar                                                                                                                                                                                                                                              | U5 (spike R8 first) | the app launches, an edit persists, `composed cat` in a terminal sees it                                                                                                                                                                                                                                                                       |
 
 **Later phases (out of MVP)**
 
@@ -314,32 +397,32 @@ Each unit ends with `mise exec -- vp check --fix` and `vp run -r test` green, pl
 
 **Alternatives considered and rejected**
 
-- *Running operations in the browser on the editor replica.* loro-codemirror's sync plugin returns early on `by: "local"` events (`sync.ts`), so op writes would never reach the view. A second replica per process fixes this and gives every surface one operation path.
-- *A store daemon with RPC as the single writer.* Per-peer update files plus CRDT merge remove the shared mutable file instead of serializing access to it. There is no IPC protocol to build and no daemon lifecycle to manage.
-- *Base frontiers in frontmatter.* hellotimber's `parseFrontmatter` throws on unknown keys, and the frontiers are composed's bookkeeping, not the post's metadata. A sidecar `composed.lock.json` carries them along with the resolved blocks.
-- *Frontmatter in a separate map.* That would be a second representation, and composed would have to own the host's schema.
-- *composed precomputing fallbacks at export.* composed would have to run account code outside a sandbox and key fallbacks to element instances. Instead, the host, which already chose to trust the component, runs a React-free `fallback.mjs` at compile time. In the MVP composed never executes component code: bundling, tsc and manifest extraction don't run it.
-- *A zod or valibot props schema.* Getting JSON Schema out of it requires running the component's code. A literal JSON Schema subset typed by `PropsOf` is extractable from the AST. A separate `block.json` was also rejected, because it would duplicate the TypeScript types.
-- *Server-side bundling in the MVP.* The server would need the component doc, which needs sync. The client bundles with the same function, and published versions are immutable either way.
-- *Keying `alts` by encoded start cursor.* An alternative needs two anchors, and a random `AltId` keeps identity separate from how anchors are encoded. Non-overlap is enforced by the model instead of by map keys. This is a small deviation from "map keyed by stable cursors".
+- _Running operations in the browser on the editor replica._ loro-codemirror's sync plugin returns early on `by: "local"` events (`sync.ts`), so op writes would never reach the view. A second replica per process fixes this and gives every surface one operation path.
+- _A store daemon with RPC as the single writer._ Per-peer update files plus CRDT merge remove the shared mutable file instead of serializing access to it. There is no IPC protocol to build and no daemon lifecycle to manage.
+- _Base frontiers in frontmatter._ hellotimber's `parseFrontmatter` throws on unknown keys, and the frontiers are composed's bookkeeping, not the post's metadata. A sidecar `composed.lock.json` carries them along with the resolved blocks.
+- _Frontmatter in a separate map._ That would be a second representation, and composed would have to own the host's schema.
+- _composed precomputing fallbacks at export._ composed would have to run account code outside a sandbox and key fallbacks to element instances. Instead, the host, which already chose to trust the component, runs a React-free `fallback.mjs` at compile time. In the MVP composed never executes component code: bundling, tsc and manifest extraction don't run it.
+- _A zod or valibot props schema._ Getting JSON Schema out of it requires running the component's code. A literal JSON Schema subset typed by `PropsOf` is extractable from the AST. A separate `block.json` was also rejected, because it would duplicate the TypeScript types.
+- _Server-side bundling in the MVP._ The server would need the component doc, which needs sync. The client bundles with the same function, and published versions are immutable either way.
+- _Keying `alts` by encoded start cursor._ An alternative needs two anchors, and a random `AltId` keeps identity separate from how anchors are encoded. Non-overlap is enforced by the model instead of by map keys. This is a small deviation from "map keyed by stable cursors".
 
 **Accepted tradeoffs.** Browsers can't verify the integrity of a remote's ESM `import()`; trust rests on HTTPS and immutable versioned URLs, and only `fallback.mjs` is integrity-checked, at build time. Swapping the fallback for the remote can shift layout. Blocks take JSON props, not children. A component change in preview reloads the whole page rather than updating in place. Components can depend only on React. `host-tanstack` contains nothing TanStack-specific; the name is kept per grounding and reflects the fixture it's tested against.
 
 **Open decisions resolved**
 
-- *Scope-to-server resolution:* the author side maps scope to registry in device config (default `https://cdn.composed.ink`). The lock stores absolute URLs, so hosts never resolve scopes, and IDs stay `composed:<scope>/<name>` even if a self-hoster moves servers. A global namespace across servers waits for the registry phase (P5), the first time two servers' listings meet.
-- *Federated SSR:* not used; v1 always uses fallback-only SSR. The fallback has to exist anyway for RSS, no-JS and failed remotes. Federated SSR would add a Node share scope, hydration of remote markup and a network dependency at request time. Revisit if a real block's layout shift is visible on hellotimber.
-- *Mobile shell (Tauri mobile vs Expo DOM components):* deferred to P4. It hinges on CodeMirror IME and selection behaviour in each webview, which only a spike on a device answers. The leaning is Tauri mobile, which reuses the Rust plugins and the desktop sidecar model.
+- _Scope-to-server resolution:_ the author side maps scope to registry in device config (default `https://cdn.composed.ink`). The lock stores absolute URLs, so hosts never resolve scopes, and IDs stay `composed:<scope>/<name>` even if a self-hoster moves servers. A global namespace across servers waits for the registry phase (P5), the first time two servers' listings meet.
+- _Federated SSR:_ not used; v1 always uses fallback-only SSR. The fallback has to exist anyway for RSS, no-JS and failed remotes. Federated SSR would add a Node share scope, hydration of remote markup and a network dependency at request time. Revisit if a real block's layout shift is visible on hellotimber.
+- _Mobile shell (Tauri mobile vs Expo DOM components):_ deferred to P4. It hinges on CodeMirror IME and selection behaviour in each webview, which only a spike on a device answers. The leaning is Tauri mobile, which reuses the Rust plugins and the desktop sidecar model.
 
 **Risks and the spikes that de-risk them**
 
-- **R1:** a runtime-only MF host (no Vite plugin) providing React to a `@module-federation/vite` remote with `import: false`. *Proven by tracer evidence 4.* If it fails, add `@module-federation/vite` to the example host with `hostInitInjectLocation: "entry"`; if that fails too, use TanStack Start's Rsbuild plugin, per grounding.
-- **R2:** loro-codemirror 0.3.3 `return`s from its import handler on the first non-text event (`sync.ts`, `if (diff.type !== "text") return;`), so a batch carrying `alts` changes can drop text changes from the view. *Spike at the start of U5* (the evidence listed there). If it reproduces, fix it upstream (change to `continue`) and keep `apps/web/src/editor/sync.ts` as a ~100-line own plugin until the fix is released.
-- **R3:** Vite invalidating the MDX module through the injected lock import in TanStack Start's SSR environment. *Proven by tracer evidence 6.* The fallback is a small Vite plugin that invalidates the sibling `index.mdx` on a lock change.
-- **R4:** an async fetch plus `data:` import inside a remark transform under `@mdx-js/rollup`. *Proven by tracer evidence 3.*
-- **R5:** harper.js latency on long posts. *Benchmark in U6*; lint only changed paragraphs.
-- **R6:** offset mapping for the clean projection. *Property test in U4.*
-- **R7:** cursor edge semantics (inserts at an alternative's edges must land outside it). *Unit test in U3* rather than an assumed `Side` flag.
-- **R8:** a Tauri sidecar carrying Node, Rolldown's native binding and the Loro wasm. *Spike before U11*: package `composed` as a Node SEA; if that fails, ship a Node binary plus the JS directory.
+- **R1:** a runtime-only MF host (no Vite plugin) providing React to a `@module-federation/vite` remote with `import: false`. _Proven by tracer evidence 4._ If it fails, add `@module-federation/vite` to the example host with `hostInitInjectLocation: "entry"`; if that fails too, use TanStack Start's Rsbuild plugin, per grounding.
+- **R2:** loro-codemirror 0.3.3 `return`s from its import handler on the first non-text event (`sync.ts`, `if (diff.type !== "text") return;`), so a batch carrying `alts` changes can drop text changes from the view. _Spike at the start of U5_ (the evidence listed there). If it reproduces, fix it upstream (change to `continue`) and keep `apps/web/src/editor/sync.ts` as a ~100-line own plugin until the fix is released.
+- **R3:** Vite invalidating the MDX module through the injected lock import in TanStack Start's SSR environment. _Proven by tracer evidence 6._ The fallback is a small Vite plugin that invalidates the sibling `index.mdx` on a lock change.
+- **R4:** an async fetch plus `data:` import inside a remark transform under `@mdx-js/rollup`. _Proven by tracer evidence 3._
+- **R5:** harper.js latency on long posts. _Benchmark in U6_; lint only changed paragraphs.
+- **R6:** offset mapping for the clean projection. _Property test in U4._
+- **R7:** cursor edge semantics (inserts at an alternative's edges must land outside it). _Unit test in U3_ rather than an assumed `Side` flag.
+- **R8:** a Tauri sidecar carrying Node, Rolldown's native binding and the Loro wasm. _Spike before U11_: package `composed` as a Node SEA; if that fails, ship a Node binary plus the JS directory.
 
 **First verifiable unit:** U1, the tracer bullet.

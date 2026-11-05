@@ -17,7 +17,9 @@
 ### Task 2 — Project and map at the base
 
 ```ts
-interface Projection { text:string; /* UTF-16 visible-to-source segments */ }
+interface Projection {
+  text: string /* UTF-16 visible-to-source segments */;
+}
 // Build from mdx's delta/marks. Full is identity; clean omits dim spans.
 // Map each scratch diff hunk against forkAt(base), preserving omitted spans.
 ```

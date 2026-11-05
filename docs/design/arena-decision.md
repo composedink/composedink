@@ -7,10 +7,10 @@ The integrated design package `docs/design/composed.md` and the MVP plan under `
 
 ## Candidates
 
-| Candidate | Provider / model | Output | Status |
-|---|---|---|---|
-| A | Codex, gpt-6.1-sol (architecture role, L) | `docs/design/candidates/codex.md` (3,541 words) | complete |
-| B | Claude, claude-opus-5-5 (architecture role, L) | `docs/design/candidates/claude.md` (~5,100 words) | complete |
+| Candidate | Provider / model                               | Output                                            | Status   |
+| --------- | ---------------------------------------------- | ------------------------------------------------- | -------- |
+| A         | Codex, gpt-6.1-sol (architecture role, L)      | `docs/design/candidates/codex.md` (3,541 words)   | complete |
+| B         | Claude, claude-opus-5-5 (architecture role, L) | `docs/design/candidates/claude.md` (~5,100 words) | complete |
 
 Judge: Codex, gpt-6.1-sol in a fresh context (review role, L). No candidate was missing.
 
@@ -20,12 +20,13 @@ Criteria C1–C8 as given to the candidates (consumer-first; model integrity; ow
 boundaries; partial-edit safety; tracer bullet; verifiable units; grounding fidelity; minimum
 complexity). Judge's scores:
 
-| | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 |
-|---|---|---|---|---|---|---|---|---|
-| A (Codex) | 4 | 4 | 4 | 4 | 3 | 3 | 4 | 3 |
-| B (Claude) | 4 | 3 | 2 | 2 | 3 | 2 | 2 | 3 |
+|            | C1  | C2  | C3  | C4  | C5  | C6  | C7  | C8  |
+| ---------- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A (Codex)  | 4   | 4   | 4   | 4   | 3   | 3   | 4   | 3   |
+| B (Claude) | 4   | 3   | 2   | 2   | 3   | 2   | 2   | 3   |
 
 Boss verification of the facts the scores rest on (2026-11-05):
+
 - hellotimber `website/src/writing/frontmatter.ts:60` throws on unknown frontmatter keys (B's
   reason for the sidecar lock) — confirmed.
 - `loro-codemirror@0.3.3` `sync.ts:42` ignores `by: "local"` events and `sync.ts:65` returns on
@@ -36,8 +37,8 @@ Boss verification of the facts the scores rest on (2026-11-05):
 
 **Judge's recommendation:** A as base, with B's interfaces integrated.
 
-**Boss decision:** B as the *textual* base (signatures, writer table, tracer evidence, unit
-table, consumer snippets are more concrete and more usable), with A's *architecture* decisions
+**Boss decision:** B as the _textual_ base (signatures, writer table, tracer evidence, unit
+table, consumer snippets are more concrete and more usable), with A's _architecture_ decisions
 integrated where the judge showed B's model was unsafe. The resulting design is closer to A's
 model with B's interfaces; the disagreement is about which text to edit, not about the model.
 
@@ -48,6 +49,7 @@ its tracer and units bundle persistence, isolation and build machinery into unit
 ## Integration
 
 Integrated from A / the judge (reason):
+
 1. Single local authority elected by a lock file — B's independent writers do not protect
    multi-container invariants (overlapping proposals, two compactors).
 2. Binding protocol: import editor updates unchanged, then normalize in a follow-up commit —
@@ -66,9 +68,10 @@ quote-based selection; `remarkComposed` + `ComposedBlock`; the tracer evidence l
 table and completion evidence; explicit `fix` commands in errors.
 
 Rejected:
+
 - A's separate `frontmatter: LoroText` — a second representation; the sidecar lock removes the
   need (judge agreed).
-- A's per-block sandboxed iframes in the *published blog* for the MVP — **boss override of the
+- A's per-block sandboxed iframes in the _published blog_ for the MVP — **boss override of the
   judge.** Every MVP component is the author's own; the blog already runs its figures in-page;
   iframes cost layout, fonts, CSS and focus with no trust gain until untrusted components exist.
   The `usercontent` origin arrives with sharing (P3) for editor/preview/preview-link hosts.
@@ -92,6 +95,7 @@ it (2026-11-05): `vp fmt` rewrites MDX (`*emph*`→`_emph_`, `* `→`- `, JSX wh
 prerendered. The `vm` constructor-chain escape was executed by the Claude reviewer.
 
 Verdict (all **act on**, applied in one revision pass; nothing classified consider/noted):
+
 1. Lock election race (both reviewers) → `link()` create, rename-based stale recovery, lock
    `{pid, processStartTime, kind, ready}`, long-running commands never own inline, plan 01 ships
    no election.

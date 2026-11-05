@@ -17,7 +17,7 @@
 
 ```ts
 const fork = authorityDoc.forkAt(decodeFrontiers(input.base));
-const projection = project(fork, input.view ?? 'full');
+const projection = project(fork, input.view ?? "full");
 const hunks = diffWithScratchLoroText(projection.text, input.text);
 // Map offsets using the base projection, never current text offsets.
 // Direct: edit fork and merge branch history.

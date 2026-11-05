@@ -17,15 +17,18 @@
 
 ```ts
 // posts.ts: metadata only
-const FILES = import.meta.glob<FrontmatterModule>('../../content/writing/*/index.mdx', {
- query:'?frontmatter', import:'default', eager:true,
+const FILES = import.meta.glob<FrontmatterModule>("../../content/writing/*/index.mdx", {
+  query: "?frontmatter",
+  import: "default",
+  eager: true,
 });
 // bodies.ts: compiled body, NO frontmatter query
-const MODULES = import.meta.glob<MDXContent>('../../content/writing/*/index.mdx', {
- import:'default', eager:true,
+const MODULES = import.meta.glob<MDXContent>("../../content/writing/*/index.mdx", {
+  import: "default",
+  eager: true,
 });
 // slugOfFile: directory name, validated with existing lowercase-slug rule
-const slug = file.split('/').at(-2)!;
+const slug = file.split("/").at(-2)!;
 ```
 
 ### Task 2 — Migrate content and exercise publication

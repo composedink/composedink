@@ -1,8 +1,9 @@
 packages: [packages/*, apps/*, examples/*]
 catalog:
   "typescript": "^5.9.0"
-  "vite-plus": "latest"
-  "vite": "^8.0.0"
+  # Vite+ requires `vite` to resolve to its own core build; pin the pair together.
+  "vite-plus": "1.5.0"
+  "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0"
   "loro-crdt": "^1.17.0"
   "loro-codemirror": "0.3.3"
   "@module-federation/vite": "^1.23.0"
@@ -29,3 +30,10 @@ catalog:
   "@tanstack/router-plugin": "latest"
   "@vitejs/plugin-react": "latest"
   "@playwright/test": "latest"
+overrides:
+  vite: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

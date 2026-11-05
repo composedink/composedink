@@ -47,8 +47,8 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
   packages: [packages/*, apps/*, examples/*]
   catalog:
     typescript: ^5.9.0
-    vite-plus: latest
-    vite: ^8.0.0
+    vite-plus: "1.5.0" # pin the pair together
+    vite: "npm:@voidzero-dev/vite-plus-core@1.5.0" # Vite+ requires `vite` to be its core build
     loro-crdt: ^1.17.0
     loro-codemirror: 0.3.3
     "@module-federation/vite": ^1.23.0
@@ -59,6 +59,11 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
     # resolve and add: @codemirror/{state,view,commands,lang-markdown}, @mdx-js/mdx, remark-mdx,
     # unist-util-visit, mdast-util-from-markdown, ws, @types/{react,react-dom,node,ws},
     # @tanstack/{react-start,react-router,router-plugin}, @vitejs/plugin-react, @playwright/test
+    overrides:
+    vite: "catalog:"
+  peerDependencyRules:
+    allowAny: [vite]
+    allowedVersions: { vite: "*" }
   ```
 
 - [x] Root `package.json` is private, `"type": "module"`, scripts
@@ -345,7 +350,6 @@ at `before` while Loro holds `before after`, for both a map event and a text eve
 container (`test-results/r2.json`). The corrected sync plugin in `apps/web/src/editor/sync.ts`
 is therefore required, with this probe as its regression test.
 
-
 **2026-11-05, stop 2 (toolchain discrepancy).** The corrected single-subscription R2 binding
 is in `apps/web/src/editor/sync.ts`, with an UndoManager and upstream references
 https://github.com/loro-dev/loro-codemirror/pull/27 and
@@ -380,3 +384,10 @@ export subscription currently have focused test evidence, but CLI/browser/restar
 integration and the packaged asset path remain to be completed/verified. No hellotimber file
 was changed. Only the verified R2 slice and this log are committed; partial source stays in
 the working tree for the next run.
+
+**2026-11-05, stop 2 (resolved).** `vp run host-tanstack#build` rejected an independent
+`vite@8.3.5`: Vite+ requires `vite` to resolve to `@voidzero-dev/vite-plus-core` at the same
+version as `vite-plus`. Resolution (hellotimber's pattern, now in Task 1): catalog
+`vite: npm:@voidzero-dev/vite-plus-core@1.5.0`, `vite-plus: 1.5.0`, `overrides.vite: catalog:`,
+`peerDependencyRules.allowAny: [vite]`. After `vp install` the example builds and `vp run -r test`
+is 8/8. `vp env doctor` is global-CLI only; ignore it in this workspace.

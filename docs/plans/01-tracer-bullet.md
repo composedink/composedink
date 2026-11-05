@@ -114,7 +114,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
 `apps/cli/src/{main,client,studio}.ts`; `apps/web/{index.html,src/main.tsx,src/editor/sync.ts}`,
 `apps/web/tests/binding.test.ts`.
 
-- [ ] **Binding spike first (R2).** With `loro-codemirror` 0.3.3, import into the editor's doc
+- [x] **Binding spike first (R2).** With `loro-codemirror` 0.3.3, import into the editor's doc
       (a) a batch containing a non-text container event before the `mdx` text event and (b) a text
       event for a different container before `mdx`. After each, assert the CodeMirror state equals
       `doc.getText("mdx").toString()`. The upstream plugin ignores `by: "local"` events
@@ -344,3 +344,39 @@ until plans 09/12 (now in Task 3).
 at `before` while Loro holds `before after`, for both a map event and a text event on another
 container (`test-results/r2.json`). The corrected sync plugin in `apps/web/src/editor/sync.ts`
 is therefore required, with this probe as its regression test.
+
+
+**2026-11-05, stop 2 (toolchain discrepancy).** The corrected single-subscription R2 binding
+is in `apps/web/src/editor/sync.ts`, with an UndoManager and upstream references
+https://github.com/loro-dev/loro-codemirror/pull/27 and
+https://github.com/loro-dev/loro-codemirror/issues/24. Both mixed-container Chromium cases
+pass (`mise exec -- vp run composed-web#test`, 1 test passed; `test-results/r2.json`). The
+binding-only `vp check --fix` passes without warnings (`test-results/r2-check.log`).
+
+Tasks 2–4 have partial, uncommitted implementations; none is marked complete. Store restart,
+component base writes, real federation bundle/export and evaluator escape tests run. The final
+`mise exec -- vp run -r test` reports 8/8 workspace tasks successful (core 16 tests, blocks 2,
+web 1, root boundaries 2); packages without tests still use the scaffold's passWithNoTests.
+This is not tracer acceptance. Full `vp check --fix` fails on the unfinished host types,
+including its not-yet-generated route tree and Vite plugin type incompatibility; see
+`test-results/check.log`. Evaluator tests exposed Oxc removing unused imports before validation;
+the implementation now checks the original source AST before using transformed code.
+
+Stopping command: `mise exec -- vp run host-tanstack#build`.
+Output: `Invalid vite task command: vp with args ["build"]` and
+`Expected @voidzero-dev/vite-plus-core@1.5.0, but found vite@8.3.5 ... Run vp migrate to align
+the Vite alias, then run vp install.` Full output: `test-results/toolchain-build.log`.
+The installed independent Vite dependency in the Task 1 catalog contradicts Vite+'s build
+requirement. No dependency migration was attempted because the plan permits fallback only
+for R1 remote-loading/prerender failures. Resolve the catalog/Vite+ alias contract in the plan
+before resuming. `mise exec -- vp env doctor` also rejects the workspace-local CLI with
+`The env command is only available in the global vp CLI` (`test-results/env-doctor.log`).
+Versions: Node 22.22.3, Vite+ 1.5.0, Vite 8.3.5, Rolldown 1.2.16,
+@module-federation/vite 1.23.9, @tanstack/react-start 1.169.4, loro-crdt 1.17.1,
+loro-codemirror 0.3.3. Setup `mise install` and `mise exec -- vp install` succeeded.
+No six-assertion tracer evidence has been collected; R1 and R3 remain untested.
+`host-tanstack#e2e` has not run: the tracer is not implemented. The template/build and
+export subscription currently have focused test evidence, but CLI/browser/restart/security
+integration and the packaged asset path remain to be completed/verified. No hellotimber file
+was changed. Only the verified R2 slice and this log are committed; partial source stays in
+the working tree for the next run.

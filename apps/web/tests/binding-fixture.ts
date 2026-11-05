@@ -1,6 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { LoroSyncPlugin } from "loro-codemirror";
+import { LoroSyncPlugin } from "../src/editor/sync";
 import { LoroDoc } from "loro-crdt";
 
 export async function runSpike(kind: "map" | "text") {

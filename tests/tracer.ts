@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
 import { createRequire } from "node:module";
-import { chromium, expect } from "@playwright/test";
+import { chromium, expect, type Page } from "@playwright/test";
 import { assertInteractiveRemote } from "../examples/host-tanstack/tests/tracer.spec.ts";
 const root = resolve(import.meta.dirname, "..");
 console.log("runtime", process.version, process.execPath);
@@ -48,7 +48,12 @@ await writeFile(join(evidence, "versions.json"), JSON.stringify(versions, null, 
 const home = await mkdtemp(join(tmpdir(), "composed-tracer-"));
 const example = join(home, "example");
 const children = new Set<ChildProcess>();
-const env = { ...process.env, COMPOSED_HOME: home, VP_NODE_VERSION: "22.22.3" };
+const env = {
+  ...process.env,
+  COMPOSED_HOME: home,
+  COMPOSED_TOKEN: "local-test-token",
+  VP_NODE_VERSION: "22.22.3",
+};
 async function port() {
   const server = createServer();
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
@@ -63,7 +68,14 @@ Object.assign(env, {
   COMPOSED_ARTIFACT_PORT: String(artifactPort),
 });
 function launch(command: string, args: string[], cwd = root) {
-  const child = spawn(command, args, { cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(command, args, {
+    cwd,
+    env: args.includes("build")
+      ? { ...env, NODE_OPTIONS: `--import=${join(root, "tests/deny-network.mjs")}` }
+      : env,
+    detached: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
   children.add(child);
   let output = "";
   child.stdout!.on("data", (b) => {
@@ -97,6 +109,16 @@ async function stop(child: ChildProcess) {
   const done = new Promise<void>((r) => child.once("exit", () => r()));
   if (child.pid) process.kill(-child.pid, "SIGTERM");
   await done;
+}
+async function reloadAfterLiveUpdate(page: Page) {
+  await page.waitForLoadState("networkidle");
+  try {
+    await page.reload();
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("ERR_ABORTED")) throw error;
+    await page.waitForLoadState("load");
+  }
+  await page.waitForLoadState("networkidle");
 }
 const checks: Record<string, unknown> = {};
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -203,12 +225,138 @@ try {
   await writeFile(join(evidence, "exported.mdx"), source);
   await writeFile(join(evidence, "exported.lock.json"), JSON.stringify(lock, null, 2));
   await writeFile(join(evidence, "durable-read.txt"), await cli(["cat", "tracer"]));
+  const releasePort = await port();
+  Object.assign(env, {
+    COMPOSED_TOKEN: "local-test-token",
+    COMPOSED_STORAGE: join(home, "cdn"),
+    PORT: String(releasePort),
+    COMPOSED_DENY_PORT: String(releasePort),
+  });
+  const cdn = launch(process.execPath, [
+    "--experimental-strip-types",
+    join(root, "apps/server/src/main.ts"),
+  ]);
+  await expect
+    .poll(async () => {
+      try {
+        return (await fetch(`http://127.0.0.1:${releasePort}/`)).status;
+      } catch {
+        return 0;
+      }
+    })
+    .toBe(400);
+  const sidecarPath = join(example, "content/tracer/composed.lock.json");
+  const sidecarBytes = await readFile(sidecarPath, "utf8");
+  await rm(sidecarPath);
+  const missingSidecar = launch(
+    join(root, "examples/host-tanstack/node_modules/.bin/rsbuild"),
+    ["build"],
+    example,
+  );
+  await missingSidecar.done;
+  expect(missingSidecar.output()).toContain("Error: Expected component `Hello` to be defined");
+  await writeFile(join(evidence, "missing-sidecar-build.log"), missingSidecar.output());
+  await writeFile(sidecarPath, sidecarBytes);
   const build = launch(
     join(root, "examples/host-tanstack/node_modules/.bin/rsbuild"),
     ["build"],
     example,
   );
   await build.done.finally(() => writeFile(join(evidence, "tracer-build.log"), build.output()));
+  expect(build.output().match(/preview lock renders fallback only/g)?.length).toBe(1);
+  await writeFile(join(evidence, "preview-build.log"), build.output());
+  const previewServer = launch(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `import {createServer} from "node:http";import {readFile} from "node:fs/promises";import {join} from "node:path";createServer(async(req,res)=>{try{const p=req.url.split("?")[0];res.setHeader("content-type",p.endsWith(".js")?"application/javascript":"text/html");res.end(await readFile(join(${JSON.stringify(join(example, "dist/client"))},p==="/posts/tracer"?"/posts/tracer/index.html":p)));}catch{res.writeHead(404).end();}}).listen(${hostPort},"127.0.0.1");`,
+    ],
+    example,
+  );
+  const previewPage = await browser.newPage();
+  let remoteRequests = 0;
+  previewPage.on("request", (r) => {
+    if (r.url().includes("remoteEntry.js")) remoteRequests++;
+  });
+  await expect
+    .poll(async () => {
+      try {
+        return (await fetch(`http://127.0.0.1:${hostPort}/posts/tracer`)).status;
+      } catch {
+        return 0;
+      }
+    })
+    .toBe(200);
+  await previewPage.goto(`http://127.0.0.1:${hostPort}/posts/tracer`);
+  await expect(previewPage.locator('[data-state="fallback"]')).toBeVisible();
+  await previewPage.waitForLoadState("networkidle");
+  expect(remoteRequests).toBe(0);
+  await previewPage.close();
+  await stop(previewServer.child);
+
+  await cli([
+    "config",
+    "scope",
+    "lachieh",
+    "--server",
+    `http://127.0.0.1:${releasePort}`,
+    "--token-ref",
+    "COMPOSED_TOKEN",
+  ]);
+  const publication = JSON.parse(
+    await cli(["component", "publish", "lachieh/hello", "--minor", "--request", "tracer-publish"]),
+  );
+  const remoteBytes = await (await fetch(publication.url)).text();
+  const retry = await fetch(publication.url, {
+    method: "PUT",
+    headers: { authorization: "Bearer local-test-token" },
+    body: remoteBytes,
+  });
+  expect(retry.status).toBe(200);
+  expect(
+    (
+      await fetch(publication.url, {
+        method: "PUT",
+        headers: { authorization: "Bearer local-test-token" },
+        body: "conflicting",
+      })
+    ).status,
+  ).toBe(409);
+  await cli(["deps", "pin", "tracer", "Hello", publication.version]);
+  await cli(["export", "tracer", "--to", join(example, "content")]);
+  const released = JSON.parse(
+    await readFile(join(example, "content/tracer/composed.lock.json"), "utf8"),
+  );
+  expect(released.mode).toBe("release");
+  expect(released.blocks.Hello.entry).toBe(publication.url);
+  const beforeOutside = JSON.parse(await cli(["cat", "tracer", "--json"]));
+  await cli(
+    ["apply", "tracer", "--base", beforeOutside.base, "--direct", "--i-am-human"],
+    beforeOutside.text + "\n\nStudio concurrent edit.\n",
+  );
+  await writeFile(join(example, "content/tracer/index.mdx"), source + "\n\nOutside file edit.\n");
+  await cli(["export", "tracer", "--to", join(example, "content")]);
+  const reconciledText = await cli(["cat", "tracer"]);
+  expect(reconciledText).toContain("Studio concurrent edit.");
+  expect(reconciledText).toContain("Outside file edit.");
+  await writeFile(
+    join(evidence, "outside-edit-proof.json"),
+    JSON.stringify({ base: beforeOutside.base, text: reconciledText }, null, 2),
+  );
+  const releaseBuild = launch(
+    join(root, "examples/host-tanstack/node_modules/.bin/rsbuild"),
+    ["build"],
+    example,
+  );
+  await releaseBuild.done.finally(() =>
+    writeFile(join(evidence, "release-build.log"), releaseBuild.output()),
+  );
+  expect(releaseBuild.output()).not.toContain("preview lock renders fallback only");
+  await writeFile(
+    join(evidence, "release-proof.json"),
+    JSON.stringify({ publication, retry: retry.status, conflict: 409, lock: released }, null, 2),
+  );
   const prerender = await readFile(join(example, "dist/client/posts/tracer/index.html"), "utf8");
   await writeFile(join(evidence, "prerender.html"), prerender);
   const serverTrace = await readFile(join(example, "dist/server/module-trace.json"), "utf8");
@@ -241,7 +389,7 @@ try {
     [
       "--input-type=module",
       "-e",
-      `import {createServer} from "node:http"; import {readFile} from "node:fs/promises"; createServer(async (_,res)=>{res.setHeader("content-type","text/html");res.end(await readFile(${JSON.stringify(join(example, "dist/client/posts/tracer/index.html"))}));}).listen(${hostPort},"127.0.0.1");`,
+      `import {createServer} from "node:http"; import {readFile} from "node:fs/promises"; import {join} from "node:path"; createServer(async (req,res)=>{try{let p=req.url.split("?")[0];if(p==="/"||p==="/posts/tracer"||p==="/posts/tracer/")p="/posts/tracer/index.html";res.setHeader("content-type",p.endsWith(".js")?"application/javascript":p.endsWith(".css")?"text/css":"text/html");res.end(await readFile(join(${JSON.stringify(join(example, "dist/client"))},p)));}catch{res.writeHead(404).end();}}).listen(${hostPort},"127.0.0.1");`,
     ],
     example,
   );
@@ -267,7 +415,14 @@ try {
       writeFile(join(evidence, "production-fallback.png.failure.txt"), String(e)),
     );
   await productionContext.close();
+  const releasedPage = await browser.newPage();
+  await releasedPage.goto(`http://127.0.0.1:${hostPort}/posts/tracer`);
+  await expect(releasedPage.locator('[data-state="remote"]')).toBeVisible({ timeout: 30000 });
+  await releasedPage.close();
   await stop(productionServer.child);
+  await stop(cdn.child);
+  await cli(["deps", "pin", "tracer", "Hello", "dev"]);
+  await cli(["preview", "tracer", "--to", join(example, "content")]);
   checks["3"] = true;
   const host = launch(
     join(root, "examples/host-tanstack/node_modules/.bin/rsbuild"),
@@ -314,6 +469,7 @@ try {
       );
   });
   await live.goto(url);
+  await live.waitForLoadState("networkidle");
   await assertInteractiveRemote(live);
   checks["4-interaction"] = true;
   checks["4-identity"] = true;
@@ -394,7 +550,7 @@ try {
   expect(await readFile(join(example, "content/tracer/composed.lock.json"), "utf8")).toBe(
     lockBeforeFailure,
   );
-  await live.reload();
+  await reloadAfterLiveUpdate(live);
   await expect.poll(ownSentinel, { timeout: 10000 }).toBe("OWN\\[DEPENDENCY\\]");
   await writeFile(join(editDirectory, "block.tsx"), checkedBlock);
   await expect
@@ -455,6 +611,8 @@ try {
     .toBe("OWN\\[UPDATED\\]");
   checks["dependency-save-ms"] = performance.now() - dependencyStart;
   expect(checks["dependency-save-ms"]).toBeLessThanOrEqual(2000);
+  await reloadAfterLiveUpdate(live);
+  await live.waitForLoadState("networkidle");
   await assertInteractiveRemote(live);
   const prose = JSON.parse(await cli(["cat", "tracer", "--json"]));
   await cli(

@@ -1,4 +1,7 @@
 import { publish } from "../publish.ts";
+import { importFile } from "../import.ts";
+import { realpath } from "node:fs/promises";
+import { dirname, basename } from "node:path";
 import { checkComponent } from "../component/check.ts";
 import { loadRewriteConfig, rewriteProvider, rewriteCount } from "../rewrite.ts";
 import { select } from "../model/selection.ts";
@@ -56,6 +59,19 @@ export const registry = [
     ["deps", "pin"],
     (a, i) => a.change(i.doc, (d) => pinDependency(d, i.tag, i.version)),
   ),
+  operation(
+    "doc.import",
+    z.object({ doc: z.string(), file: z.string() }),
+    true,
+    ["import"],
+    async (a, i) => {
+      a.claimTarget(await realpath(dirname(i.file)));
+      if (basename(i.file) !== "index.mdx")
+        throw Error("RecoveryRequired: import requires exported index.mdx");
+      return importFile(a, i.doc, dirname(i.file));
+    },
+  ),
+
   operation("component.check", z.object({ id }), false, ["component", "check"], (a, i) =>
     checkComponent(a.store.home, i.id, readFiles(a.get(i.id)).files),
   ),

@@ -1,3 +1,4 @@
+import { targetLease } from "./store/target-lease.ts";
 import { inverse, applyInverse, type Inverse } from "./model/inverse.ts";
 import type { Envelope } from "./store/receipts.ts";
 import { LoroDoc, decodeFrontiers } from "loro-crdt";
@@ -17,10 +18,26 @@ export async function authority(store: Store) {
   let reconciliations: string[] = [];
   let reconciliationResults: Record<string, unknown> = {};
   let poisoned = false;
+  const claimedTargets = new Set<string>();
+  let finalizers: Array<() => void> = [];
   let staged: Envelope["writes"] | undefined;
   let queue = Promise.resolve();
   return {
     store,
+    claimTarget(target: string) {
+      if (!claimedTargets.has(target)) {
+        const release = targetLease(target);
+        this.afterTransaction(() => {
+          claimedTargets.delete(target);
+          release();
+        });
+        claimedTargets.add(target);
+      }
+    },
+    afterTransaction(run: () => void) {
+      if (!staged) throw Error("Export requires transaction");
+      finalizers.push(run);
+    },
     subscribe(listener: (id: string, bytes: Uint8Array) => void) {
       listeners.add(listener);
       return () => {
@@ -74,6 +91,7 @@ export async function authority(store: Store) {
       if (prior) return prior.result;
       const before = new Map(documents);
       staged = [];
+      finalizers = [];
       effects = [];
       reconciliations = [];
       reconciliationResults = {};
@@ -105,6 +123,8 @@ export async function authority(store: Store) {
         throw error;
       } finally {
         staged = undefined;
+        for (const finish of finalizers) finish();
+        finalizers = [];
       }
     },
     async exportPair(

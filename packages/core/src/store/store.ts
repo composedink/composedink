@@ -1,3 +1,4 @@
+import { targetLease } from "./target-lease.ts";
 import { exportPair } from "./intents.ts";
 import { receipts } from "./receipts.ts";
 import { basename } from "node:path";
@@ -92,15 +93,23 @@ export async function openStore(home: string) {
       await checkedWrite(join(path, `${Math.max(0, ...numbers) + 1}.loro`), bytes);
     },
   };
+  let recovering = true;
   const journal = await receipts(home, async (envelope) => {
     for (const write of envelope.writes) {
       const bytes = Buffer.from(write.bytes, "base64");
       if (write.create) await store.create(write.id, bytes);
       else await store.append(write.id, bytes);
     }
-    for (const effect of envelope.effects)
-      await exportPair(home, effect.target, effect.bytes, effect.base, effect.old);
+    for (const effect of envelope.effects) {
+      const release = recovering ? targetLease(effect.target) : undefined;
+      try {
+        await exportPair(home, effect.target, effect.bytes, effect.base, effect.old);
+      } finally {
+        release?.();
+      }
+    }
   });
+  recovering = false;
   return { ...store, journal };
 }
 export type Store = Awaited<ReturnType<typeof openStore>>;

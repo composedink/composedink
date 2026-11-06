@@ -73,7 +73,9 @@ export function remarkComposed(options: { production?: boolean } = {}) {
         const hash = createHash("sha256").update(canonical(props)).digest("hex");
         const instance = block.instances[hash];
         if (!instance)
-          throw new Error(`${file.path}: composed export ${lock.doc}: missing instance ${tag}`);
+          throw new Error(
+            `${file.path}:${object(node.position) && object(node.position.start) ? String(node.position.start.line) : 1}: composed export ${lock.doc}: missing instance ${tag}`,
+          );
         const fallback = fromMarkdown(instance.markdown);
         function clean(n: unknown) {
           if (!object(n)) return;

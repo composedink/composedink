@@ -3,7 +3,7 @@ import { importFile } from "./import.ts";
 import { validateProjection } from "./model/validate.ts";
 import { snippet } from "./model/stash.ts";
 import type { View } from "./model/projection.ts";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { applyDefaults, canonical, jsxProps, object, type ExportLock } from "@composedink/blocks";
 import type { Authority } from "./authority.ts";
@@ -21,7 +21,15 @@ export async function preview(
   view: View = "clean",
   mode: "release" | "preview" = "preview",
 ) {
-  const target = resolve(to,a.read(docId).slug);
+  await mkdir(resolve(to, a.read(docId).slug), { recursive: true });
+  const target = await realpath(resolve(to, a.read(docId).slug));
+  a.claimTarget(target);
+  try {
+    const existing = JSON.parse(await readFile(join(target, "composed.lock.json"), "utf8"));
+    if (existing.doc !== docId) throw Error(`TargetBusy: ${target} belongs to ${existing.doc}`);
+  } catch (e) {
+    if (!(e && typeof e === "object" && "code" in e && e.code === "ENOENT")) throw e;
+  }
   const old: [string | null, string | null] = [
     await fileHash(join(target, "index.mdx")),
     await fileHash(join(target, "composed.lock.json")),

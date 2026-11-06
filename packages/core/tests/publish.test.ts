@@ -1,4 +1,4 @@
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
@@ -56,10 +56,17 @@ it("retries a lost publish response with identical bytes/version and releases on
     );
     await run("deps.pin", { doc: "post", tag: "Hello", version: "0.1.0" });
     await run("export", { doc: "post", view: "clean", to: join(home, "release"), mode: "release" });
+    const path = join(home, "release/post/index.mdx");
     const lock = JSON.parse(await readFile(join(home, "release/post/composed.lock.json"), "utf8"));
     expect(lock.mode).toBe("release");
     expect(lock.blocks.Hello.entry).toContain("/c/test/hello/0.1.0/remoteEntry.js");
     expect(JSON.stringify(lock)).not.toContain("secret");
+    await writeFile(path, 'Outside edit\n\n<Hello name="World" />');
+    const imported = await run("doc.import", { doc: "post", file: path });
+    expect(imported).toMatchObject({ imported: true });
+    expect(await run("doc.import", { doc: "post", file: path })).toEqual(imported);
+    await run("export", { doc: "post", view: "clean", to: join(home, "release"), mode: "release" });
+    expect(a.read("post").text).toContain("Outside edit");
   } finally {
     delete process.env.PLAN09_TOKEN;
     server.closeAllConnections();

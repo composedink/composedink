@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { canonical, parseLock } from "@composedink/blocks";
 import type { Authority } from "./authority.ts";
@@ -8,8 +8,9 @@ import { projection } from "./model/projection.ts";
 import { baseFork } from "./model/selection.ts";
 import { apply } from "./model/apply.ts";
 export async function importFile(a: Authority, docId: string, directory: string) {
-  const target = resolve(directory),
+  const target = await realpath(resolve(directory)),
     path = join(target, "index.mdx");
+
   const [outside, lockBytes] = await Promise.all([
     readFile(path, "utf8"),
     readFile(join(target, "composed.lock.json"), "utf8"),

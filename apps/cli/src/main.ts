@@ -37,6 +37,7 @@ try {
       value.startsWith("composed:") ? value : `composed:${value}`;
     const direct = values.includes("--direct");
     if (
+      operation.name === "doc.import" ||
       direct ||
       (operation.name === "doc.create" && values.includes("--from"))
     )
@@ -56,6 +57,9 @@ try {
         break;
       case "deps.pin":
         input = { doc: positional[0], tag: positional[1], version: values[2] };
+        break;
+      case "doc.import":
+        input = { doc: positional[0], file: option("--file") };
         break;
       case "export":
         input = {

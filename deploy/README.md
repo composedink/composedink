@@ -84,3 +84,37 @@ composed config scope <scope> --server https://composedink-staging.devbox.party 
 ```
 
 Tokens stay in `$COMPOSED_HOME`; documents and locks only carry the public URLs.
+
+## Repeat the end-to-end deployment proofs
+
+From the repo root, with dependencies installed:
+
+```sh
+# Local server (default).
+mise exec -- vp run host-tanstack#e2e
+# Persistent staging server; the token is passed to the temporary authority as COMPOSED_TOKEN.
+COMPOSED_RELEASE_SERVER=https://composedink-staging.devbox.party \
+  COMPOSED_RELEASE_TOKEN=$(cat ~/.config/composed/staging-cdn-token) \
+  mise exec -- vp run host-tanstack#e2e
+# Consume the last release-proof.json, packing the current package versions locally.
+mise exec -- vp run tarball-consumer
+# After npm publication, consume exact registry versions without packing or file overrides.
+COMPOSED_NPM_VERSION=0.1.0 mise exec -- vp run tarball-consumer
+```
+
+Each deployed tracer run uses a fresh `verify-<time>-<uuid>` scope: `--minor` allocates
+from the fresh local authority, so reusing a scope would collide at `0.1.0` on immutable
+storage. The component stays `hello`, the MDX binding stays `Hello`, and no token is written
+to a lock or proof. Scope configuration lives only in the temporary author home.
+
+The tracer writes `test-results/release-proof.json` and, in deployed mode,
+`release-proof-staging.json`, including the URL, version, remote entry SHA-256, scope
+mapping and release lock. It checks retry/conflict, prerendered fallback, real remote
+interaction, React identity and blocked-remote fallback. The consumer writes
+`tarball-consumer-proof.json` with source, exact versions and build success after a
+successful install/build. Registry mode requires all three versions to exist on npm.
+
+Build subprocesses use `tests/deny-network.mjs`: external networking is denied except
+`COMPOSED_ALLOW_HOST` (hostname for any port, or `hostname:port` for one port). Both
+proofs derive that allowance from the release server/lock. Without an explicit allowance,
+`COMPOSED_DENY_PORT` still rejects the local artifact port as before.

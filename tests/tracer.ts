@@ -3,6 +3,7 @@ import { mkdtemp, cp, symlink, mkdir, writeFile, readFile, rm, readdir } from "n
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
+import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { chromium, expect, type Page } from "@playwright/test";
 import { assertInteractiveRemote } from "../examples/host-tanstack/tests/tracer.spec.ts";
@@ -48,10 +49,18 @@ await writeFile(join(evidence, "versions.json"), JSON.stringify(versions, null, 
 const home = await mkdtemp(join(tmpdir(), "composed-tracer-"));
 const example = join(home, "example");
 const children = new Set<ChildProcess>();
+const releaseServer = process.env.COMPOSED_RELEASE_SERVER;
+const releaseToken = process.env.COMPOSED_RELEASE_TOKEN;
+if (Boolean(releaseServer) !== Boolean(releaseToken))
+  throw Error("Set both COMPOSED_RELEASE_SERVER and COMPOSED_RELEASE_TOKEN");
+// --minor uses only this fresh authority's releases, so every run starts at 0.1.0.
+// A unique scope avoids immutable-server collisions while keeping Hello and the MDX unchanged.
+const scope = releaseServer ? `verify-${Date.now()}-${randomUUID()}` : "lachieh";
+const component = `${scope}/hello`;
 const env = {
   ...process.env,
   COMPOSED_HOME: home,
-  COMPOSED_TOKEN: "local-test-token",
+  COMPOSED_TOKEN: releaseToken ?? "local-test-token",
   VP_NODE_VERSION: "22.22.3",
 };
 async function port() {
@@ -147,25 +156,25 @@ try {
   }
   let owner = await studio();
   await cli(["new", "post", "tracer"]);
-  await cli(["component", "create", "lachieh/hello", "--kind", "inline"]);
-  await cli(["deps", "add", "tracer", "Hello", "composed:lachieh/hello@dev"]);
-  const instrumented = JSON.parse(await cli(["component", "read", "lachieh/hello"]));
+  await cli(["component", "create", component, "--kind", "inline"]);
+  await cli(["deps", "add", "tracer", "Hello", `composed:${component}@dev`]);
+  const instrumented = JSON.parse(await cli(["component", "read", component]));
   await cli(
-    ["component", "write", "lachieh/hello", "--base", instrumented.base, "--file", "block.tsx"],
+    ["component", "write", component, "--base", instrumented.base, "--file", "block.tsx"],
     instrumented.files["block.tsx"].replace(
       " const [n,",
       ' if (typeof window !== "undefined") Object.assign(window, {__composedRemoteReactIdentity:React});\n const [n,',
     ) +
       '\nexport const __composedReactIdentity = React;\nif (typeof window !== "undefined") Reflect.set(window, "__composedSentinel", "COMPOSED_HELLO_IMPLEMENTATION_SENTINEL");\n',
   );
-  const ownDependency = JSON.parse(await cli(["component", "read", "lachieh/hello"]));
+  const ownDependency = JSON.parse(await cli(["component", "read", component]));
   await cli(
-    ["component", "write", "lachieh/hello", "--base", ownDependency.base, "--file", "package.json"],
+    ["component", "write", component, "--base", ownDependency.base, "--file", "package.json"],
     JSON.stringify({ type: "module", dependencies: { "escape-string-regexp": "5.0.0" } }),
   );
-  const ownBlock = JSON.parse(await cli(["component", "read", "lachieh/hello"]));
+  const ownBlock = JSON.parse(await cli(["component", "read", component]));
   await cli(
-    ["component", "write", "lachieh/hello", "--base", ownBlock.base, "--file", "block.tsx"],
+    ["component", "write", component, "--base", ownBlock.base, "--file", "block.tsx"],
     'import escape from "escape-string-regexp";\n' +
       ownBlock.files["block.tsx"] +
       '\nif(typeof window!=="undefined") Reflect.set(window,"__ownDependency",escape("OWN[DEPENDENCY]"));\n',
@@ -226,25 +235,29 @@ try {
   await writeFile(join(evidence, "exported.lock.json"), JSON.stringify(lock, null, 2));
   await writeFile(join(evidence, "durable-read.txt"), await cli(["cat", "tracer"]));
   const releasePort = await port();
+  const serverUrl = releaseServer ?? `http://127.0.0.1:${releasePort}`;
   Object.assign(env, {
-    COMPOSED_TOKEN: "local-test-token",
     COMPOSED_STORAGE: join(home, "cdn"),
     PORT: String(releasePort),
     COMPOSED_DENY_PORT: String(releasePort),
+    COMPOSED_ALLOW_HOST: releaseServer ? new URL(releaseServer).host : "",
   });
-  const cdn = launch(process.execPath, [
-    "--experimental-strip-types",
-    join(root, "apps/server/src/main.ts"),
-  ]);
-  await expect
-    .poll(async () => {
-      try {
-        return (await fetch(`http://127.0.0.1:${releasePort}/`)).status;
-      } catch {
-        return 0;
-      }
-    })
-    .toBe(400);
+  const cdn = releaseServer
+    ? undefined
+    : launch(process.execPath, [
+        "--experimental-strip-types",
+        join(root, "apps/server/src/main.ts"),
+      ]);
+  if (cdn)
+    await expect
+      .poll(async () => {
+        try {
+          return (await fetch(`${serverUrl}/`)).status;
+        } catch {
+          return 0;
+        }
+      })
+      .toBe(400);
   const sidecarPath = join(example, "content/tracer/composed.lock.json");
   const sidecarBytes = await readFile(sidecarPath, "utf8");
   await rm(sidecarPath);
@@ -295,22 +308,14 @@ try {
   await previewPage.close();
   await stop(previewServer.child);
 
-  await cli([
-    "config",
-    "scope",
-    "lachieh",
-    "--server",
-    `http://127.0.0.1:${releasePort}`,
-    "--token-ref",
-    "COMPOSED_TOKEN",
-  ]);
+  await cli(["config", "scope", scope, "--server", serverUrl, "--token-ref", "COMPOSED_TOKEN"]);
   const publication = JSON.parse(
-    await cli(["component", "publish", "lachieh/hello", "--minor", "--request", "tracer-publish"]),
+    await cli(["component", "publish", component, "--minor", "--request", "tracer-publish"]),
   );
   const remoteBytes = await (await fetch(publication.url)).text();
   const retry = await fetch(publication.url, {
     method: "PUT",
-    headers: { authorization: "Bearer local-test-token" },
+    headers: { authorization: `Bearer ${env.COMPOSED_TOKEN}` },
     body: remoteBytes,
   });
   expect(retry.status).toBe(200);
@@ -318,7 +323,7 @@ try {
     (
       await fetch(publication.url, {
         method: "PUT",
-        headers: { authorization: "Bearer local-test-token" },
+        headers: { authorization: `Bearer ${env.COMPOSED_TOKEN}` },
         body: "conflicting",
       })
     ).status,
@@ -353,10 +358,6 @@ try {
     writeFile(join(evidence, "release-build.log"), releaseBuild.output()),
   );
   expect(releaseBuild.output()).not.toContain("preview lock renders fallback only");
-  await writeFile(
-    join(evidence, "release-proof.json"),
-    JSON.stringify({ publication, retry: retry.status, conflict: 409, lock: released }, null, 2),
-  );
   const prerender = await readFile(join(example, "dist/client/posts/tracer/index.html"), "utf8");
   await writeFile(join(evidence, "prerender.html"), prerender);
   const serverTrace = await readFile(join(example, "dist/server/module-trace.json"), "utf8");
@@ -406,7 +407,7 @@ try {
     .toBe(200);
   await productionPage.goto(`http://127.0.0.1:${hostPort}/posts/tracer`);
   await expect(
-    productionPage.locator('span[data-composed="composed:lachieh/hello"][data-state="fallback"]'),
+    productionPage.locator(`span[data-composed="composed:${component}"][data-state="fallback"]`),
   ).toHaveText("Hello, Lachlan.");
   await expect(productionPage.locator("[data-composed] strong")).toHaveText("Lachlan");
   await productionPage
@@ -418,9 +419,35 @@ try {
   const releasedPage = await browser.newPage();
   await releasedPage.goto(`http://127.0.0.1:${hostPort}/posts/tracer`);
   await expect(releasedPage.locator('[data-state="remote"]')).toBeVisible({ timeout: 30000 });
+  await assertInteractiveRemote(releasedPage);
   await releasedPage.close();
+  const blockedRelease = await browser.newPage();
+  await blockedRelease.route("**/remoteEntry.js", (route) => route.abort());
+  await blockedRelease.goto(`http://127.0.0.1:${hostPort}/posts/tracer`);
+  await expect(blockedRelease.locator('[data-state="failed"]')).toHaveText("Hello, Lachlan.", {
+    timeout: 30000,
+  });
+  await blockedRelease.close();
+  const releaseProof = JSON.stringify(
+    {
+      publication,
+      sha256: createHash("sha256").update(remoteBytes).digest("hex"),
+      retry: retry.status,
+      conflict: 409,
+      lock: released,
+      scope: { name: scope, server: serverUrl, tokenRef: "COMPOSED_TOKEN" },
+      fallback: true,
+      interactiveRemote: true,
+      reactIdentity: true,
+      blockedRemote: true,
+    },
+    null,
+    2,
+  );
+  await writeFile(join(evidence, "release-proof.json"), releaseProof);
+  if (releaseServer) await writeFile(join(evidence, "release-proof-staging.json"), releaseProof);
   await stop(productionServer.child);
-  await stop(cdn.child);
+  if (cdn) await stop(cdn.child);
   await cli(["deps", "pin", "tracer", "Hello", "dev"]);
   await cli(["preview", "tracer", "--to", join(example, "content")]);
   checks["3"] = true;
@@ -532,7 +559,7 @@ try {
     join(root, "apps/cli/src/main.ts"),
     "component",
     "edit",
-    "lachieh/hello",
+    component,
     editDirectory,
   ]);
   await expect.poll(() => edit.output(), { timeout: 10000 }).toContain('"editing"');
@@ -554,10 +581,9 @@ try {
   await expect.poll(ownSentinel, { timeout: 10000 }).toBe("OWN\\[DEPENDENCY\\]");
   await writeFile(join(editDirectory, "block.tsx"), checkedBlock);
   await expect
-    .poll(
-      async () => JSON.parse(await cli(["component", "read", "lachieh/hello"])).files["block.tsx"],
-      { timeout: 10000 },
-    )
+    .poll(async () => JSON.parse(await cli(["component", "read", component])).files["block.tsx"], {
+      timeout: 10000,
+    })
     .toBe(checkedBlock);
   const start = performance.now();
   await writeFile(

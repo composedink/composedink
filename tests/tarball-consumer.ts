@@ -22,12 +22,22 @@ async function run(args: string[], cwd: string) {
     );
   });
 }
+const registryVersion = process.env.COMPOSED_NPM_VERSION;
+const source = registryVersion ? "registry" : "tarballs";
+const versions: Record<string, string> = {};
 const archives: Record<string, string> = {};
 for (const name of ["blocks", "host-runtime", "host-tanstack"]) {
   const cwd = join(root, "packages", name);
-  await run(["vp", "pack"], cwd);
-  await run(["pnpm", "pack", "--pack-destination", evidence], cwd);
-  archives[`@composedink/${name}`] = `file:${join(evidence, `composedink-${name}-0.0.0.tgz`)}`;
+  const version =
+    registryVersion ?? JSON.parse(await readFile(join(cwd, "package.json"), "utf8")).version;
+  versions[`@composedink/${name}`] = version;
+  if (!registryVersion) {
+    await run(["vp", "pack"], cwd);
+    await run(["pnpm", "pack", "--pack-destination", evidence], cwd);
+  }
+  archives[`@composedink/${name}`] = registryVersion
+    ? version
+    : `file:${join(evidence, `composedink-${name}-${version}.tgz`)}`;
 }
 const example = join(root, "examples/host-tanstack");
 await cp(example, fixture, {
@@ -44,12 +54,16 @@ for (const section of ["dependencies", "devDependencies"])
       ).version;
   }
 pkg.dependencies = { ...pkg.dependencies, ...archives };
-pkg.pnpm = { overrides: { ...archives, vite: "npm:@voidzero-dev/vite-plus-core@1.5.0" } };
+const overrides = {
+  ...(registryVersion ? {} : archives),
+  vite: "npm:@voidzero-dev/vite-plus-core@1.5.0",
+};
+delete pkg.pnpm;
 await writeFile(join(fixture, "package.json"), JSON.stringify(pkg, null, 2));
 await writeFile(
   join(fixture, "pnpm-workspace.yaml"),
   "packages: []\noverrides:\n" +
-    Object.entries({ ...archives, vite: "npm:@voidzero-dev/vite-plus-core@1.5.0" })
+    Object.entries(overrides)
       .map(([key, value]) => `  ${JSON.stringify(key)}: ${JSON.stringify(value)}`)
       .join("\n") +
     "\n",
@@ -64,15 +78,27 @@ await mkdir(join(fixture, "content/tracer"), { recursive: true });
 const proof = JSON.parse(await readFile(join(evidence, "release-proof.json"), "utf8"));
 await writeFile(join(fixture, "content/tracer/composed.lock.json"), JSON.stringify(proof.lock));
 await cp(join(evidence, "exported.mdx"), join(fixture, "content/tracer/index.mdx"));
-await run(["pnpm", "install", "--ignore-scripts"], fixture);
+await run(
+  [
+    "pnpm",
+    "install",
+    "--ignore-scripts",
+    ...(registryVersion ? ["--registry=https://registry.npmjs.org"] : []),
+  ],
+  fixture,
+);
 for (const name of Object.keys(archives)) {
   const path = await realpath(join(fixture, "node_modules", name));
   assert(path.startsWith(fixture + "/"));
+  if (registryVersion)
+    assert(path.includes(`/node_modules/.pnpm/${name.replace("/", "+")}@${registryVersion}`));
   const installed = JSON.parse(await readFile(join(path, "package.json"), "utf8"));
+  assert.equal(installed.version, versions[name]);
   assert(!JSON.stringify(installed.exports).includes("/src/"));
   assert(!JSON.stringify(installed).includes("workspace:"));
 }
 process.env.COMPOSED_DENY_PORT = new URL(proof.publication.url).port;
+process.env.COMPOSED_ALLOW_HOST = new URL(proof.publication.url).host;
 await run(["node", "node_modules/@rsbuild/core/bin/rsbuild.js", "build"], fixture);
 assert(
   (await readFile(join(fixture, "dist/client/posts/tracer/index.html"), "utf8")).includes(
@@ -81,5 +107,5 @@ assert(
 );
 await writeFile(
   join(evidence, "tarball-consumer-proof.json"),
-  JSON.stringify({ archives, workspaceLinks: false, build: true }, null, 2),
+  JSON.stringify({ source, versions, archives, workspaceLinks: false, build: true }, null, 2),
 );

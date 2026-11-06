@@ -6,3 +6,5 @@ dist/
 *.log
 test-results/
 playwright-report/
+apps/desktop/src-tauri/runtime/
+apps/desktop/src-tauri/target/

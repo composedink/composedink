@@ -10,9 +10,13 @@
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "catalog:",
+    "@types/ws": "catalog:",
+    "postject": "1.0.0-alpha.6",
     "typescript": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "ws": "catalog:"
   },
   "packageManager": "pnpm@12.16.1"
 }

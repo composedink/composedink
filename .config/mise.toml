@@ -1,5 +1,6 @@
 [tools]
 node = "22.22.3"
+rust = "1.91.1"
 pnpm = "11"
 "npm:vite-plus" = "latest"
 

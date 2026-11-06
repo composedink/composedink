@@ -42,6 +42,23 @@ export async function studio(home: string) {
         },
       });
   const server = createServer(async (req, res) => {
+    if (
+      req.headers.host !== new URL(origin).host ||
+      (req.headers.origin && req.headers.origin !== origin) ||
+      req.headers["sec-fetch-site"] === "cross-site"
+    ) {
+      res.writeHead(403).end();
+      return;
+    }
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    if (packaged)
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' ws://127.0.0.1:" +
+          port +
+          "; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      );
     if (req.url === "/session") {
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ token, origin }));
@@ -108,7 +125,15 @@ export async function studio(home: string) {
     }
     sockets.handleUpgrade(req, socket, head, (ws) => sockets.emit("connection", ws, req));
   });
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
   sockets.on("connection", (socket) => {
+    clearTimeout(idleTimer);
+    socket.once("close", () => {
+      if (process.env.COMPOSED_DESKTOP_OWNER === "1" && sockets.clients.size === 0)
+        idleTimer = setTimeout(() => {
+          if (sockets.clients.size === 0) void close();
+        }, 2000);
+    });
     let session = randomBytes(16).toString("hex");
     let unsubscribe: (() => void) | undefined;
     socket.on("close", () => unsubscribe?.());
@@ -223,7 +248,12 @@ export async function studio(home: string) {
   ]);
   await ownership.ready();
   console.log(JSON.stringify({ ready: true, origin, artifactPort }));
+  let closing = false;
   const close = async () => {
+    if (closing) return;
+    closing = true;
+    clearTimeout(idleTimer);
+    await a.serialize(async () => {});
     unsubscribePreviews();
     sockets.close();
     for (const socket of sockets.clients) socket.terminate();

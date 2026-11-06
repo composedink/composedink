@@ -10,8 +10,8 @@
 
 ### Task 1 — Prove sidecar packaging before shell expansion
 
-- [ ] Spike Node SEA carrying CLI, Rolldown native binding and Loro WASM on a clean macOS launch environment without mise/global Node. Record architecture, bundled resources and launch logs. If SEA cannot load native/WASM assets reliably, bundle an architecture-matched Node binary plus JS/resource directory; do not pretend a development Node path is a distributable runtime.
-- [ ] Sidecar uses the same `$COMPOSED_HOME`, election lock and socket. Starting desktop while studio is active connects to it; starting against an inline CLI waits at most one short command, then uses studio service (headless auto-start if absent). Test authority exit while desktop is open, stale lock and explicit recovery, without spawning a second writer.
+- [x] Spike Node SEA carrying CLI, Rolldown native binding and Loro WASM on a clean macOS launch environment without mise/global Node. Record architecture, bundled resources and launch logs. If SEA cannot load native/WASM assets reliably, bundle an architecture-matched Node binary plus JS/resource directory; do not pretend a development Node path is a distributable runtime.
+- [x] Sidecar uses the same `$COMPOSED_HOME`, election lock and socket. Starting desktop while studio is active connects to it; starting against an inline CLI waits at most one short command, then uses studio service (headless auto-start if absent). Test authority exit while desktop is open, stale lock and explicit recovery, without spawning a second writer.
 
 ### Task 2 — Mount the existing studio safely
 
@@ -25,3 +25,34 @@
 **Out of scope:** Windows/Linux polish, App Store, mobile/Expo decision, sync/accounts, code signing infrastructure, untrusted-component sandbox, native model inference.
 
 **Common completion gate:** `mise exec -- vp check --fix` and `mise exec -- vp run -r test`. Tests import from `vite-plus/test`; use package `vite.config.ts`, never `vitest.config.ts`. Add any named script in this plan before invoking it. Repeat formatting until stable, stage only this unit’s files, commit the completed task, and update this index’s status. Commands are planned implementation gates, not results from this documentation task.
+
+## Implementation log
+
+2026-11-06 — R8 first, before shell implementation. Node 22.22.3, macOS
+arm64. Real ad-hoc signed SEA with embedded Rspack native addon, Loro WASM,
+Harper binaryInlined module (27,200,854 bytes), and CLI entry source runs with
+PATH=/usr/bin:/bin. Extraction + process.dlopen loads 63 Rspack exports;
+WebAssembly.validate accepts Loro. CLI source evaluation fails on ESM imports;
+Rolldown's actual CLI → CJS bundle fails with INVALID_TLA_FORMAT (top-level await).
+This does not claim native addons are impossible in SEA: they loaded. The current
+ESM/worker/resource graph requires filesystem modules or substantial SEA-specific
+rewriting. Choose the plan's fallback: architecture-matched mise Node binary plus
+JS/resource tree, preserving package resolution and worker URLs. Evidence:
+test-results/plan-11-sea.log and plan-11-sea/{sea.json,bundle-result.txt,composed-sea}.
+The SEA is 176 MiB before adding the full CLI dependency graph.
+
+Component builds will use a bundled mise pnpm binary and bundled Node on a private
+PATH. Preserve the catalog and blocks source package in their workspace-relative
+layout: existing materialization can link blocks and install each component's exact
+lock into COMPOSED_HOME/build. Registry network is still needed for uncached author
+npm dependencies. No development Node or pnpm is part of the runtime contract.
+
+Task 1 verified: plan-11-lifecycle.log proves inline-owner wait, stale metadata,
+two desktop attachments/one SQLite owner, terminal connection retention, idle
+shutdown, SIGKILL/re-election and preservation of an external studio. Runtime
+new/check/lint/preview logs prove Loro persistence, Harper worker and a real
+Rspack remote/fallback export with PATH=/usr/bin:/bin. mise Node is selected via
+mise where (vp's process.execPath is a dylib-dependent runtime); pnpm needs its
+adjacent dist folder, so copy the complete mise installation. Common check passes
+156 files with no warnings/errors; plan-11-task1-tests.log: 9/9 successful.
+No contract contradiction. Task 2 native-window/package verification follows.

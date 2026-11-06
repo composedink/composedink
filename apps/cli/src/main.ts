@@ -1,3 +1,4 @@
+import { desktop } from "./desktop.ts";
 import { configureScope } from "@composedink/core/node";
 import { componentEdit } from "./component-edit.ts";
 import { humanDirect } from "@composedink/core/node";
@@ -8,7 +9,8 @@ import { call, composedHome } from "./client.ts";
 import { studio } from "./studio.ts";
 const args = process.argv.slice(2);
 try {
-  if (args[0] === "config" && args[1] === "scope") {
+  if (args[0] === "desktop") await desktop(composedHome());
+  else if (args[0] === "config" && args[1] === "scope") {
     await configureScope(
       composedHome(),
       args[2],

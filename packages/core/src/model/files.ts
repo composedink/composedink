@@ -32,7 +32,13 @@ export function readFiles(doc: LoroDoc) {
   return { base: head(doc), files };
 }
 export function writeFiles(doc: LoroDoc, base: string, files: Record<string, string>) {
-  const fork = doc.forkAt(decodeFrontiers(Buffer.from(base, "base64url")));
+  let fork: LoroDoc;
+  try {
+    const frontiers = decodeFrontiers(Buffer.from(base, "base64url"));
+    fork = doc.forkAt(frontiers);
+  } catch {
+    throw Error("UnknownBase: retained component history does not contain this base");
+  }
   const from = fork.version();
   const map = fork.getMap(KEYS.files);
   for (const [path, text] of Object.entries(files)) {

@@ -10,6 +10,7 @@ export async function authority(store: Store) {
     for (const b of bytes) doc.import(b);
     documents.set(id, doc);
   }
+  const listeners = new Set<(id: string, bytes: Uint8Array) => void>();
   let effects: Envelope["effects"] = [];
   let reconciliations: string[] = [];
   let poisoned = false;
@@ -17,6 +18,12 @@ export async function authority(store: Store) {
   let queue = Promise.resolve();
   return {
     store,
+    subscribe(listener: (id: string, bytes: Uint8Array) => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
     documents,
     get(id: string) {
       const doc = documents.get(id);
@@ -47,6 +54,11 @@ export async function authority(store: Store) {
           writes: staged,
           applied: false,
         });
+        for (const [id, doc] of documents) {
+          if (!listeners.size || doc === before.get(id)) continue;
+          const bytes = doc.export({ mode: "update", from: before.get(id)?.version() });
+          for (const listener of listeners) listener(id, bytes);
+        }
         return result;
       } catch (error) {
         if (committing) poisoned = true;

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vp test run",
-    "build": "vp build"
+    "build": "vp build",
+    "e2e": "mise exec -- node --experimental-strip-types tests/editor.spec.ts"
   },
   "dependencies": {
     "@codemirror/commands": "catalog:",

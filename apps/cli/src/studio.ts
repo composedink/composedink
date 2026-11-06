@@ -27,7 +27,11 @@ export async function studio(home: string) {
         root: webRoot,
         appType: "custom",
         optimizeDeps: { exclude: ["loro-crdt", "loro-codemirror"] },
-        server: { middlewareMode: true, fs: { allow: [resolve(webRoot, "../.."), home] } },
+        server: {
+          hmr: false,
+          middlewareMode: true,
+          fs: { allow: [resolve(webRoot, "../.."), home] },
+        },
       });
   const server = createServer(async (req, res) => {
     if (req.url === "/session") {
@@ -81,10 +85,13 @@ export async function studio(home: string) {
     }
     sockets.handleUpgrade(req, socket, head, (ws) => sockets.emit("connection", ws, req));
   });
-  sockets.on("connection", (socket) =>
+  sockets.on("connection", (socket) => {
+    let unsubscribe: (() => void) | undefined;
+    socket.on("close", () => unsubscribe?.());
+    let frames = Promise.resolve();
     socket.on("message", (raw) => {
-      void a
-        .serialize(async () => {
+      frames = frames
+        .then(async () => {
           const frame = JSON.parse(
             (Array.isArray(raw)
               ? Buffer.concat(raw)
@@ -93,41 +100,42 @@ export async function studio(home: string) {
           );
           try {
             if (frame.subscribe) {
-              socket.send(
-                JSON.stringify({
-                  doc: frame.subscribe,
-                  snapshot: Buffer.from(
-                    a.get(frame.subscribe).export({ mode: "snapshot" }),
-                  ).toString("base64"),
-                }),
+              unsubscribe?.();
+              unsubscribe = a.subscribe((doc, bytes) => {
+                if (doc === frame.subscribe && socket.readyState === WebSocket.OPEN)
+                  socket.send(
+                    JSON.stringify({ doc, bytes: Buffer.from(bytes).toString("base64") }),
+                  );
+              });
+              await a.serialize(async () => {
+                const doc = a.get(frame.subscribe);
+                socket.send(
+                  JSON.stringify({
+                    doc: frame.subscribe,
+                    snapshot: Buffer.from(doc.export({ mode: "snapshot" })).toString("base64"),
+                    head: a.read(frame.subscribe).base,
+                  }),
+                );
+              });
+            } else if (frame.bytes) {
+              const result = await a.serialize(() =>
+                a.typing(frame.doc, Buffer.from(frame.bytes, "base64")),
               );
-              return;
-            }
-            if (frame.bytes) {
-              const bytes = Buffer.from(frame.bytes, "base64");
-              const result = await a.typing(frame.doc, bytes);
-              const update = JSON.stringify({ doc: frame.doc, bytes: frame.bytes });
-              for (const peer of sockets.clients)
-                if (peer !== socket && peer.readyState === WebSocket.OPEN) peer.send(update);
               socket.send(JSON.stringify({ doc: frame.doc, seq: frame.seq, ...result }));
-              return;
+            } else {
+              const result = await run(frame.name, frame.input);
+              socket.send(JSON.stringify({ request: frame.request, result }));
             }
           } catch (error) {
             socket.send(JSON.stringify({ request: frame.request, error: String(error) }));
-            return;
           }
-          // Operations use the same queue; execute after releasing this frame's slot.
-          queueMicrotask(() => {
-            void run(frame.name, frame.input).then(
-              (result) => socket.send(JSON.stringify({ request: frame.request, result })),
-              (error) =>
-                socket.send(JSON.stringify({ request: frame.request, error: String(error) })),
-            );
-          });
         })
-        .catch((error) => socket.send(JSON.stringify({ error: String(error) })));
-    }),
-  );
+        .catch((error) => {
+          if (socket.readyState === WebSocket.OPEN)
+            socket.send(JSON.stringify({ error: String(error) }));
+        });
+    });
+  });
   const artifacts = createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     try {

@@ -34,6 +34,16 @@ it("keeps CodeMirror equal to mdx after both mixed-container imports (R2)", asyn
       const fixture = await import("/tests/binding-fixture.ts");
       return [await fixture.runSpike("map"), await fixture.runSpike("text")];
     })()`);
+    const editing = await page.evaluate(`(async () => {
+      const fixture = await import("/tests/binding-fixture.ts");
+      return fixture.runEditing();
+    })()`);
+    expect(editing).toMatchObject({
+      selected: "**bold**",
+      beforeUndo: "😀 **bold** 日本語 remote",
+      afterUndo: " remote",
+      loro: " remote",
+    });
     const artifacts = resolve(import.meta.dirname, "../../../test-results");
     await mkdir(artifacts, { recursive: true });
     await writeFile(resolve(artifacts, "r2.json"), JSON.stringify(results, null, 2));

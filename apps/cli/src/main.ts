@@ -67,6 +67,19 @@ try {
         };
         break;
       }
+      case "alt.rewrite":
+        input = {
+          doc: positional[0],
+          at: {
+            base: option("--base"),
+            quote: option("--quote"),
+            view: values.includes("--view") ? option("--view") : "full",
+            ...(values.includes("--nth") ? { nth: Number(option("--nth")) } : {}),
+          },
+          ...(values.includes("--instruction") ? { instruction: option("--instruction") } : {}),
+          ...(values.includes("--count") ? { count: Number(option("--count")) } : {}),
+        };
+        break;
       case "alt.propose":
         input = {
           doc: positional[0],

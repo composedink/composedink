@@ -96,6 +96,13 @@ export async function studio(home: string) {
     let session = randomBytes(16).toString("hex");
     let unsubscribe: (() => void) | undefined;
     socket.on("close", () => unsubscribe?.());
+    const rewrites = new Map<number, AbortController>();
+    socket.on("close", () => {
+      for (const controller of rewrites.values()) controller.abort();
+    });
+    const send = (frame: unknown) => {
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
+    };
     let frames = Promise.resolve();
     socket.on("message", (raw) => {
       frames = frames
@@ -107,7 +114,23 @@ export async function studio(home: string) {
             ).toString(),
           );
           try {
-            if (frame.subscribe) {
+            if (typeof frame.cancel === "number") {
+              rewrites.get(frame.cancel)?.abort();
+            } else if (frame.name === "alt.rewrite") {
+              const controller = new AbortController();
+              rewrites.set(frame.request, controller);
+              void run(
+                frame.name,
+                frame.input,
+                frame.human ? session : undefined,
+                controller.signal,
+              )
+                .then(
+                  (result) => send({ request: frame.request, result }),
+                  (error) => send({ request: frame.request, error: String(error) }),
+                )
+                .finally(() => rewrites.delete(frame.request));
+            } else if (frame.subscribe) {
               if (typeof frame.session === "string" && /^[0-9a-f-]{36}$/.test(frame.session))
                 session = frame.session;
               unsubscribe?.();

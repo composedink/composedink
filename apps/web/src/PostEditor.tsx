@@ -1,3 +1,4 @@
+import { rewriteKeys, rewriteSelection } from "./editor/rewrite";
 import { lintFeedback, lintBase } from "./editor/lint";
 import type { Diagnostic, LintSnapshot } from "@composedink/lint";
 import { parseSchema } from "@composedink/blocks";
@@ -16,6 +17,8 @@ type Inspection = {
   diagnostic: string;
 };
 export function PostEditor({ panels }: { panels?: ReactNode }) {
+  const [rewriting, setRewriting] = useState(false);
+  const rewriteAbort = useRef<AbortController | null>(null);
   const parent = useRef<HTMLDivElement>(null);
   const editorView = useRef<EditorView | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
@@ -50,6 +53,27 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
       if (!view && parent.current)
         view = sourceEditor(parent.current, doc, [
           lint.extension,
+          rewriteKeys((v) => {
+            if (rewriteAbort.current) return;
+            const controller = new AbortController();
+            rewriteAbort.current = controller;
+            setRewriting(true);
+            setError("");
+            const at = rewriteSelection(v, doc);
+            void connection
+              .operation(
+                "alt.rewrite",
+                { doc: id, at, count: 3, request: crypto.randomUUID() },
+                controller.signal,
+              )
+              .catch((e) => {
+                if (!controller.signal.aborted) setError(String(e));
+              })
+              .finally(() => {
+                rewriteAbort.current = null;
+                setRewriting(false);
+              });
+          }),
           dimControls(doc, (v) => {
             void captureSelection(v, connection)
               .then((at) =>
@@ -176,6 +200,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     transport.current = connection;
     return () => {
       clearTimeout(timer);
+      rewriteAbort.current?.abort();
       connection.destroy();
       lint.destroy();
       view?.destroy();
@@ -213,6 +238,12 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
           Undo operation
         </button>
       </header>
+      {rewriting && (
+        <p>
+          Rewriting selection…{" "}
+          <button onClick={() => rewriteAbort.current?.abort()}>Cancel rewrite</button>
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
       <div className="split">
         <section aria-label="Source">

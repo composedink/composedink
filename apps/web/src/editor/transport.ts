@@ -93,12 +93,26 @@ export class EditorTransport {
     if (this.ready && !this.pending.size) return;
     await new Promise<void>((resolve) => this.waiters.push(resolve));
   }
-  async operation(name: string, input: unknown) {
+  async operation(name: string, input: unknown, signal?: AbortSignal) {
     await this.flush();
     const request = ++this.request;
     return new Promise<unknown>((resolve, reject) => {
-      this.calls.set(request, { resolve, reject });
+      const cancel = () => {
+        if (this.ready) this.socket?.send(JSON.stringify({ cancel: request }));
+      };
+      this.calls.set(request, {
+        resolve: (value) => {
+          signal?.removeEventListener("abort", cancel);
+          resolve(value);
+        },
+        reject: (error) => {
+          signal?.removeEventListener("abort", cancel);
+          reject(error);
+        },
+      });
       this.socket!.send(JSON.stringify({ request, name, input, human: true }));
+      signal?.addEventListener("abort", cancel, { once: true });
+      if (signal?.aborted) cancel();
     });
   }
   async undoOperation() {

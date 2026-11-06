@@ -1,3 +1,4 @@
+import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternatives";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EditorView } from "@codemirror/view";
 import { LoroDoc } from "loro-crdt";
@@ -12,6 +13,8 @@ type Inspection = {
 export function PostEditor({ panels }: { panels?: ReactNode }) {
   const parent = useRef<HTMLDivElement>(null);
   const transport = useRef<EditorTransport | null>(null);
+  const [alts, setAlts] = useState<Alt[]>([]);
+  const liveAlts = useRef<Alt[]>([]);
   const [status, setStatus] = useState("Connecting");
   const [context, setContext] = useState("No selection");
   const [inspection, setInspection] = useState<Inspection>();
@@ -26,6 +29,20 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     const connection = new EditorTransport(doc, id, setStatus, () => {
       if (!view && parent.current)
         view = sourceEditor(parent.current, doc, [
+          alternativeGutter(() => liveAlts.current),
+          alternativeKeys(
+            () => liveAlts.current,
+            (alt, action) => {
+              void connection
+                .operation(
+                  action === "keep" ? "alt.resolve" : "alt.flip",
+                  action === "keep"
+                    ? { doc: id, alt, rest: "stash" }
+                    : { doc: id, alt, to: action },
+                )
+                .catch((e) => setError(String(e)));
+            },
+          ),
           EditorView.updateListener.of((update) => {
             const { from, to } = update.state.selection.main;
             setContext(
@@ -50,6 +67,21 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               typeof result.diagnostic !== "string"
             )
               return;
+            if ("alts" in result && Array.isArray(result.alts)) {
+              const valid = result.alts.filter(
+                (a): a is Alt =>
+                  !!a &&
+                  typeof a === "object" &&
+                  typeof a.id === "string" &&
+                  typeof a.from === "number" &&
+                  typeof a.to === "number" &&
+                  typeof a.active === "number" &&
+                  typeof a.count === "number",
+              );
+              liveAlts.current = valid;
+              setAlts(valid);
+              view?.dispatch({});
+            }
             const blocks: Inspection["blocks"] = [];
             for (const block of result.blocks) {
               if (
@@ -131,6 +163,31 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               </a>
             </p>
           )}
+          <h3>Alternatives</h3>
+          {alts.map((alt) => (
+            <article className="alternative" key={alt.id}>
+              <span>
+                ● Alternative {alt.active + 1}/{alt.count}
+              </span>
+              {(["prev", "next", "keep"] as const).map((action) => (
+                <button
+                  key={action}
+                  onClick={() =>
+                    void transport.current
+                      ?.operation(
+                        action === "keep" ? "alt.resolve" : "alt.flip",
+                        action === "keep"
+                          ? { doc: id, alt: alt.id, rest: "stash" }
+                          : { doc: id, alt: alt.id, to: action },
+                      )
+                      .catch((e) => setError(String(e)))
+                  }
+                >
+                  {action === "keep" ? "Keep" : action === "prev" ? "↑" : "↓"}
+                </button>
+              ))}
+            </article>
+          ))}
           <h3>Block usages</h3>
           {inspection?.blocks.map((block, i) => (
             <article className="chip" key={i}>

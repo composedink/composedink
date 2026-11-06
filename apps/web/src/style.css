@@ -80,3 +80,11 @@ button {
     flex-wrap: wrap;
   }
 }
+
+.alternative {
+  border-left: 3px solid #8872d5;
+  padding: 0.5rem;
+}
+.alternative button {
+  margin-left: 0.5rem;
+}

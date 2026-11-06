@@ -1,3 +1,6 @@
+import { propose, flip, resolve } from "../model/alternatives.ts";
+import { stashList } from "../model/stash.ts";
+import { authorSchema, selectionSchema } from "../model/selection.ts";
 import { inspect } from "../inspect.ts";
 import { payloadHash } from "../store/receipts.ts";
 import { preview, refreshPreviews } from "../export.ts";
@@ -28,6 +31,39 @@ function operation<S extends z.ZodType>(
   };
 }
 export const registry = [
+  operation(
+    "alt.propose",
+    z.object({
+      doc: z.string(),
+      at: selectionSchema,
+      versions: z.array(z.string()).min(1),
+      by: authorSchema,
+    }),
+    true,
+    ["alt", "propose"],
+    (a, i) => a.change(i.doc, (d) => propose(d, i.at, i.versions, i.by)),
+  ),
+  operation(
+    "alt.flip",
+    z.object({
+      doc: z.string(),
+      alt: z.string(),
+      to: z.union([z.number().int().nonnegative(), z.enum(["next", "prev"])]),
+    }),
+    true,
+    ["alt", "flip"],
+    (a, i) => a.change(i.doc, (d) => flip(d, i.alt, i.to)),
+  ),
+  operation(
+    "alt.resolve",
+    z.object({ doc: z.string(), alt: z.string(), rest: z.literal("stash") }),
+    true,
+    ["alt", "resolve"],
+    (a, i) => a.change(i.doc, (d) => resolve(d, i.alt)),
+  ),
+  operation("stash.list", z.object({ doc: z.string() }), false, ["stash", "list"], (a, i) =>
+    stashList(a.get(i.doc)),
+  ),
   operation("export", z.object({ doc: z.string(), to: z.string() }), true, ["preview"], (a, i) =>
     preview(a, i.doc, i.to),
   ),

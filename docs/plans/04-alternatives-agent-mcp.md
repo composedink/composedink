@@ -10,8 +10,8 @@
 
 ### Task 1 — Test model semantics first
 
-- [ ] Write failing tests for flips, exactly one missing-text slot, empty inactive string, non-overlap absorption, edge inserts and cross-boundary typing dissolution. Loro mutations run only in core/src/model/ (+ web binding); ops call model; browser types only. Inactive versions preserve dim spans even though dim UI arrives later. Normalization must deterministically stash recoverable snippets when repairing malformed alternatives, never silently discard them.
-- [ ] Implement `alt.propose/flip/resolve(rest:stash)`, `stash.list`, and session inverse ops. Derive active index. Flip changes live text and two slots in one commit. Absorb intersections and stash absorbed inactive versions. Add gutter dot, label/count, hover arrows, Alt-up/down and Mod-Enter now that the actions exist.
+- [x] Write failing tests for flips, exactly one missing-text slot, empty inactive string, non-overlap absorption, edge inserts and cross-boundary typing dissolution. Loro mutations run only in core/src/model/ (+ web binding); ops call model; browser types only. Inactive versions preserve dim spans even though dim UI arrives later. Normalization must deterministically stash recoverable snippets when repairing malformed alternatives, never silently discard them.
+- [x] Implement `alt.propose/flip/resolve(rest:stash)`, `stash.list`, and session inverse ops. Derive active index. Flip changes live text and two slots in one commit. Absorb intersections and stash absorbed inactive versions. Add gutter dot, label/count, hover arrows, Alt-up/down and Mod-Enter now that the actions exist.
 
 ### Task 2 — Implement base-relative apply
 
@@ -114,3 +114,12 @@ sentence."; full deletion and select-and-type → detached; first-sentence delet
 then flip → "Agent sentence. Human Another sentence."; edges outside; full replacement; last-word;
 agent deletes the whole unit → "" version. Implement Task 1 on this rule; the design's
 "Base-relative apply/import" paragraph is updated.
+
+**2026-11-05, Task 1 verified.** Added alternatives model/ops, deterministic repair stash,
+intersection absorption, empty inactive versions, dim retention, boundary dissolution,
+and operation inverses with restored live cursors. Shipped gutter dots, counts, arrows,
+Alt-up/down and Mod-Enter keep-to-stash. R2 re-run passes with alts before mdx.
+Evidence: test-results/plan-04-task1-{check,focused,all-tests,web-e2e}.log,
+plan-04-alternatives-e2e.log, plan-04-alternatives.json/png. Focused model/undo
+11 tests pass; workspace 7/7; check clean; Chromium keyboard, flip, keep/stash,
+reload and undo preserving later typing pass. No contradiction.

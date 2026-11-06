@@ -42,6 +42,35 @@ try {
         };
         break;
       }
+      case "alt.propose":
+        input = {
+          doc: positional[0],
+          at: {
+            base: option("--base"),
+            quote: option("--quote"),
+            ...(values.includes("--nth") ? { nth: Number(option("--nth")) } : {}),
+          },
+          versions: values.flatMap((v, i) => (v === "--version" ? [values[i + 1]] : [])),
+          by: { kind: "agent", name: "cli" },
+        };
+        break;
+      case "alt.flip":
+        input = {
+          doc: positional[0],
+          alt: positional[1],
+          to: values.includes("--to")
+            ? Number(option("--to"))
+            : values.includes("--prev")
+              ? "prev"
+              : "next",
+        };
+        break;
+      case "alt.resolve":
+        input = { doc: positional[0], alt: positional[1], rest: "stash" };
+        break;
+      case "stash.list":
+        input = { doc: positional[0] };
+        break;
       case "deps.add": {
         const [id, version] = positional[2].split("@");
         input = { doc: positional[0], tag: positional[1], component: id, version };

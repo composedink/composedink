@@ -1,4 +1,5 @@
 import { decodeFrontiers, LoroDoc } from "loro-crdt";
+import { normalizeAlternatives, dissolveCrossed } from "./normalize.ts";
 import { KEYS } from "./keys.ts";
 export function createPost(slug: string) {
   const doc = new LoroDoc();
@@ -15,7 +16,9 @@ export function createPost(slug: string) {
   return doc;
 }
 export function importTyping(doc: LoroDoc, bytes: Uint8Array) {
+  const before = doc.fork();
   doc.import(bytes);
+  dissolveCrossed(doc, before);
   normalize(doc);
 }
 export function normalize(doc: LoroDoc) {
@@ -26,6 +29,7 @@ export function normalize(doc: LoroDoc) {
       throw new Error("InvalidInvariant: invalid dev dependency");
   }
   doc.getText(KEYS.mdx);
+  normalizeAlternatives(doc);
   doc.commit();
 }
 

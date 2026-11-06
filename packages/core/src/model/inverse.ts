@@ -1,3 +1,5 @@
+import { alternatives } from "./alternatives.ts";
+import { interval, anchors } from "./selection.ts";
 import { LoroDoc, LoroMap, type ContainerID } from "loro-crdt";
 import { head } from "./read.ts";
 import { KEYS } from "./keys.ts";
@@ -16,9 +18,15 @@ export function inverse(id: string, before: LoroDoc | undefined, after: LoroDoc)
   const branch = after.fork();
   const from = branch.version();
   const changes = branch.diff(after.frontiers(), before.frontiers());
-  const targets = changes.map(([target]) => target);
+  const targets = changes
+    .map(([target]) => target)
+    .filter((target) => {
+      const c = after.getContainerById(target);
+      return c?.isAttached() && !("isDeleted" in c && c.isDeleted());
+    });
   const guards = changes.flatMap(([target, diff]) => {
     const container = after.getContainerById(target);
+    if (!targets.includes(target)) return [];
     if (diff.type !== "map" || !(container instanceof LoroMap)) return [];
     const values = container.toJSON();
     return Object.keys(diff.updated).map((key) => ({
@@ -28,6 +36,16 @@ export function inverse(id: string, before: LoroDoc | undefined, after: LoroDoc)
     }));
   });
   branch.applyDiff(changes, { fullState: true });
+  if (before.getMap("meta").get("kind") === "post")
+    for (const alt of alternatives(before)) {
+      const r = interval(before, alt);
+      const target = branch.getMap("alts").get(alt.id);
+      if (target instanceof LoroMap) {
+        const a = anchors(branch, r.from, r.to);
+        target.set("start", a.start);
+        target.set("end", a.end);
+      }
+    }
   branch.commit({ origin: "operation-inverse" });
   return { id, kind: "change", bytes: branch.export({ mode: "update", from }), targets, guards };
 }

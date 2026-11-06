@@ -7,7 +7,7 @@ export async function runSpike(kind: "map" | "text") {
   const authority = new LoroDoc();
   authority.setPeerId("1");
   // Create and populate the other container BEFORE mdx so its event precedes mdx's in a batch.
-  const other = kind === "map" ? authority.getMap("aaa") : authority.getText("aaa");
+  const other = kind === "map" ? authority.getMap("alts") : authority.getText("aaa");
   if ("set" in other) other.set("seed", "value");
   else other.insert(0, "seed");
   authority.commit();

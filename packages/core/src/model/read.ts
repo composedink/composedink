@@ -1,4 +1,5 @@
 import { encodeFrontiers, type LoroDoc } from "loro-crdt";
+import { altViews } from "./alternatives.ts";
 import { KEYS } from "./keys.ts";
 export const head = (doc: LoroDoc) =>
   Buffer.from(encodeFrontiers(doc.frontiers())).toString("base64url");
@@ -11,7 +12,7 @@ export function read(doc: LoroDoc) {
     view: "full" as const,
     text: doc.getText(KEYS.mdx).toString(),
     dim: [],
-    alts: [],
+    alts: altViews(doc),
     blocks: [],
   };
 }

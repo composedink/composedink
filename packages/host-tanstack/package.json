@@ -1,12 +1,28 @@
 {
   "name": "@composedink/host-tanstack",
   "version": "0.0.0",
-  "private": true,
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "exports": {
     "./remark": "./src/remark.ts",
     "./block": "./src/block.tsx",
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      "./remark": {
+        "types": "./dist/remark.d.mts",
+        "import": "./dist/remark.mjs"
+      },
+      "./block": {
+        "types": "./dist/block.d.mts",
+        "import": "./dist/block.mjs"
+      },
+      "./package.json": "./package.json"
+    },
+    "access": "public"
   },
   "scripts": {
     "test": "vp test run"

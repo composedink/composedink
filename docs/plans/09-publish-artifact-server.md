@@ -30,7 +30,7 @@ sourceHash covers files, generated lock and settings. MDX loaders register sibli
 
 ### Task 3 — Package public integrations
 
-- [ ] Configure `vp pack` for blocks/host-runtime/host-tanstack under @composedink, with JS/types and explicit exports; retain TS-source exports for workspace consumption via the supported packaging mechanism. Verify installed tarballs in an isolated host fixture, without undeclared siblings. Keep React peer/dev dependencies. Publish documentation specifies npm credentials/release steps; actual npm publication is a separately authorized external action.
+- [x] Configure `vp pack` for blocks/host-runtime/host-tanstack under @composedink, with JS/types and explicit exports; retain TS-source exports for workspace consumption via the supported packaging mechanism. Verify installed tarballs in an isolated host fixture, without undeclared siblings. Keep React peer/dev dependencies. Publish documentation specifies npm credentials/release steps; actual npm publication is a separately authorized external action.
 
 **Verification:** run `mise exec -- vp run composed-server#test`, `mise exec -- vp run @composedink/core#test`, `mise exec -- vp run host-tanstack#e2e`, and each public package's `mise exec -- vp pack` from its directory. Test immutable retries/conflicting bytes, invalid token, traversal, incomplete upload, CORS, CDN outage, lost publish ack, production preview fallback/warning/no-registration and missing instance. Test repeated outside import after crash returns one receipt, earlier MDX/current lock fails naming versions without diff, and formatter-only MDX edits round-trip. Hand-edit exported clean MDX after concurrent studio edits; import/export preserves both plus hidden text. Kill between file renames, recover; introduce unexpected bytes and observe RecoveryRequired. Build with network denied, serve published HTML with JS off and then remote from artifact URL.
 
@@ -84,3 +84,23 @@ missing-sidecar-build.log, server-module-trace.json and production-fallback.png.
 Final authoring timings: fallback 967.32 ms, code 911.47 ms, dependency 775.59 ms.
 Common gate: final-check.log, no warnings/errors (152 files); final-tests.log,
 9/9 tasks, core 27 files / 94 tests, CLI 3 files / 5 tests. No contradiction or stop.
+
+2026-11-06 — Task 3 verified. Added vp pack entry/declaration configuration for
+@composedink/blocks, host-runtime and host-tanstack. Workspace exports stay TypeScript;
+pnpm's supported publishConfig.exports produces explicit .mjs/.d.mts archive exports.
+All archives contain dist plus package documentation, and keep React peer/dev dependencies.
+Added the runnable root tarball-consumer gate and publishing instructions. It installs
+only the packed public integrations into an isolated example with no workspace links,
+uses local sibling-archive overrides, denies external/artifact network during compilation,
+and builds/prerenders the released post. No npm publication or deployment was performed.
+
+Evidence: plan-09-pack-blocks.log, pack-host-runtime.log, pack-host-tanstack.log,
+plan-09-tarball-consumer-final.log and tarball-consumer-proof.json. The latter records
+all three archive paths, workspaceLinks:false and build:true. Archives and installed
+fixture are retained under test-results/. Common checks remain green: final-check.log
+(152 files, zero warnings/errors), format-stable.log, final-tests.log (9/9 successful;
+core 27 files / 94 tests); server-final.log (1/1), host-tests.log (1/1), task2-focused.log
+(14/14), target-final.log (1/1), and e2e-final.log (all tracer assertions true).
+Task 1: e12da05. Task 2: 9320c39. This task's following commit completes Plan 09.
+All checkboxes are complete. No reproduced contract contradiction and no stop.
+Push to origin main follows the final clean-tree/check gate. No hellotimber writes.

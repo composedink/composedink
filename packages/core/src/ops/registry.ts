@@ -1,3 +1,4 @@
+import { checkComponent } from "../component/check.ts";
 import { loadRewriteConfig, rewriteProvider, rewriteCount } from "../rewrite.ts";
 import { select } from "../model/selection.ts";
 import { lint } from "./lint.ts";
@@ -36,6 +37,9 @@ function operation<S extends z.ZodType>(
   };
 }
 export const registry = [
+  operation("component.check", z.object({ id }), false, ["component", "check"], (a, i) =>
+    checkComponent(a.store.home, i.id, readFiles(a.get(i.id)).files),
+  ),
   operation(
     "alt.rewrite",
     z.object({

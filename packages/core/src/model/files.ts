@@ -4,6 +4,17 @@ import { head } from "./read.ts";
 export function safePath(path: string) {
   if (
     !path ||
+    path.includes("\0") ||
+    path
+      .split("/")
+      .some(
+        (p) =>
+          p === "node_modules" ||
+          p.startsWith(".composed") ||
+          p === ".npmrc" ||
+          p === "pnpm-workspace.yaml" ||
+          p === ".pnpmfile.cjs",
+      ) ||
     path.includes("\\") ||
     path.startsWith("/") ||
     /^[A-Za-z]:/.test(path) ||

@@ -54,6 +54,7 @@ try {
       case "component.create":
         input = { id: component(positional[0]), kind: option("--kind") };
         break;
+      case "component.check":
       case "component.read":
         input = { id: component(positional[0]) };
         break;

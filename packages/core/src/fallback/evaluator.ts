@@ -13,7 +13,9 @@ export async function compileFallback(source: string) {
       (node.type === "ExportNamedDeclaration" && node.source) ||
       (node.type === "CallExpression" && object(node.callee) && node.callee.name === "require")
     )
-      throw new Error("Fallback imports and require are forbidden");
+      throw Object.assign(new Error("Fallback imports and require are forbidden"), {
+        offset: node.start,
+      });
     for (const value of Object.values(node)) {
       if (Array.isArray(value)) value.forEach(scan);
       else if (object(value)) scan(value);

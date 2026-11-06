@@ -12,6 +12,7 @@ import {
   acquire,
   undoSession,
   refreshPreviews,
+  previewTargets,
 } from "@composedink/core/node";
 export async function studio(home: string) {
   await mkdir(home, { recursive: true });
@@ -55,7 +56,7 @@ export async function studio(home: string) {
     if (packaged)
       res.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' ws://127.0.0.1:" +
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' data: ws://127.0.0.1:" +
           port +
           "; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
       );
@@ -87,7 +88,9 @@ export async function studio(home: string) {
             ? "text/javascript"
             : path.endsWith(".css")
               ? "text/css"
-              : "application/octet-stream",
+              : path.endsWith(".wasm")
+                ? "application/wasm"
+                : "application/octet-stream",
         );
         res.end(await readFile(path));
       } catch {
@@ -131,7 +134,10 @@ export async function studio(home: string) {
     socket.once("close", () => {
       if (process.env.COMPOSED_DESKTOP_OWNER === "1" && sockets.clients.size === 0)
         idleTimer = setTimeout(() => {
-          if (sockets.clients.size === 0) void close();
+          void a.serialize(async () => {
+            if (sockets.clients.size === 0 && !(await previewTargets(home)).length)
+              void close(true);
+          });
         }, 2000);
     });
     let session = randomBytes(16).toString("hex");
@@ -249,11 +255,12 @@ export async function studio(home: string) {
   await ownership.ready();
   console.log(JSON.stringify({ ready: true, origin, artifactPort }));
   let closing = false;
-  const close = async () => {
+  const close = async (idle = false) => {
     if (closing) return;
+    await a.serialize(async () => {});
+    if (idle && ((await previewTargets(home)).length || sockets.clients.size > 0)) return;
     closing = true;
     clearTimeout(idleTimer);
-    await a.serialize(async () => {});
     unsubscribePreviews();
     sockets.close();
     for (const socket of sockets.clients) socket.terminate();

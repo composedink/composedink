@@ -34,7 +34,11 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   const [error, setError] = useState("");
   const [result, setResult] = useState<unknown>();
   const [preview, setPreview] = useState("");
-  const id = new URLSearchParams(location.search).get("doc") ?? "tracer";
+  const id =
+    new URLSearchParams(location.search).get("doc") ??
+    localStorage.getItem("composed.selectedDocument") ??
+    "tracer";
+  localStorage.setItem("composed.selectedDocument", id);
   useEffect(() => {
     const doc = new LoroDoc();
     doc.configTextStyle({ dim: { expand: "none" } });

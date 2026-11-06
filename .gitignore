@@ -8,3 +8,6 @@ test-results/
 playwright-report/
 apps/desktop/src-tauri/runtime/
 apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/runtime.tar.gz
+apps/desktop/src-tauri/runtime-id
+apps/desktop/src-tauri/gen/

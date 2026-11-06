@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "spike": "node --experimental-strip-types scripts/spike.ts",
-    "runtime": "vp run composed-web#build && node --experimental-strip-types scripts/package-runtime.ts",
+    "spike": "mise exec -- node --experimental-strip-types scripts/spike.ts",
+    "runtime": "vp run composed-web#build && mise exec -- node --experimental-strip-types scripts/package-runtime.ts",
     "dev": "vp run composed-desktop#runtime && tauri dev",
     "package": "vp run composed-desktop#runtime && tauri build --bundles app",
-    "smoke": "node --experimental-strip-types ../../tests/desktop-smoke.ts"
+    "smoke": "vp run composed-desktop#smoke:runtime && vp run composed-desktop#smoke:gui",
+    "smoke:runtime": "mise exec -- node --experimental-strip-types ../../tests/desktop-smoke.ts",
+    "smoke:gui": "mise exec -- node --experimental-strip-types ../../tests/desktop-gui.ts"
   }
 }

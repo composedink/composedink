@@ -9,3 +9,5 @@ export { mcpRegistry, humanDirect } from "./ops/capabilities.ts";
 export { refreshPreviews } from "./export.ts";
 
 export { configureScope } from "./config.ts";
+
+export { previewTargets } from "./store/intents.ts";

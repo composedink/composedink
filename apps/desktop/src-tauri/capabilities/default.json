@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The studio uses its authenticated loopback protocol; page JavaScript receives no native commands.",
+  "windows": ["main"],
+  "permissions": []
+}

@@ -102,6 +102,11 @@ await waitFor(async () => {
 assert.equal(JSON.parse(await run("cat", "tracer", "--json")).doc, "tracer");
 c.child.stdin.end();
 await waitFor(async () => !(await owner().catch(() => null)));
+// Closing during startup still releases the managed lease after startup finishes.
+const early = bridge();
+early.child.stdin.end();
+await new Promise<void>((resolve) => early.child.once("exit", () => resolve()));
+await waitFor(async () => !(await owner().catch(() => null)));
 // An externally started studio must survive desktop detach.
 const service = spawn(cli, ["studio", "--headless"], { env, stdio: "ignore" });
 await waitFor(async () => (await owner()).ready);
@@ -124,5 +129,6 @@ console.log(
     authorityExitRecovery: true,
     externalOwnerSurvives: true,
     idleShutdown: true,
+    startupDetach: true,
   }),
 );

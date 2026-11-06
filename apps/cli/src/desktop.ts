@@ -19,7 +19,9 @@ export async function desktop(home: string) {
       const url = new URL(info.socket);
       url.protocol = "http:";
       console.log(JSON.stringify({ url: url.origin, pid: info.pid }));
-      await new Promise<void>((resolve) => socket!.once("close", () => resolve()));
+      const closed = new Promise<void>((resolve) => socket!.once("close", () => resolve()));
+      if (detached) socket.close();
+      await closed;
     } catch (error) {
       console.error(String(error));
     }

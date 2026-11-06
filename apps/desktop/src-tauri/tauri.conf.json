@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Composed",
+  "version": "0.0.0",
+  "identifier": "ink.composed.studio",
+  "build": { "frontendDist": "../../web/dist" },
+  "app": { "windows": [], "security": { "capabilities": [] } },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "resources": { "runtime.tar.gz": "runtime.tar.gz", "runtime-id": "runtime-id" },
+    "macOS": { "minimumSystemVersion": "12.0", "signingIdentity": "-" }
+  }
+}

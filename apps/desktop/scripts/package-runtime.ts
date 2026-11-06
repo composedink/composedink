@@ -1,4 +1,6 @@
 import { cp, mkdir, readdir, readlink, realpath, symlink, writeFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 export const root = resolve(import.meta.dirname, "../../..");
@@ -60,3 +62,15 @@ await writeFile(
   { mode: 0o755 },
 );
 console.log(JSON.stringify({ runtime, architecture: process.arch, packages: copied.size }));
+
+const archive = join(root, "apps/desktop/src-tauri/runtime.tar.gz");
+const tar = spawnSync("/usr/bin/tar", ["-czf", archive, "-C", runtime, "."], {
+  env: { ...process.env, COPYFILE_DISABLE: "1" },
+});
+if (tar.status !== 0) throw Error(String(tar.stderr));
+await writeFile(
+  join(root, "apps/desktop/src-tauri/runtime-id"),
+  createHash("sha256")
+    .update(await readFile(archive))
+    .digest("hex"),
+);

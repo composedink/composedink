@@ -22,7 +22,7 @@ the contracts and decisions; plan 01 contains the complete first slice.
 | 08  | [Component authoring and preview](./08-component-authoring-preview.md) | checks, own npm dependencies, file sync, sustained live preview                                         | 03, 05         | done 2026-11-06 |
 | 09  | [Publish and artifact server](./09-publish-artifact-server.md)         | immutable PUT/GET, release locks, outside import, npm tarballs                                          | 02, 04, 05, 08 | done 2026-11-06 |
 | 10  | [hellotimber adoption](./10-hellotimber-adoption.md)                   | npm/real-server consumer migration, formatter round-trip                                                | 12             | not started     |
-| 11  | [Desktop shell](./11-desktop-shell.md)                                 | packaged macOS Tauri app/sidecar                                                                        | 03–09          | not started     |
+| 11  | [Desktop shell](./11-desktop-shell.md)                                 | packaged macOS Tauri app/sidecar                                                                        | 03–09          | done 2026-11-06 |
 | 12  | [Deploy](./12-deploy.md)                                               | cdn.composed.ink container, npm integrations, author scope config                                       | 09             | not started     |
 
 Dependency order is `01 → 02 → 03 → 04 → 05`, then `06/07/08`, then `09 → 12 → 10`.

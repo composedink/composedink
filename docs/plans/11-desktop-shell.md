@@ -20,7 +20,7 @@
 - [x] Closing the window detaches if other clients need the owner; shut down an owned idle sidecar gracefully after flushing writes. Never kill a studio authority owned by another session. Reopen/relaunch restores selected document from device UI state, not replicated post metadata.
 - [x] Provide macOS dev/package/smoke scripts and document unsigned local build limitations. Signing/notarization uses externally provided credentials only in an authorized release workflow; not needed to claim local packaging evidence.
 
-- [ ] Native acceptance (`smoke:gui`): window typing, relaunch screenshot and native cold launch time; pending unlocked macOS session.
+- [x] Native acceptance (`smoke:gui`): window typing, relaunch screenshot and native cold launch time (passed 2026-11-06, unlocked session).
 
 **Verification:** add `composed-desktop#smoke` and run `mise exec -- vp run composed-desktop#smoke`, plus `mise exec -- vp run composed-web#e2e` and `mise exec -- vp run @composedink/core#durability`. Launch the packaged app, type a unique sentence, flip an alternative, dim and stash, relaunch and verify through a separately spawned `composed cat`. With an existing studio and terminal client, assert one lock owner and one set of numbered updates. Exercise a component remote with hooks and its failed-remote fallback. Run packaging smoke without PATH access to development Node. Preserve process/resource logs and a screenshot as evidence; a window opening alone is insufficient.
 
@@ -127,3 +127,16 @@ Final lifecycle includes startupDetach=true. Final smoke's exact app size is
 376,808,169 bytes; sidecar readiness is 1426.88 ms under the timing definition above.
 The ad-hoc signature verifies with codesign --verify --deep --strict. Pending GUI
 acceptance is the only incomplete verification; Plan 11 stays in progress.
+
+### 2026-11-06 — native GUI acceptance (boss, unlocked session)
+
+`composed-desktop#smoke:gui` first timed out: the window appears after the sidecar
+extracts the runtime into a fresh home and the bridge starts, which took longer than the
+15 s wait the script allowed (the process log reached "window ready" after the timeout).
+The wait budget is now 90 s; the cold-launch timing is still measured, not capped. Rerun
+result: `{"status":"passed","nativeTyping":true,"terminalRead":true,"relaunchPersistence":true,
+"coldWindowEditMs":19989.7}` — System Events typed the sentence into the native window,
+the CLI read it back, and it survived a SIGTERM relaunch (`test-results/plan-11-gui/typed.png`,
+`relaunched.png` show the sentence in the window). Cold window-plus-first-edit is 20 s on a
+fresh home (runtime extraction dominates; a warm home measured ~1.4 s sidecar readiness).
+Plan 11 is done.

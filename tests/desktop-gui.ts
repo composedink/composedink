@@ -46,7 +46,7 @@ if (/<key>CGSSessionScreenIsLocked<\/key>\s*<true\s*\/>/.test(session.stdout)) {
     return (await exec("/usr/bin/osascript", ["-e", script], { timeout: 8000 })).stdout;
   }
   async function wait(check: () => Promise<boolean>) {
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 360; i++) {
       if (await check().catch(() => false)) return;
       await delay(250);
     }

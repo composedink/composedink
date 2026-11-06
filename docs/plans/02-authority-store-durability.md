@@ -10,7 +10,7 @@
 
 ### Task 1 — Make election and persistence fault-safe
 
-- [ ] Add election/inline mode here, wholly absent from 01. Ownership is a kernel-held lock: open `$COMPOSED_HOME/authority.db` with `node:sqlite` (`DatabaseSync`; `PRAGMA locking_mode=EXCLUSIVE`; `BEGIN EXCLUSIVE`) and keep the connection open for the authority's lifetime; SQLITE_BUSY means a live owner exists; death releases the lock. No `workspace.lock`, no `link()`, no rename recovery, no PID liveness checks. After acquiring, write `owner.json` `{pid,processStartTime,kind,socket,ready}` by temp+rename; contenders on BUSY read it, wait while `ready` is false (timeout), then connect; ready+socket refused errors. Never steal a live owner (impossible by construction — prove it). Studio takes over after one short inline command finishes. Suppress Node's SQLite ExperimentalWarning in the CLI. Tests: two contenders racing acquisition (barrier before BEGIN EXCLUSIVE) → exactly one owner and the other connects; owner `kill -9` → next contender acquires with no cleanup; crash after acquire before `owner.json` → the lock is gone, stale/missing owner.json is ignored by the next owner; alive-not-ready wait; shutdown/reconnect; studio takeover. Plan 01's studio-only `workspace.lock` is replaced, not kept alongside.
+- [ ] Add election/inline mode here, wholly absent from 01. Ownership is a kernel-held lock on the lock-only file `$COMPOSED_HOME/authority.db`: open with `node:sqlite` `DatabaseSync`, `PRAGMA busy_timeout=0`, then `BEGIN EXCLUSIVE` as the **first statement touching the db** (no CREATE TABLE, no locking_mode pragma before it — they retain a SHARED lock and produce double-BUSY with no owner, see stop 2); hold the connection open for the authority's lifetime. On errcode 5: `db.close()` first, then read `owner.json`; present+ready → connect; present+not ready → wait with timeout; absent → retry acquisition with 10–30 ms jitter, bounded 5 s, then a clear error. After acquiring, write `owner.json` `{pid,processStartTime,kind,socket,ready}` by temp+rename. Receipts/export history/intents go in a separate `state.db`. Never steal a live owner (impossible by construction — prove it). Studio takes over after one short inline command finishes. Silence Node's SQLite ExperimentalWarning in the launcher. Tests: two contenders released by a barrier immediately before BEGIN EXCLUSIVE → exactly one owner, the other reaches BUSY and connects (or, if owner.json is not yet written, retries until it is); owner `kill -9` → next contender acquires with no cleanup; crash after acquire before owner.json → next contender acquires (lock released) and ignores the missing/stale file; alive-not-ready wait; shutdown/reconnect; studio takeover. Plan 01's studio-only `workspace.lock` is replaced, not kept alongside.
 - [ ] Only short commands may own inline when no studio lock exists. Long-running preview/component edit/studio require studio service and auto-start `composed studio --headless` if absent; test preview now and component edit in 08. Studio owns socket, 4848, subscription and web serving.
 - [ ] Persist snapshot plus numbered `updates/<n>.loro`. Stage bytes in the same directory, fsync file, rename, fsync directory. Serialize all writes and compaction through authority. Store validates length/hash metadata and rejects corrupt committed segments; ignore only uncommitted temp files.
 - [ ] Compact into a full-history snapshot and atomically publish it before pruning included segments. Preserve base frontiers and forkAt capability. If Loro's selected snapshot API loses required history, retain those segments instead; never substitute a shallow snapshot. Kill at every boundary and reopen.
@@ -79,3 +79,50 @@ kernel-held SQLite exclusive lock (`node:sqlite`, available unflagged on Node 22
 Node 22.22.3 — a second process gets `database is locked` while the owner lives and acquires
 immediately after the owner is `kill -9`'d. There is no stale state to recover, so the race
 cannot exist. Design updated ("Authority, binding and boundaries"); Task 1 rewritten above.
+
+**2026-11-05, stop 2 — SQLITE_BUSY does not establish that an owner exists.**
+Task 1 remains incomplete; no checkboxes or index status changed. Read the rewritten
+Task 1, design and prior logs; `mise exec -- vp install` passed. Implementation was
+attempted test-first, but its real-process race test returned `busy,busy` on one run
+and `busy,owner` on a rerun. All unverified source/test changes from this attempt were
+removed; only this log and gitignored evidence remain.
+
+Isolated the result without application code: each of two Node processes opens the
+same fresh `authority.db`, executes `PRAGMA locking_mode=EXCLUSIVE`, signals an IPC
+barrier **immediately before `BEGIN EXCLUSIVE`**, then both are released. Both calls
+can throw `ERR_SQLITE_ERROR`, `errcode: 5`, `database is locked`. Neither succeeds.
+Both processes remain alive. A third connection then successfully executes the same
+PRAGMA/BEGIN sequence, proving no owner holds the lock. The probe closes the failed
+connections exactly as the attempted election implementation did. This is a liveness
+contradiction, not evidence of two owners or a failure of SQLite mutual exclusion.
+
+Reproduction (exit 0 means the contradictory interleaving was reproduced):
+`mise exec -- node --no-warnings=ExperimentalWarning test-results/plan-02-sqlite-barrier-probe.mjs`.
+Evidence: `test-results/plan-02-sqlite-barrier-{probe,child}.mjs`,
+`test-results/plan-02-sqlite-barrier.{json,log}`. JSON records every barrier PID,
+acquisition result and the third-connection verification. Runtime: Node 22.22.3,
+darwin arm64. No writable documents are opened. All probe state stays in composedink.
+
+The rewritten plan/design say SQLITE_BUSY means a live owner exists and direct BUSY
+contenders to wait for `owner.json` readiness, then connect. This execution has no owner
+to publish metadata or serve a socket, so both prescribed contenders only time out.
+A fresh home has no metadata; stale metadata would not repair the missing owner.
+The SQLite lock can remain the ownership primitive, but the specified contention
+behavior needs a resolution that permits progress when BUSY occurs without an owner.
+No alternate contention/retry protocol was invented under the plan's stop rule.
+
+Attempted focused tests: initial election test failed (`busy,busy`), rerun passed;
+corrupt-segment and historical-frontier tests passed in that provisional run.
+Logs: `test-results/plan-02-{red-election,red-store,task1-tests,task1-retry,task1-check}.log`.
+The provisional check had zero errors and one test stringification warning; it is not
+completion evidence and its source was removed. None of the required durability,
+receipt, export-recovery, 1,000-write, browser or full completion gates is claimed.
+No task implementation commit, no push, no hellotimber modification. Task 2 was not
+started. Resume after resolving this specific BUSY-without-owner execution.
+
+**Resolution of stop 2 (boss, 2026-11-05).** Double-BUSY came from statements before `BEGIN
+EXCLUSIVE` (the `locking_mode` pragma and `CREATE TABLE` take a SHARED lock each connection keeps,
+so neither can escalate). Probed with a file barrier on Node 22.22.3: with `BEGIN EXCLUSIVE` as the
+first statement on a fresh lock-only db, exactly one of two processes acquires and the other stays
+BUSY across 50 close-and-retry attempts while the owner lives. Task 1 now states the exact
+sequence, the close-before-wait rule, and bounded retry when `owner.json` is absent.

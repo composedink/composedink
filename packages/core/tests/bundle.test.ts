@@ -76,3 +76,37 @@ it("builds a real immutable federated component with a generated frozen lock", a
     await rm(home, { recursive: true, force: true });
   }
 }, 120000);
+
+it("does not reuse another source snapshot when rebuilding an uncommitted release version", async () => {
+  const home = await mkdtemp(join(tmpdir(), "release-cache-"));
+  try {
+    const files = componentTemplate("inline");
+    const first = await bundle(
+      home,
+      "composed:test/release-cache",
+      files,
+      "http://127.0.0.1:4849/c/test/release-cache/0.1.0",
+      "0.1.0",
+    );
+    files["block.tsx"] = files["block.tsx"].replace("Hello {name}", "RELEASE_SECOND_MARKER {name}");
+    const second = await bundle(
+      home,
+      "composed:test/release-cache",
+      files,
+      "http://127.0.0.1:4849/c/test/release-cache/0.1.0",
+      "0.1.0",
+    );
+    expect(second.entry).toBe(first.entry);
+    expect(second.sourceHash).not.toBe(first.sourceHash);
+    const javascript = (
+      await Promise.all(
+        (await readdir(second.artifact, { recursive: true }))
+          .filter((p) => p.endsWith(".js"))
+          .map((p) => readFile(join(second.artifact, p), "utf8")),
+      )
+    ).join("\n");
+    expect(javascript).toContain("RELEASE_SECOND_MARKER");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+}, 120000);

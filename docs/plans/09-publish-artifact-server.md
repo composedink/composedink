@@ -104,3 +104,24 @@ core 27 files / 94 tests); server-final.log (1/1), host-tests.log (1/1), task2-f
 Task 1: e12da05. Task 2: 9320c39. This task's following commit completes Plan 09.
 All checkboxes are complete. No reproduced contract contradiction and no stop.
 Push to origin main follows the final clean-tree/check gate. No hellotimber writes.
+
+2026-11-06 — Final review follow-up for Tasks 1–2. Export now accepts omitted --to
+and resolves the most recently completed device destination from export intents/history.
+The tracer hand-edits the exported file and invokes composed export tracer without --to;
+concurrent studio and outside edits both survive. Remembered-destination red evidence is
+plan-09-remembered-red.log; the focused green is plan-09-cache-remembered.log (4 tests).
+Release artifact cache directories include sourceHash independently of the version-based
+federation name. This prevents stale bytes after a crash before persisting a publish intent
+and subsequent edits at the same allocated version. The real-bundle regression changes
+source at one release version and checks the new implementation marker; reverting the cache
+fix reproduces the failure (plan-09-release-cache-red.log). Final tracer rerun is
+plan-09-e2e-completion.log: all assertions true, fallback 958.42 ms, code 972.78 ms,
+dependency 707.96 ms. Publication/packaging remain local only. The completion full-suite
+rerun and final push are recorded below once finished.
+
+Completion follow-up gates passed: plan-09-completion-tests.log is 9/9 successful,
+including core 27 files / 94 tests and CLI 3 files / 5 tests. The added release-cache
+regression also passes in the separate 4-test cache/remembered-destination gate. Final check has zero
+warnings/errors; formatting is stable. The follow-up feat(core) commit below contains
+only the remembered-destination/cache correction and its tests/log. Origin main was
+still c06433e before push; all implementation commits carry the requested co-author.

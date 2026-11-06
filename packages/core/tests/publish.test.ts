@@ -65,7 +65,7 @@ it("retries a lost publish response with identical bytes/version and releases on
     const imported = await run("doc.import", { doc: "post", file: path });
     expect(imported).toMatchObject({ imported: true });
     expect(await run("doc.import", { doc: "post", file: path })).toEqual(imported);
-    await run("export", { doc: "post", view: "clean", to: join(home, "release"), mode: "release" });
+    await run("export", { doc: "post", view: "clean", mode: "release" });
     expect(a.read("post").text).toContain("Outside edit");
   } finally {
     delete process.env.PLAN09_TOKEN;

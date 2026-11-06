@@ -1,3 +1,4 @@
+import { rememberedDestination } from "../store/intents.ts";
 import { publish } from "../publish.ts";
 import { importFile } from "../import.ts";
 import { realpath } from "node:fs/promises";
@@ -160,13 +161,14 @@ export const registry = [
     "export",
     z.object({
       doc: z.string(),
-      to: z.string(),
+      to: z.string().optional(),
       view: z.enum(["full", "clean"]),
       mode: z.enum(["release", "preview"]).default("preview"),
     }),
     true,
     ["preview"],
-    (a, i) => preview(a, i.doc, i.to, i.view, i.mode),
+    async (a, i) =>
+      preview(a, i.doc, i.to ?? (await rememberedDestination(a.store.home, i.doc)), i.view, i.mode),
   ),
   operation("doc.create", z.object({ slug }), true, ["new", "post"], (a, i) =>
     a.create(i.slug, createPost(i.slug)),

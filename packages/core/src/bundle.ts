@@ -45,7 +45,7 @@ export async function bundle(
 
   const versionString = releaseVersion ?? `0.1.0-dev.${sourceHash}`;
   const name = `composed_${sha256(id + versionString)}`;
-  const artifact = join(home, "artifacts", name);
+  const artifact = join(home, "artifacts", releaseVersion ? `${name}-${sourceHash}` : name);
   try {
     await access(join(artifact, "remoteEntry.js"));
   } catch {
@@ -104,6 +104,7 @@ export async function bundle(
     await cp(join(directory, "dist"), artifact, { recursive: true });
   }
   return {
+    artifact,
     ...extracted,
     id,
     version: versionString,

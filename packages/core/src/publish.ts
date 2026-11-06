@@ -72,7 +72,7 @@ export async function publish(a: Authority, id: string, bump: "patch" | "minor" 
         else files[relative] = (await readFile(join(directory, entry.name))).toString("base64");
       }
     }
-    await collect(join(a.store.home, "artifacts", built.name));
+    await collect(built.artifact);
     const manifest = JSON.stringify({
       files: Object.fromEntries(
         Object.entries(files).map(([p, b]) => [p, sha256(Buffer.from(b, "base64"))]),

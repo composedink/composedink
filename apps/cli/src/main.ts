@@ -65,7 +65,7 @@ try {
         input = {
           mode: process.argv[2] === "export" ? "release" : "preview",
           doc: positional[0],
-          to: option("--to"),
+          to: values.includes("--to") ? option("--to") : undefined,
           view: values.includes("--include-dim") ? "full" : "clean",
         };
         break;

@@ -336,7 +336,7 @@ try {
     beforeOutside.text + "\n\nStudio concurrent edit.\n",
   );
   await writeFile(join(example, "content/tracer/index.mdx"), source + "\n\nOutside file edit.\n");
-  await cli(["export", "tracer", "--to", join(example, "content")]);
+  await cli(["export", "tracer"]);
   const reconciledText = await cli(["cat", "tracer"]);
   expect(reconciledText).toContain("Studio concurrent edit.");
   expect(reconciledText).toContain("Outside file edit.");

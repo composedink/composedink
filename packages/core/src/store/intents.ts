@@ -82,3 +82,20 @@ export async function previewTargets(home: string) {
   }
   return targets;
 }
+
+export async function rememberedDestination(home: string, doc: string) {
+  const directory = join(home, "state", "intents");
+  await mkdir(directory, { recursive: true });
+  const candidates: Array<{ to: string; at: number }> = [];
+  for (const name of await readdir(directory))
+    if (name.endsWith(".json")) {
+      const intent = schema.parse(JSON.parse(await readFile(join(directory, name), "utf8")));
+      if (intent.complete && JSON.parse(intent.bytes[1]).doc === doc) {
+        const history = await exportHistory(home, intent.target);
+        candidates.push({ to: dirname(intent.target), at: history.entries.at(-1)?.at ?? 0 });
+      }
+    }
+  const latest = candidates.sort((a, b) => a.at - b.at).at(-1);
+  if (!latest) throw Error("Export destination unknown; specify --to");
+  return latest.to;
+}

@@ -1,3 +1,4 @@
+import { fault } from "./compact.ts";
 import { DatabaseSync } from "node:sqlite";
 import { mkdir, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
@@ -39,6 +40,7 @@ export async function acquire(
       await delay(10 + Math.random() * 20);
       continue;
     }
+    fault("election:acquired");
     const info = {
       pid: process.pid,
       processStartTime: Date.now() - process.uptime() * 1000,

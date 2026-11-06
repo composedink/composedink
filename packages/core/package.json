@@ -9,7 +9,8 @@
     "./node": "./src/node.ts"
   },
   "scripts": {
-    "test": "vp test run"
+    "test": "vp test run",
+    "durability": "vp test run tests/election.test.ts tests/crash.test.ts tests/receipts.test.ts tests/compaction.test.ts"
   },
   "dependencies": {
     "@composedink/blocks": "workspace:*",

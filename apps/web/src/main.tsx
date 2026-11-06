@@ -29,7 +29,7 @@ function Studio() {
         seq: ++seq,
       });
       pending.set(seq, frame);
-      setStatus("Saving");
+      setStatus(socket.readyState === WebSocket.OPEN ? "Saving" : "Unsaved — disconnected");
       if (socket.readyState === WebSocket.OPEN) socket.send(frame);
     });
     function connect() {
@@ -42,7 +42,8 @@ function Studio() {
       socket.onmessage = (event) => {
         const frame = JSON.parse(event.data);
         if (frame.error) {
-          setStatus(frame.error);
+          setStatus(`Unsaved — ${frame.error}`);
+          socket.close();
           return;
         }
         const bytes = frame.snapshot ?? frame.bytes;
@@ -60,13 +61,26 @@ function Studio() {
       };
       socket.onclose = () => {
         if (!stopped) {
-          setStatus("Disconnected — changes pending");
-          timer = setTimeout(connect, 200);
+          setStatus("Unsaved — disconnected");
+          timer = setTimeout(() => {
+            void fetch("/session")
+              .then((r) => r.json())
+              .then((session) => {
+                window.__composedSession = session;
+                if (!stopped) connect();
+              })
+              .catch(() => {
+                if (!stopped) connect();
+              });
+          }, 200);
         }
       };
     }
+    const offline = () => socket.close();
+    window.addEventListener("offline", offline);
     connect();
     return () => {
+      window.removeEventListener("offline", offline);
       stopped = true;
       clearTimeout(timer);
       unsubscribe();

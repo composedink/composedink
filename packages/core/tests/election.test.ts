@@ -1,5 +1,5 @@
 import { fork } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vite-plus/test";
@@ -40,6 +40,12 @@ it("barrier contenders elect exactly one owner; BUSY waits then connects; SIGKIL
       results[1].then((v) => ({ v, owner: b, other: a })),
     ]);
     expect(winner.v).toEqual({ kind: "owner" });
+    let followed = false;
+    void results[winner.owner === a ? 1 : 0].then(() => {
+      followed = true;
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(followed).toBe(false);
     winner.owner.c.send("ready");
     expect(await winner.owner.next()).toEqual({ ready: true });
     expect(await results[winner.owner === a ? 1 : 0]).toEqual({ kind: "connect" });
@@ -76,3 +82,84 @@ it("crash before metadata and clean shutdown both permit acquisition", async () 
     await rm(home, { recursive: true, force: true });
   }
 });
+
+import { spawnSync } from "node:child_process";
+it("recovers a kill after lock acquisition but before owner.json", async () => {
+  const home = await mkdtemp(join(tmpdir(), "no-owner-"));
+  try {
+    const child = spawnSync(
+      "mise",
+      [
+        "exec",
+        "--",
+        "node",
+        "--experimental-strip-types",
+        "--input-type=module",
+        "-e",
+        `import {acquire} from ${JSON.stringify(new URL("../src/store/election.ts", import.meta.url).href)};await acquire(${JSON.stringify(home)},'inline');`,
+      ],
+      { env: { ...process.env, COMPOSED_FAULT: "election:acquired" } },
+    );
+    expect(child.signal).toBe("SIGKILL");
+    const next = await acquire(home, "studio");
+    expect(next.kind).toBe("owner");
+    if (next.kind === "owner") await next.close();
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+it("studio waits for an inline command and takes over only after it closes", async () => {
+  const home = await mkdtemp(join(tmpdir(), "takeover-"));
+  try {
+    const inline = await acquire(home, "inline");
+    expect(inline.kind).toBe("owner");
+    let finished = false;
+    const pending = acquire(home, "studio").then((value) => {
+      finished = true;
+      return value;
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(finished).toBe(false);
+    if (inline.kind === "owner") await inline.close();
+    const service = await pending;
+    expect(service.kind).toBe("owner");
+    if (service.kind === "owner") await service.close();
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+it("short CLI commands own inline and preview automatically starts studio", async () => {
+  const home = await mkdtemp(join(tmpdir(), "autostart-"));
+  const port = 28000 + Math.floor(Math.random() * 10000);
+  const env = {
+    ...process.env,
+    COMPOSED_HOME: home,
+    COMPOSED_PORT: String(port),
+    COMPOSED_ARTIFACT_PORT: String(port + 1),
+  };
+  const args = [
+    "exec",
+    "--",
+    "node",
+    "--experimental-strip-types",
+    "--no-warnings=ExperimentalWarning",
+    new URL("../../../apps/cli/src/main.ts", import.meta.url).pathname,
+  ];
+  let pid: number | undefined;
+  try {
+    expect(spawnSync("mise", [...args, "new", "post", "p"], { env }).status).toBe(0);
+    const result = spawnSync("mise", [...args, "preview", "p", "--to", join(home, "outside")], {
+      env,
+    });
+    expect(result.status, result.stderr.toString()).toBe(0);
+    const info = JSON.parse(await readFile(join(home, "owner.json"), "utf8"));
+    pid = info.pid;
+    expect(info.kind).toBe("studio");
+    expect(info.ready).toBe(true);
+  } finally {
+    if (pid) process.kill(pid, "SIGTERM");
+    await new Promise((r) => setTimeout(r, 200));
+    await rm(home, { recursive: true, force: true });
+  }
+}, 15000);

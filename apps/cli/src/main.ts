@@ -50,6 +50,8 @@ try {
       default:
         throw new Error("Unsupported CLI mapping");
     }
+    if (operation.mutation && input && typeof input === "object" && values.includes("--request"))
+      input = { ...input, request: option("--request") };
     const result = await call(composedHome(), operation.name, input);
     if (
       operation.name === "doc.read" &&

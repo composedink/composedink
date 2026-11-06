@@ -1,3 +1,5 @@
+import { exportPair } from "./intents.ts";
+import { receipts } from "./receipts.ts";
 import { basename } from "node:path";
 import { fault } from "./compact.ts";
 import { mkdir, open, rename, unlink, readdir, readFile } from "node:fs/promises";
@@ -44,13 +46,17 @@ async function checkedRead(path: string) {
 export async function openStore(home: string) {
   await mkdir(join(home, "docs"), { recursive: true });
   const directory = (id: string) => join(home, "docs", Buffer.from(id).toString("base64url"));
-  return {
+  const store = {
     home,
     async load() {
       const result: Array<{ id: string; bytes: Uint8Array[] }> = [];
       for (const name of await readdir(join(home, "docs"))) {
         const path = join(home, "docs", name);
         const bytes = [await checkedRead(join(path, "snapshot.loro"))];
+        const names = await readdir(join(path, "updates"));
+        for (const name of names)
+          if (!/^\d+\.loro$/.test(name) && !name.endsWith(".tmp"))
+            throw new Error(`RecoveryRequired: corrupt committed segment ${name}`);
         for (const update of (await readdir(join(path, "updates")))
           .filter((n) => /^\d+\.loro$/.test(n))
           .sort((a, b) => parseInt(a) - parseInt(b)))
@@ -86,5 +92,15 @@ export async function openStore(home: string) {
       await checkedWrite(join(path, `${Math.max(0, ...numbers) + 1}.loro`), bytes);
     },
   };
+  const journal = await receipts(home, async (envelope) => {
+    for (const write of envelope.writes) {
+      const bytes = Buffer.from(write.bytes, "base64");
+      if (write.create) await store.create(write.id, bytes);
+      else await store.append(write.id, bytes);
+    }
+    for (const effect of envelope.effects)
+      await exportPair(home, effect.target, effect.bytes, effect.base, effect.old);
+  });
+  return { ...store, journal };
 }
 export type Store = Awaited<ReturnType<typeof openStore>>;

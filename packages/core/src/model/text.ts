@@ -1,4 +1,4 @@
-import { LoroDoc } from "loro-crdt";
+import { decodeFrontiers, LoroDoc } from "loro-crdt";
 import { KEYS } from "./keys.ts";
 export function createPost(slug: string) {
   const doc = new LoroDoc();
@@ -32,4 +32,12 @@ export function normalize(doc: LoroDoc) {
 export function replaceText(doc: LoroDoc, value: string) {
   doc.getText(KEYS.mdx).update(value);
   doc.commit();
+}
+
+export function importOutside(doc: LoroDoc, base: string, text: string) {
+  const branch = doc.forkAt(decodeFrontiers(Buffer.from(base, "base64url")));
+  const from = branch.version();
+  replaceText(branch, text);
+  doc.import(branch.export({ mode: "update", from }));
+  normalize(doc);
 }

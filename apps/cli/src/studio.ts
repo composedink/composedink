@@ -30,6 +30,11 @@ export async function studio(home: string) {
         server: { middlewareMode: true, fs: { allow: [resolve(webRoot, "../.."), home] } },
       });
   const server = createServer(async (req, res) => {
+    if (req.url === "/session") {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ token, origin }));
+      return;
+    }
     if (new URL(req.url ?? "/", origin).pathname === "/") {
       res.setHeader("Content-Type", "text/html");
       const template = packaged

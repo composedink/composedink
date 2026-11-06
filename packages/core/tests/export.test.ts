@@ -21,10 +21,12 @@ it("exports exact MDX and schema-validated locked Markdown, then refreshes on co
     expect(await readFile(join(home, "content/tracer/index.mdx"), "utf8")).toBe(
       a.read("tracer").text,
     );
-    const before = await run("component.read", { id });
+    const restarted = await authority(await openStore(home));
+    const resumed = bind(restarted);
+    const before = await resumed("component.read", { id });
     if (!before || typeof before !== "object" || !("base" in before))
       throw new Error("Missing base");
-    await run("component.write", {
+    await resumed("component.write", {
       id,
       base: before.base,
       files: { "fallback.ts": "export default ({name}: {name:string}) => `Updated **${name}**.`;" },

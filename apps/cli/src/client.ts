@@ -56,6 +56,12 @@ export async function call(home: string, name: string, input: unknown) {
   const socket = await connect(home);
   try {
     return await new Promise<unknown>((resolve, reject) => {
+      socket.once("close", () =>
+        reject(
+          new Error("Authority disconnected before acknowledgement; retry with the same request"),
+        ),
+      );
+      socket.once("error", reject);
       socket.on("message", (bytes) => {
         const result = JSON.parse(
           (Array.isArray(bytes)

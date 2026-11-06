@@ -8,9 +8,36 @@ import { KEYS } from "./model/keys.ts";
 import { readFiles } from "./model/files.ts";
 import { bundle, sha256 } from "./bundle.ts";
 import { evaluateFallback } from "./fallback/evaluator.ts";
-import { atomicWrite } from "./store/store.ts";
-const sessions = new WeakMap<Authority, Map<string, string>>();
+import { importOutside } from "./model/text.ts";
+import { fileHash, previewTargets } from "./store/intents.ts";
+import { exportHistory } from "./store/export-history.ts";
 export async function preview(a: Authority, docId: string, to: string) {
+  const target = resolve(to, a.read(docId).slug);
+  const old: [string | null, string | null] = [
+    await fileHash(join(target, "index.mdx")),
+    await fileHash(join(target, "composed.lock.json")),
+  ];
+  const history = await exportHistory(a.store.home, target);
+  if (
+    !history.entries.length &&
+    ((await fileHash(join(target, "index.mdx"))) ||
+      (await fileHash(join(target, "composed.lock.json"))))
+  )
+    throw new Error("RecoveryRequired: existing export pair has no local history");
+  if (history.entries.length) {
+    const current = await fileHash(join(target, "index.mdx"));
+    const lockHash = await fileHash(join(target, "composed.lock.json"));
+    const last = history.entries.at(-1)!;
+    if (lockHash !== last.lockHash)
+      throw new Error("RecoveryRequired: export lock changed; preserve bytes");
+    if (current !== last.mdxHash) {
+      if (!current || history.entries.some((e) => e.mdxHash === current))
+        throw new Error("RecoveryRequired: MDX matches an old export or is missing");
+      const outside = await readFile(join(target, "index.mdx"), "utf8");
+      const key = canonical([target, last.base, current]);
+      await a.reconcile(key, docId, (doc) => importOutside(doc, last.base, outside));
+    }
+  }
   const projected = project(a.get(docId));
   const text = projected.text;
   const lock: ExportLock = {
@@ -68,36 +95,12 @@ export async function preview(a: Authority, docId: string, to: string) {
   }
   const directory = resolve(to, projected.slug);
   await mkdir(directory, { recursive: true });
-  const mdxPath = join(directory, "index.mdx");
-  const lockPath = join(directory, "composed.lock.json");
   const lockBytes = JSON.stringify(lock, null, 2) + "\n";
-  const oldHashes = await Promise.all(
-    [mdxPath, lockPath].map(async (path) => {
-      try {
-        return sha256(await readFile(path));
-      } catch (error) {
-        if (object(error) && error.code === "ENOENT") return null;
-        throw error;
-      }
-    }),
-  );
-  const intent = join(a.store.home, `export-${sha256(directory)}.json`);
-  await atomicWrite(
-    intent,
-    JSON.stringify({ target: directory, oldHashes, newHashes: [sha256(text), sha256(lockBytes)] }),
-  );
-  await atomicWrite(mdxPath, text);
-  await atomicWrite(lockPath, lockBytes);
-  let pairs = sessions.get(a);
-  if (!pairs) {
-    pairs = new Map();
-    sessions.set(a, pairs);
-  }
-  pairs.set(docId, to);
+  await a.exportPair(directory, [text, lockBytes], projected.base, old);
   return { directory, lock };
 }
 export async function refreshPreviews(a: Authority, component: string) {
-  for (const [doc, to] of sessions.get(a) ?? []) {
+  for (const { doc, to } of await previewTargets(a.store.home)) {
     const deps = a.get(doc).getMap(KEYS.deps).toJSON();
     if (
       Object.values(deps).some(

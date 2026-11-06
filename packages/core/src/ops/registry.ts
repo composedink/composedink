@@ -1,3 +1,4 @@
+import { payloadHash } from "../store/receipts.ts";
 import { preview, refreshPreviews } from "../export.ts";
 import { z } from "zod";
 import type { Authority } from "../authority.ts";
@@ -14,7 +15,16 @@ function operation<S extends z.ZodType>(
   cli: readonly string[],
   run: (a: Authority, i: z.output<S>) => unknown,
 ) {
-  return { name, input, mutation, cli, run: (a: Authority, i: unknown) => run(a, input.parse(i)) };
+  const schema = mutation
+    ? z.intersection(input, z.object({ request: z.string().min(1).optional() }))
+    : input;
+  return {
+    name,
+    input: schema,
+    mutation,
+    cli,
+    run: (a: Authority, i: unknown) => run(a, input.parse(i)),
+  };
 }
 export const registry = [
   operation("export", z.object({ doc: z.string(), to: z.string() }), true, ["preview"], (a, i) =>
@@ -77,6 +87,16 @@ export function bind(a: Authority) {
     a.serialize(async () => {
       const op = registry.find((op) => op.name === name);
       if (!op) throw new Error(`Unknown operation: ${name}`);
-      return await op.run(a, input);
+      const parsed = op.input.parse(input);
+      const request =
+        parsed &&
+        typeof parsed === "object" &&
+        "request" in parsed &&
+        typeof parsed.request === "string"
+          ? parsed.request
+          : undefined;
+      return op.mutation
+        ? a.transaction(request, payloadHash(name, parsed), async () => op.run(a, parsed))
+        : op.run(a, parsed);
     });
 }

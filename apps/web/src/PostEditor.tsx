@@ -214,6 +214,11 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               {[
                 ["doc.create", "Create post"],
                 ["doc.read", "Read post"],
+                ["doc.apply", "Apply text"],
+                ["alt.propose", "Propose alternative"],
+                ["alt.flip", "Flip alternative"],
+                ["alt.resolve", "Keep alternative"],
+                ["stash.list", "List stash"],
                 ["component.create", "Create component"],
                 ["component.read", "Read component"],
                 ["component.write", "Write component files"],

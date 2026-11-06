@@ -1,9 +1,13 @@
+import { humanDirect } from "@composedink/core/node";
+import { readFile } from "node:fs/promises";
+import { mcp } from "./mcp.ts";
 import { registry } from "@composedink/core/node";
 import { call, composedHome } from "./client.ts";
 import { studio } from "./studio.ts";
 const args = process.argv.slice(2);
 try {
-  if (args[0] === "studio") await studio(composedHome());
+  if (args[0] === "mcp") await mcp();
+  else if (args[0] === "studio") await studio(composedHome());
   else {
     const operation = registry.find((op) => op.cli.every((part, i) => args[i] === part));
     if (!operation)
@@ -15,11 +19,27 @@ try {
     const option = (flag: string) => values[values.indexOf(flag) + 1];
     const component = (value: string) =>
       value.startsWith("composed:") ? value : `composed:${value}`;
+    const direct = values.includes("--direct");
+    if (direct || (operation.name === "doc.create" && values.includes("--from")))
+      humanDirect(!!process.stdin.isTTY, values.includes("--i-am-human"));
+    if (direct && values.includes("--propose")) throw Error("Choose --direct or --propose");
     let input: unknown;
     switch (operation.name) {
       case "export":
         input = { doc: positional[0], to: option("--to") };
         break;
+      case "doc.apply": {
+        let text = "";
+        for await (const chunk of process.stdin) text += chunk;
+        input = {
+          doc: positional[0],
+          base: option("--base"),
+          text,
+          mode: direct ? "direct" : "propose",
+          by: { kind: direct ? "human" : "agent", ...(direct ? {} : { name: "cli" }) },
+        };
+        break;
+      }
       case "doc.create":
         input = { slug: positional[0] };
         break;
@@ -82,6 +102,19 @@ try {
     if (operation.mutation && input && typeof input === "object" && values.includes("--request"))
       input = { ...input, request: option("--request") };
     const result = await call(composedHome(), operation.name, input);
+    if (operation.name === "doc.create" && values.includes("--from")) {
+      const source = await readFile(option("--from"), "utf8");
+      const state = await call(composedHome(), "doc.read", { doc: positional[0] });
+      if (!state || typeof state !== "object" || !("base" in state)) throw Error("Missing base");
+      await call(composedHome(), "doc.apply", {
+        doc: positional[0],
+        base: state.base,
+        text: source,
+        mode: "direct",
+        by: { kind: "human" },
+        ...(values.includes("--request") ? { request: option("--request") + ":from" } : {}),
+      });
+    }
     if (
       operation.name === "doc.read" &&
       !args.includes("--json") &&

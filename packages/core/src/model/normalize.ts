@@ -1,6 +1,6 @@
 import { LoroMap, type LoroDoc } from "loro-crdt";
 import { alternatives, altSchema } from "./alternatives.ts";
-import { interval } from "./selection.ts";
+import { interval, authorSchema } from "./selection.ts";
 import { stash, versionSchema } from "./stash.ts";
 export function normalizeAlternatives(doc: LoroDoc) {
   for (const [id, value] of doc.getMap("alts").entries()) {
@@ -14,6 +14,15 @@ export function normalizeAlternatives(doc: LoroDoc) {
       for (const [i, v] of raw.versions.entries()) {
         const parsed = versionSchema.safeParse(v);
         if (parsed.success) stash(doc, parsed.data, "alt", `repair:${id}:${i}`);
+        else if (v && typeof v === "object" && "text" in v && typeof v.text === "string") {
+          const author = "by" in v ? authorSchema.safeParse(v.by) : undefined;
+          stash(
+            doc,
+            { text: v.text, dim: [], by: author?.success ? author.data : { kind: "human" }, at: 0 },
+            "alt",
+            `repair:${id}:${i}`,
+          );
+        }
       }
     doc.getMap("alts").delete(id);
   }

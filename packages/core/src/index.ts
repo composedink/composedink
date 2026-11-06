@@ -6,7 +6,7 @@ export type DocRead = {
   base: string;
   view: "full";
   text: string;
-  dim: never[];
-  alts: never[];
+  dim: [number, number][];
+  alts: { id: string; from: number; to: number; active: number; count: number }[];
   blocks: never[];
 };

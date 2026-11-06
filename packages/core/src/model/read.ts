@@ -1,3 +1,4 @@
+import { snippet } from "./stash.ts";
 import { encodeFrontiers, type LoroDoc } from "loro-crdt";
 import { altViews } from "./alternatives.ts";
 import { KEYS } from "./keys.ts";
@@ -11,7 +12,7 @@ export function read(doc: LoroDoc) {
     base: head(doc),
     view: "full" as const,
     text: doc.getText(KEYS.mdx).toString(),
-    dim: [],
+    dim: snippet(doc, 0, doc.getText(KEYS.mdx).length).dim,
     alts: altViews(doc),
     blocks: [],
   };

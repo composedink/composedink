@@ -38,6 +38,12 @@ export function inverse(id: string, before: LoroDoc | undefined, after: LoroDoc)
   branch.applyDiff(changes, { fullState: true });
   if (before.getMap("meta").get("kind") === "post")
     for (const alt of alternatives(before)) {
+      if (
+        !changes.some(([target]) => target === before.getText("mdx").id) &&
+        JSON.stringify(before.getMap("alts").toJSON()[alt.id]) ===
+          JSON.stringify(after.getMap("alts").toJSON()[alt.id])
+      )
+        continue;
       const r = interval(before, alt);
       const target = branch.getMap("alts").get(alt.id);
       if (target instanceof LoroMap) {

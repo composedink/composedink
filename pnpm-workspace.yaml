@@ -33,6 +33,7 @@ catalog:
   "@tanstack/router-plugin": "latest"
   "@vitejs/plugin-react": "latest"
   "@playwright/test": "latest"
+  "@modelcontextprotocol/sdk": ^1.32.2
 overrides:
   vite: "catalog:"
 peerDependencyRules:

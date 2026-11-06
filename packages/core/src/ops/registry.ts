@@ -1,3 +1,4 @@
+import { apply } from "../model/apply.ts";
 import { propose, flip, resolve } from "../model/alternatives.ts";
 import { stashList } from "../model/stash.ts";
 import { authorSchema, selectionSchema } from "../model/selection.ts";
@@ -31,6 +32,20 @@ function operation<S extends z.ZodType>(
   };
 }
 export const registry = [
+  operation(
+    "doc.apply",
+    z.object({
+      doc: z.string(),
+      base: z.string(),
+      view: z.literal("full").default("full"),
+      text: z.string(),
+      mode: z.enum(["direct", "propose"]),
+      by: authorSchema,
+    }),
+    true,
+    ["apply"],
+    (a, i) => a.change(i.doc, (d) => apply(d, i)),
+  ),
   operation(
     "alt.propose",
     z.object({

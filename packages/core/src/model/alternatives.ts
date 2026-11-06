@@ -1,3 +1,4 @@
+import { proposalVersion } from "./proposal.ts";
 import { LoroList, LoroMap, type LoroDoc } from "loro-crdt";
 import { z } from "zod";
 import { anchors, interval, select, type Author, selectionSchema } from "./selection.ts";
@@ -56,7 +57,17 @@ export function attach(doc: LoroDoc, from: number, to: number, versions: Version
   versions = versions.map((v) => ({
     ...v,
     text: source.slice(from, original.from) + (v.text ?? "") + source.slice(original.to, to),
-    dim: v.dim.map(([f, t]) => [f + original.from - from, t + original.from - from]),
+    dim: [
+      ...snippet(doc, from, original.from).dim,
+      ...v.dim.map(([f, t]): [number, number] => [
+        f + original.from - from,
+        t + original.from - from,
+      ]),
+      ...snippet(doc, original.to, to).dim.map(([f, t]): [number, number] => [
+        f + original.from - from + (v.text?.length ?? 0),
+        t + original.from - from + (v.text?.length ?? 0),
+      ]),
+    ],
   }));
   for (const a of alternatives(doc))
     if (absorbed.has(a.id)) {
@@ -75,7 +86,17 @@ export function propose(
   by: Author,
 ) {
   const { fork, from, to } = select(doc, at);
-  const live = interval(doc, anchors(fork, from, to));
+  const yaml =
+    fork
+      .getText("mdx")
+      .toString()
+      .match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0].length ?? 0;
+  if (from < yaml)
+    throw Error(
+      "InvalidInvariant: frontmatter proposal requires explicit human --direct acceptance",
+    );
+  const liveAnchors = anchors(fork, from, to);
+  const live = interval(doc, liveAnchors);
   const versions = texts.map((text) => {
     const agent = fork.fork();
     const target = agent.getText("mdx");
@@ -84,8 +105,7 @@ export function propose(
     const extraction = anchors(agent, from, from + text.length);
     const merged = doc.fork();
     merged.import(agent.export({ mode: "update", from: fork.version() }));
-    const r = interval(merged, extraction);
-    return { ...snippet(merged, r.from, Math.max(r.from, r.to)), by, at: Date.now() };
+    return { ...proposalVersion(merged, agent, liveAnchors, extraction), by, at: Date.now() };
   });
   if (live.to <= live.from) {
     const detached = versions.map((v) => stash(doc, v, "detached")!);
@@ -109,7 +129,11 @@ export function flip(doc: LoroDoc, id: string, to: number | "next" | "prev") {
   a.versions[active] = { ...a.versions[active], ...snippet(doc, r.from, r.to) };
   const text = doc.getText("mdx");
   text.delete(r.from, Math.max(0, r.to - r.from));
-  if (chosen.text) text.insert(r.from, chosen.text);
+  if (chosen.text) {
+    doc.configTextStyle({ dim: { expand: "none" } });
+    text.insert(r.from, chosen.text);
+    text.unmark({ start: r.from, end: r.from + chosen.text.length }, "dim");
+  }
   for (const [f, t] of chosen.dim) text.mark({ start: r.from + f, end: r.from + t }, "dim", true);
   const { text: _text, ...slot } = chosen;
   a.versions[index] = slot;

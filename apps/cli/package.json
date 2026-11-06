@@ -12,6 +12,7 @@
   "dependencies": {
     "@composedink/blocks": "workspace:*",
     "@composedink/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "catalog:",
     "composed-web": "workspace:*",
     "vite": "catalog:",
     "ws": "catalog:"

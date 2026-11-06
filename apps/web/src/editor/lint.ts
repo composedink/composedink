@@ -1,0 +1,112 @@
+import { ViewPlugin, type EditorView } from "@codemirror/view";
+import { encodeFrontiers, type LoroDoc } from "loro-crdt";
+import type { Diagnostic, LintSnapshot } from "@composedink/lint";
+import type { LintReply, LintRequest } from "@composedink/lint/worker";
+import { diagnosticKey, diagnosticMarks, setDiagnostics } from "./diagnostics";
+export function lintBase(doc: LoroDoc) {
+  return btoa(String.fromCharCode(...encodeFrontiers(doc.frontiers())))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+export class LatestLint {
+  private id = 0;
+  invalidate() {
+    return ++this.id;
+  }
+  request(snapshot: LintSnapshot): LintRequest {
+    return { id: this.invalidate(), snapshot };
+  }
+  current(id: number) {
+    return id === this.id;
+  }
+  accept(reply: LintReply, base: string) {
+    return reply.id === this.id && "result" in reply && reply.result.base === base
+      ? reply.result
+      : undefined;
+  }
+}
+export function lintFeedback(
+  doc: LoroDoc,
+  show: (diagnostics: Diagnostic[], base: string) => void,
+  fail: (message: string) => void,
+) {
+  const worker = new Worker(new URL("./lint-worker.ts", import.meta.url), { type: "module" });
+  const latest = new LatestLint();
+  const dismissed = new Set<string>();
+  let view: EditorView | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  let current: Diagnostic[] = [];
+  let blocks: LintSnapshot["blocks"] = [];
+  let blocksBase = "";
+  const render = () => {
+    const visible = current.filter((d) => !dismissed.has(diagnosticKey(d)));
+    view?.dispatch({ effects: setDiagnostics.of(visible) });
+    show(visible, lintBase(doc));
+  };
+  const schedule = () => {
+    latest.invalidate();
+    current = [];
+    clearTimeout(timer);
+    queueMicrotask(() => {
+      if (stopped) return;
+      render();
+      timer = setTimeout(() => {
+        if (stopped) return;
+        const base = lintBase(doc);
+        worker.postMessage(
+          latest.request({
+            base,
+            text: doc.getText("mdx").toString(),
+            blocks: base === blocksBase ? blocks : [],
+          }),
+        );
+      }, 120);
+    });
+  };
+  worker.onmessage = (event: MessageEvent<LintReply>) => {
+    if (stopped || !latest.current(event.data.id)) return;
+    const result = latest.accept(event.data, lintBase(doc));
+    if (result) {
+      current = result.diagnostics;
+      render();
+    } else if ("error" in event.data) fail(event.data.error);
+  };
+  worker.onerror = (event) => fail(event.message);
+  const destroy = () => {
+    stopped = true;
+    clearTimeout(timer);
+    worker.terminate();
+  };
+  return {
+    destroy,
+    extension: [
+      diagnosticMarks,
+      ViewPlugin.define((v) => {
+        view = v;
+        const unsubscribe = doc.subscribe(schedule);
+        schedule();
+        return {
+          update(u) {
+            if (u.docChanged) schedule();
+          },
+          destroy() {
+            unsubscribe();
+            destroy();
+          },
+        };
+      }),
+    ],
+    dismiss(d: Diagnostic) {
+      dismissed.add(diagnosticKey(d));
+      render();
+    },
+    setBlocks(base: string, value: LintSnapshot["blocks"]) {
+      if (base !== lintBase(doc)) return;
+      blocksBase = base;
+      blocks = value;
+      schedule();
+    },
+  };
+}

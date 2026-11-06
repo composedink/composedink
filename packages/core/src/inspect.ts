@@ -1,5 +1,5 @@
 import { validateProjection } from "./model/validate.ts";
-import { applyDefaults, jsxProps, object } from "@composedink/blocks";
+import { applyDefaults, jsxProps, object, type PropsSchema } from "@composedink/blocks";
 import type { Authority } from "./authority.ts";
 import { manifest } from "./bundle.ts";
 import { readFiles } from "./model/files.ts";
@@ -14,6 +14,7 @@ export function inspect(
     tag: string;
     version: string;
     props: unknown;
+    schema?: PropsSchema;
     validation: string;
     from: number;
     to: number;
@@ -29,9 +30,11 @@ export function inspect(
       if (object(dep) && typeof dep.id === "string") {
         let validation = "Valid props";
         let props: unknown;
+        let schema: PropsSchema | undefined;
         try {
-          const schema = manifest(readFiles(a.get(dep.id)).files["block.tsx"]).props;
-          props = applyDefaults(schema, jsxProps(node.attributes));
+          schema = manifest(readFiles(a.get(dep.id)).files["block.tsx"]).props;
+          props = jsxProps(node.attributes);
+          props = applyDefaults(schema, props);
         } catch (error) {
           validation = String(error);
         }
@@ -42,6 +45,7 @@ export function inspect(
           tag: node.name,
           version: String(dep.version),
           props,
+          schema,
           validation,
           from: typeof start.offset === "number" ? start.offset : 0,
           to: typeof end.offset === "number" ? end.offset : 0,

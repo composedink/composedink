@@ -7,6 +7,7 @@ it("ignores nested JSX expressions, links in code, unclosed fences and fallback 
     "~~~~js\nquickly\n~~~~~",
     '<Thing x={{a: ">", b: {c: "quickly"}}} />',
     "`[quickly](url)`",
+    "``quickly ` utilize``",
     "<!-- composed fallback -->\nquickly\n<!-- /composed -->",
   ]) {
     expect((await e.lint({ base: text, text })).diagnostics).toEqual([]);

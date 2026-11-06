@@ -94,3 +94,13 @@ button {
 .stash-item pre {
   white-space: pre-wrap;
 }
+
+.cm-lint {
+  text-decoration: underline wavy #ba6200;
+  text-underline-offset: 3px;
+}
+.diagnostic {
+  border-left: 3px solid #ba6200;
+  padding-left: 0.75rem;
+  margin-block: 0.75rem;
+}

@@ -1,3 +1,6 @@
+import { lintFeedback, lintBase } from "./editor/lint";
+import type { Diagnostic, LintSnapshot } from "@composedink/lint";
+import { parseSchema } from "@composedink/blocks";
 import { dimControls } from "./editor/dim";
 import { selection as captureSelection } from "./editor/selection";
 import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternatives";
@@ -15,6 +18,9 @@ type Inspection = {
 export function PostEditor({ panels }: { panels?: ReactNode }) {
   const parent = useRef<HTMLDivElement>(null);
   const editorView = useRef<EditorView | null>(null);
+  const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
+  const diagnosticBase = useRef("");
+  const feedback = useRef<ReturnType<typeof lintFeedback> | null>(null);
   const [stash, setStash] = useState<{ id: string; text: string }[]>([]);
   const transport = useRef<EditorTransport | null>(null);
   const [alts, setAlts] = useState<Alt[]>([]);
@@ -29,11 +35,21 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   useEffect(() => {
     const doc = new LoroDoc();
     doc.configTextStyle({ dim: { expand: "none" } });
+    const lint = lintFeedback(
+      doc,
+      (items, base) => {
+        setDiagnostics(items);
+        diagnosticBase.current = base;
+      },
+      setError,
+    );
+    feedback.current = lint;
     let view: EditorView | undefined;
     let timer: ReturnType<typeof setTimeout>;
     const connection = new EditorTransport(doc, id, setStatus, () => {
       if (!view && parent.current)
         view = sourceEditor(parent.current, doc, [
+          lint.extension,
           dimControls(doc, (v) => {
             void captureSelection(v, connection)
               .then((at) =>
@@ -123,6 +139,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               setAlts(valid);
               view?.dispatch({});
             }
+            const lintBlocks: NonNullable<LintSnapshot["blocks"]>[number][] = [];
             const blocks: Inspection["blocks"] = [];
             for (const block of result.blocks) {
               if (
@@ -133,6 +150,15 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
                 typeof block.validation !== "string"
               )
                 return;
+              if (
+                "schema" in block &&
+                typeof block.from === "number" &&
+                typeof block.to === "number"
+              ) {
+                const schema = parseSchema(block.schema);
+                if (schema.type === "object")
+                  lintBlocks.push({ from: block.from, to: block.to, props: block.props, schema });
+              }
               blocks.push({
                 tag: block.tag,
                 version: block.version,
@@ -140,6 +166,8 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
                 validation: block.validation,
               });
             }
+            if ("base" in result && typeof result.base === "string")
+              lint.setBlocks(result.base, lintBlocks);
             setInspection({ blocks, deps: result.deps, diagnostic: result.diagnostic });
           })
           .catch((e) => setError(String(e)));
@@ -149,8 +177,10 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     return () => {
       clearTimeout(timer);
       connection.destroy();
+      lint.destroy();
       view?.destroy();
       transport.current = null;
+      feedback.current = null;
     };
   }, [id]);
   async function action(event: React.FormEvent<HTMLFormElement>) {
@@ -204,6 +234,49 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               </a>
             </p>
           )}
+          <h3>Writing feedback</h3>
+          <section aria-label="Writing feedback">
+            {diagnostics.map((d, i) => (
+              <article
+                className="diagnostic"
+                key={`${d.code}:${d.from}:${i}`}
+                data-code={d.code}
+                data-from={d.from}
+                data-to={d.to}
+              >
+                <p>{d.message}</p>
+                <button onClick={() => feedback.current?.dismiss(d)}>Dismiss</button>
+                {d.replacement !== undefined && (
+                  <button
+                    onClick={() => {
+                      const c = transport.current;
+                      const base = diagnosticBase.current;
+                      if (c && base === lintBase(c.doc))
+                        void c
+                          .flush()
+                          .then(() => {
+                            if (base !== lintBase(c.doc)) return;
+                            return c.operation("alt.propose", {
+                              doc: id,
+                              at: {
+                                base,
+                                view: "full",
+                                from: d.from,
+                                to: d.to,
+                              },
+                              versions: [d.replacement],
+                              by: { kind: "human" },
+                            });
+                          })
+                          .catch((e) => setError(String(e)));
+                    }}
+                  >
+                    Propose “{d.replacement}”
+                  </button>
+                )}
+              </article>
+            ))}
+          </section>
           <h3>Alternatives</h3>
           {alts.map((alt) => (
             <article className="alternative" key={alt.id}>

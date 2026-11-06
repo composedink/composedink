@@ -29,7 +29,22 @@ export function paragraphs(source: string): Paragraph[] {
   mask(/<!--[\s\S]*?-->/g);
   mask(/<ComposedBlock\b[\s\S]*?<\/ComposedBlock>/g);
   mask(/^\s*(?:import|export)\s[^\n]*(?:\n|$)/gm);
-  mask(/(`+)[^`]*?\1/g);
+  for (let i = 0; i < chars.length; i++) {
+    if (chars[i] !== "`") continue;
+    const start = i;
+    while (chars[i + 1] === "`") i++;
+    const count = i - start + 1;
+    for (let end = i + 1; end < chars.length; end++) {
+      if (chars[end] !== "`") continue;
+      const closing = end;
+      while (chars[end + 1] === "`") end++;
+      if (end - closing + 1 === count) {
+        hide(start, end + 1);
+        i = end;
+        break;
+      }
+    }
+  }
   // Expressions and tags can contain quoted braces/angle brackets and nested expressions.
   for (let i = 0; i < chars.length; i++) {
     if (chars[i] === "{") {

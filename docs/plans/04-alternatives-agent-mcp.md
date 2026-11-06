@@ -10,7 +10,7 @@
 
 ### Task 1 — Test model semantics first
 
-- [x] Write failing tests for flips, exactly one missing-text slot, empty inactive string, non-overlap absorption, edge inserts and cross-boundary typing dissolution. Loro mutations run only in core/src/model/ (+ web binding); ops call model; browser types only. Inactive versions preserve dim spans even though dim UI arrives later. Normalization must deterministically stash recoverable snippets when repairing malformed alternatives, never silently discard them.
+- [ ] Write failing tests for flips, exactly one missing-text slot, empty inactive string, non-overlap absorption, edge inserts and cross-boundary typing dissolution. Loro mutations run only in core/src/model/ (+ web binding); ops call model; browser types only. Inactive versions preserve dim spans even though dim UI arrives later. Normalization must deterministically stash recoverable snippets when repairing malformed alternatives, never silently discard them.
 - [x] Implement `alt.propose/flip/resolve(rest:stash)`, `stash.list`, and session inverse ops. Derive active index. Flip changes live text and two slots in one commit. Absorb intersections and stash absorbed inactive versions. Add gutter dot, label/count, hover arrows, Alt-up/down and Mod-Enter now that the actions exist.
 
 ### Task 2 — Implement base-relative apply
@@ -123,3 +123,81 @@ Evidence: test-results/plan-04-task1-{check,focused,all-tests,web-e2e}.log,
 plan-04-alternatives-e2e.log, plan-04-alternatives.json/png. Focused model/undo
 11 tests pass; workspace 7/7; check clean; Chromium keyboard, flip, keep/stash,
 reload and undo preserving later typing pass. No contradiction.
+
+**2026-11-05, stop 2 — extraction cursors include edge typing for the opposite peer order.**
+Task 1 landed as `442d592` after its focused model/undo checks (11 tests), R2,
+workspace tests (7/7), clean check and real Chromium alternatives UI passed.
+Task 2 remains unticked and its implementation is uncommitted. No push.
+
+The boss resolution's nine-case probe passes with base peer 1, human peer 2,
+agent peer 3. Changing **only human to peer 3 and agent to peer 2** reproduces
+an edge-containment failure twice on loro-crdt 1.17.1 / mise Node 22.22.3.
+The human inserts `LEFT ` immediately before the unit and ` RIGHT` immediately
+after; the agent updates `Fourth` to `Agent` from the common base.
+Live anchors in current history correctly read
+`Fourth sentence. Another sentence.` (both edge insertions outside).
+Post-edit extraction cursors in merged history instead read
+`AgentLEFT  sentence. Another sentence.`. Installing that version duplicates
+the human's `LEFT ` inside the alternative while retaining its outside copy.
+All other cases in this probe pass, including partial deletion, inside-range
+human text, full replacement, last word and empty agent version.
+
+Reproduction (exit 1 is the failing edge assertion):
+`mise exec -- node test-results/plan-04-reversed-peer-extraction.mjs`.
+Evidence: `plan-04-reversed-peer-extraction.log` and
+`plan-04-reversed-peer-extraction-repeat.log`; randomized peer-order probe
+`plan-04-randomized-extraction.mjs/log` independently reproduces it.
+These files are in gitignored test-results/. The portable original probe was
+also copied to packages/core/tests/loro-extraction.test.mjs (uncommitted).
+No fallback extraction/filtering algorithm was invented. The contract needs to
+say how extraction excludes current-history edge insertions when concurrent
+agent replacement and human insertion order differently in merged history.
+Fixed numeric peers cannot be assumed in production.
+
+Partial Task 2 implements scratch-Loro hunks, sentence/structural expansion,
+base/quote validation, frontmatter rejection, merged proposals, direct history
+merge, human CLI checks, new --from via ops, registry-projected stdio MCP and
+SDK-client/real-binary tests. Focused deterministic extraction and apply checks
+passed; a subsequent random-peer core test also exposed that replacement-stash
+text can contain `AgentHuman replacement.` rather than `Agent` (both reflect
+the merged extraction interval; detachment is correct). The current test needs
+to assert the merged rule, not a peer-order-independent stash literal. This is
+separate from the reproduced **edge exclusion contradiction** above.
+
+Workflow-3 evidence: test-results/plan-04-workflow3.json and
+plan-04-cli-tests.log (1 real CLI/MCP SDK integration test passed): read base A;
+human paragraph 2 direct edit retained; paragraph 4 unchanged on proposal;
+one alternative flips to agent text; MCP has no mode and rejects supplied mode
+with by:human; piped direct fails; detached result/stash and request replay pass.
+This does not establish the failed edge contract. Capability/inverse focused
+suite subsequently had 23 passing tests and one over-specific detached-stash
+literal assertion failure (plan-04-final-focused.log).
+
+Other gates reached: plan-04-final-check.log clean (96 files);
+plan-04-final-web-e2e.log editor + alternatives pass; plan-04-final-web-build.log
+production web build passes; plan-04-final-host-e2e.log all tracer assertions
+1–6 pass (component refresh 883.97 ms). The final recursive suite was started
+before the stop and its result is recorded below when it finishes. No final
+all-green claim, no Task 2 completion commit, no push. All changes remain only
+inside composedink; hellotimber was not modified.
+
+The edge failure reopens Task 1's first acceptance checkbox despite the earlier
+verified-task commit: the current algorithm does not satisfy edge exclusion for
+arbitrary Loro peer order. Task 1's operations/UI checkbox records the built slice;
+it does not override this stop. A minimized probe also performs the range flip:
+`mise exec -- node test-results/plan-04-edge-order.mjs` (exit 1), with
+`plan-04-edge-order.json/log` showing expected `LEFT Agent sentence...` versus
+actual `LEFT AgentLEFT  sentence...`. The extraction rule requires resolution
+before either task can be accepted as fully complete.
+
+Final recursive run completed after the stop: **6/7 workspace tasks successful**
+(test-results/plan-04-final-tests.log). Core: **14 files / 61 tests pass**, including
+its 1,000-write durability test; blocks and boundaries pass; web binding/transport
+passes. CLI/MCP fails only its detached-stash literal assertion: the merged
+interval produced `AgentHuman replacem` rather than `Agent` for that peer order.
+No assertion was weakened after stopping. The earlier standalone SDK/CLI run
+passed; the aggregate run is not green. The final added focused tests report
+23 pass / 1 fail as above. The final stop check passes with no warnings/errors
+(test-results/plan-04-stop-check.log). Implementation is intentionally retained
+uncommitted for resolution and further verification; only Task 1 and this stop
+record are committed. Nothing was pushed to origin.

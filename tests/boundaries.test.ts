@@ -5,6 +5,7 @@ import { expect, it } from "vite-plus/test";
 
 const root = resolve(import.meta.dirname, "..");
 const owners = new Map([
+  ["packages/lint", "@composedink/lint"],
   ["packages/blocks", "@composedink/blocks"],
   ["packages/core", "@composedink/core"],
   ["packages/host-runtime", "@composedink/host-runtime"],
@@ -14,12 +15,16 @@ const owners = new Map([
   ["examples/host-tanstack", "host-tanstack"],
 ]);
 const allowed = new Map([
+  ["@composedink/lint", ["@composedink/blocks"]],
   ["@composedink/blocks", []],
-  ["@composedink/core", ["@composedink/blocks"]],
+  ["@composedink/core", ["@composedink/blocks", "@composedink/lint"]],
   ["@composedink/host-runtime", ["@composedink/blocks"]],
   ["@composedink/host-tanstack", ["@composedink/blocks", "@composedink/host-runtime"]],
-  ["composed-cli", ["@composedink/core", "@composedink/blocks", "composed-web"]],
-  ["composed-web", ["@composedink/core", "@composedink/blocks"]],
+  [
+    "composed-cli",
+    ["@composedink/core", "@composedink/blocks", "composed-web", "@composedink/lint"],
+  ],
+  ["composed-web", ["@composedink/core", "@composedink/blocks", "@composedink/lint"]],
   ["host-tanstack", ["@composedink/host-tanstack", "@composedink/blocks"]],
 ]);
 

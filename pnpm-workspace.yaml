@@ -1,5 +1,6 @@
 packages: [packages/*, apps/*, examples/*]
 catalog:
+  "harper.js": "^3.0.0"
   "typescript": "^5.9.0"
   # Vite+ requires `vite` to resolve to its own core build; pin the pair together.
   "vite-plus": "1.5.0"

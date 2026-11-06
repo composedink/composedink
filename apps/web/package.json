@@ -16,6 +16,7 @@
     "@codemirror/view": "catalog:",
     "@composedink/blocks": "workspace:*",
     "@composedink/core": "workspace:*",
+    "@composedink/lint": "workspace:*",
     "loro-codemirror": "catalog:",
     "loro-crdt": "catalog:",
     "react": "catalog:",

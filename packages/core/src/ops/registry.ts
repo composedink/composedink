@@ -1,3 +1,4 @@
+import { lint } from "./lint.ts";
 import { apply } from "../model/apply.ts";
 import { propose, flip, resolve } from "../model/alternatives.ts";
 import { ghost } from "../model/marks.ts";
@@ -33,6 +34,7 @@ function operation<S extends z.ZodType>(
   };
 }
 export const registry = [
+  operation("lint", z.object({ doc: z.string() }), false, ["lint"], (a, i) => lint(a, i.doc)),
   operation(
     "ghost.set",
     z.object({ doc: z.string(), at: selectionSchema, dim: z.boolean() }),

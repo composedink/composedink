@@ -41,7 +41,18 @@ it("real binary + MCP SDK enforce propose capability and complete workflow 3", a
     await client.connect(transport);
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name)).toContain("doc_apply");
+    expect(tools.map((t) => t.name)).toContain("lint");
     expect(tools.map((t) => t.name)).not.toContain("alt_rewrite");
+    const lintFile = join(home, "lint.mdx");
+    await writeFile(lintFile, "😀 This is an test.");
+    cli(["new", "post", "lint-post", "--from", lintFile, "--i-am-human"]);
+    expect(JSON.parse(cli(["lint", "lint-post"]))).toContainEqual(
+      expect.objectContaining({ from: 11, to: 13, replacement: "a" }),
+    );
+    const lintBase = JSON.parse(cli(["cat", "lint-post", "--json"])).base;
+    const lintReply = await client.callTool({ name: "lint", arguments: { doc: "lint-post" } });
+    expect(lintReply.isError).not.toBe(true);
+    expect(JSON.parse(cli(["cat", "lint-post", "--json"])).base).toBe(lintBase);
     const tool = tools.find((t) => t.name === "doc_apply")!;
     expect(tool.inputSchema.properties).not.toHaveProperty("mode");
     const read = () => JSON.parse(cli(["cat", "post", "--json"]));

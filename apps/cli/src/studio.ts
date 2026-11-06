@@ -33,7 +33,7 @@ export async function studio(home: string) {
         configFile: false,
         root: webRoot,
         appType: "custom",
-        optimizeDeps: { exclude: ["loro-crdt", "loro-codemirror"] },
+        optimizeDeps: { exclude: ["loro-crdt", "loro-codemirror", "harper.js"] },
         server: {
           hmr: false,
           middlewareMode: true,

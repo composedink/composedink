@@ -252,6 +252,9 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: latest
       version: 6.2.1
+    harper.js:
+      specifier: ^3.0.0
+      version: 3.0.0
     loro-codemirror:
       specifier: 0.3.3
       version: 0.3.3
@@ -322,7 +325,7 @@ importers:
         version: link:../web
       vite:
         specifier: npm:@voidzero-dev/vite-plus-core@1.5.0
-        version: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
+        version: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
       ws:
         specifier: 'catalog:'
         version: 8.22.1
@@ -338,7 +341,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
 
   apps/web:
     dependencies:
@@ -363,6 +366,9 @@ importers:
       '@composedink/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@composedink/lint':
+        specifier: workspace:*
+        version: link:../../packages/lint
       loro-codemirror:
         specifier: 'catalog:'
         version: 0.3.3(@codemirror/state@6.7.6)(@codemirror/view@6.43.15)(loro-crdt@1.17.1)
@@ -390,16 +396,16 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: 'catalog:'
-        version: 6.2.1(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3))
+        version: 6.2.1(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1))
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
       vite:
         specifier: npm:@voidzero-dev/vite-plus-core@1.5.0
-        version: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
+        version: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
 
   examples/host-tanstack:
     dependencies:
@@ -414,7 +420,7 @@ importers:
         version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-start':
         specifier: 'catalog:'
-        version: 1.169.4(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)
+        version: 1.169.4(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)
       react:
         specifier: 'catalog:'
         version: 19.3.1
@@ -436,7 +442,7 @@ importers:
         version: 2.1.1(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))
       '@tanstack/router-plugin':
         specifier: 'catalog:'
-        version: 1.168.48(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)
+        version: 1.168.48(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.5
@@ -451,7 +457,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/blocks:
     devDependencies:
@@ -475,13 +481,16 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/core:
     dependencies:
       '@composedink/blocks':
         specifier: workspace:*
         version: link:../blocks
+      '@composedink/lint':
+        specifier: workspace:*
+        version: link:../lint
       '@mdx-js/mdx':
         specifier: 'catalog:'
         version: 3.1.1
@@ -543,7 +552,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/host-tanstack:
     dependencies:
@@ -580,7 +589,26 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+
+  packages/lint:
+    dependencies:
+      '@composedink/blocks':
+        specifier: workspace:*
+        version: link:../blocks
+      harper.js:
+        specifier: 'catalog:'
+        version: 3.0.0
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
 
 packages:
 
@@ -2347,6 +2375,9 @@ packages:
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
     engines: {node: '>= 0.4'}
+
+  harper.js@3.0.0:
+    resolution: {integrity: sha512-Dyj1Q/mk8zr8vzGOZ6RJpUOj2BYbYPHMOmO4pIzKgOza9M/VHHfwwnFohIxpchPxeCoH3K/UlEI2Jkt7d6OeiA==}
 
   has-symbols@1.1.0:
     resolution: {integrity: sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ==}
@@ -4188,14 +4219,14 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@tanstack/react-start-rsc@0.1.65(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)':
+  '@tanstack/react-start-rsc@0.1.65(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)':
     dependencies:
       '@tanstack/react-router': 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/router-core': 1.171.39
       '@tanstack/router-utils': 1.162.4
       '@tanstack/start-client-core': 1.170.39
       '@tanstack/start-fn-stubs': 1.162.0
-      '@tanstack/start-plugin-core': 1.171.55(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)
+      '@tanstack/start-plugin-core': 1.171.55(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)
       '@tanstack/start-storage-context': 1.167.41
       pathe: 2.0.3
       react: 19.3.1
@@ -4242,20 +4273,20 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@tanstack/react-start@1.169.4(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)':
+  '@tanstack/react-start@1.169.4(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)':
     dependencies:
       '@tanstack/react-router': 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-start-client': 1.168.44(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@tanstack/react-start-rsc': 0.1.65(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)
+      '@tanstack/react-start-rsc': 0.1.65(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)
       '@tanstack/react-start-server': 1.167.52(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/router-utils': 1.162.4
       '@tanstack/start-client-core': 1.170.39
-      '@tanstack/start-plugin-core': 1.171.55(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)
+      '@tanstack/start-plugin-core': 1.171.55(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)
       '@tanstack/start-server-core': 1.169.45
       pathe: 2.0.3
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
+      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
     optionalDependencies:
       '@rsbuild/core': 2.3.1(@module-federation/runtime-tools@2.9.3)
     transitivePeerDependencies:
@@ -4318,7 +4349,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@tanstack/router-plugin@1.168.48(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)':
+  '@tanstack/router-plugin@1.168.48(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)':
     dependencies:
       '@babel/core': 7.29.13
       '@babel/template': 7.29.7
@@ -4327,8 +4358,8 @@ snapshots:
       '@tanstack/router-generator': 1.167.46
       '@tanstack/router-utils': 1.162.4
       chokidar: 5.0.0
-      unplugin: 3.7.0(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
+      unplugin: 3.7.0(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)
+      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
       zod: 4.6.7
     optionalDependencies:
       '@rsbuild/core': 2.3.1(@module-federation/runtime-tools@2.9.3)
@@ -4385,7 +4416,7 @@ snapshots:
 
   '@tanstack/start-fn-stubs@1.162.0': {}
 
-  '@tanstack/start-plugin-core@1.171.55(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)':
+  '@tanstack/start-plugin-core@1.171.55(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)':
     dependencies:
       '@babel/code-frame': 7.29.7
       '@babel/core': 7.29.13
@@ -4393,7 +4424,7 @@ snapshots:
       '@jridgewell/remapping': 2.3.5
       '@tanstack/router-core': 1.171.39
       '@tanstack/router-generator': 1.167.46
-      '@tanstack/router-plugin': 1.168.48(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)
+      '@tanstack/router-plugin': 1.168.48(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1)
       '@tanstack/router-utils': 1.162.4
       '@tanstack/start-server-core': 1.169.45
       exsolve: 1.2.0
@@ -4405,8 +4436,8 @@ snapshots:
       srvx: 1.0.8
       tinyglobby: 0.2.17
       ufo: 1.6.4
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
-      vitefu: 1.1.3(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3))
+      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
+      vitefu: 1.1.3(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1))
       xmlbuilder2: 4.0.3
       zod: 4.6.7
     optionalDependencies:
@@ -4537,42 +4568,10 @@ snapshots:
 
   '@ungap/structured-clone@1.4.0': {}
 
-  '@vitejs/plugin-react@6.2.1(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3))':
+  '@vitejs/plugin-react@6.2.1(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
-
-  '@vitest/browser-preview@5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)':
-    dependencies:
-      '@testing-library/dom': 10.4.2
-      '@testing-library/user-event': 14.6.8(@testing-library/dom@10.4.2)
-      '@vitest/browser': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)
-      vitest: 5.1.0(@types/node@22.20.5)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3))(jiti@2.7.0)(typescript@5.9.3)
-    transitivePeerDependencies:
-      - '@arethetypeswrong/core'
-      - '@types/node'
-      - '@typescript/native-preview'
-      - '@vitejs/devtools'
-      - '@volar/typescript'
-      - '@vue/language-core'
-      - bufferutil
-      - esbuild
-      - jiti
-      - less
-      - msw
-      - publint
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - terser
-      - tsx
-      - typescript
-      - unplugin-unused
-      - unrun
-      - utf-8-validate
-      - vue-tsc
-      - yaml
+      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
 
   '@vitest/browser-preview@5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)(yaml@2.9.1)':
     dependencies:
@@ -4580,44 +4579,6 @@ snapshots:
       '@testing-library/user-event': 14.6.8(@testing-library/dom@10.4.2)
       '@vitest/browser': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)(yaml@2.9.1)
       vitest: 5.1.0(@types/node@22.20.5)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1))(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)
-    transitivePeerDependencies:
-      - '@arethetypeswrong/core'
-      - '@types/node'
-      - '@typescript/native-preview'
-      - '@vitejs/devtools'
-      - '@volar/typescript'
-      - '@vue/language-core'
-      - bufferutil
-      - esbuild
-      - jiti
-      - less
-      - msw
-      - publint
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - terser
-      - tsx
-      - typescript
-      - unplugin-unused
-      - unrun
-      - utf-8-validate
-      - vue-tsc
-      - yaml
-
-  '@vitest/browser@5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)':
-    dependencies:
-      '@blazediff/core': 1.10.0
-      '@vitest/mocker': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)
-      '@vitest/ui': 5.1.0(vitest@5.1.0)
-      '@vitest/utils': 5.1.0
-      magic-string: 1.4.5
-      pngjs: 7.0.0
-      sirv: 3.0.2
-      tinyrainbow: 3.2.0
-      vitest: 5.1.0(@types/node@22.20.5)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3))(jiti@2.7.0)(typescript@5.9.3)
-      ws: 8.22.1
     transitivePeerDependencies:
       - '@arethetypeswrong/core'
       - '@types/node'
@@ -4682,36 +4643,6 @@ snapshots:
       - vue-tsc
       - yaml
 
-  '@vitest/mocker@5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)':
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.31
-      '@vitest/spy': 5.1.0
-      estree-walker: 3.0.3
-      magic-string: 1.4.5
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
-    transitivePeerDependencies:
-      - '@arethetypeswrong/core'
-      - '@types/node'
-      - '@typescript/native-preview'
-      - '@vitejs/devtools'
-      - '@volar/typescript'
-      - '@vue/language-core'
-      - esbuild
-      - jiti
-      - less
-      - publint
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - terser
-      - tsx
-      - typescript
-      - unplugin-unused
-      - unrun
-      - vue-tsc
-      - yaml
-
   '@vitest/mocker@5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -4770,27 +4701,6 @@ snapshots:
       '@vitest/pretty-format': 5.1.0
       convert-source-map: 2.0.0
       tinyrainbow: 3.2.0
-
-  '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)':
-    dependencies:
-      '@oxc-project/runtime': 0.157.0
-      '@oxc-project/types': 0.157.0
-      lightningcss: 1.33.0
-      postcss: 8.5.32
-      yuku-parser: 0.19.0
-    optionalDependencies:
-      '@types/node': 22.20.5
-      '@voidzero-dev/vite-plus-darwin-arm64': 1.5.0
-      '@voidzero-dev/vite-plus-darwin-x64': 1.5.0
-      '@voidzero-dev/vite-plus-linux-arm64-gnu': 1.5.0
-      '@voidzero-dev/vite-plus-linux-arm64-musl': 1.5.0
-      '@voidzero-dev/vite-plus-linux-x64-gnu': 1.5.0
-      '@voidzero-dev/vite-plus-linux-x64-musl': 1.5.0
-      '@voidzero-dev/vite-plus-win32-arm64-msvc': 1.5.0
-      '@voidzero-dev/vite-plus-win32-x64-msvc': 1.5.0
-      fsevents: 2.3.3
-      jiti: 2.7.0
-      typescript: 5.9.3
 
   '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)':
     dependencies:
@@ -5230,6 +5140,10 @@ snapshots:
       es-object-atoms: 1.1.2
 
   gopd@1.2.0: {}
+
+  harper.js@3.0.0:
+    dependencies:
+      fflate: 0.8.3
 
   has-symbols@1.1.0: {}
 
@@ -5810,31 +5724,6 @@ snapshots:
       '@oxfmt/binding-win32-x64-msvc': 0.76.0
       vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
 
-  oxfmt@0.76.0(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)):
-    dependencies:
-      tinypool: 2.2.0
-    optionalDependencies:
-      '@oxfmt/binding-android-arm-eabi': 0.76.0
-      '@oxfmt/binding-android-arm64': 0.76.0
-      '@oxfmt/binding-darwin-arm64': 0.76.0
-      '@oxfmt/binding-darwin-x64': 0.76.0
-      '@oxfmt/binding-freebsd-x64': 0.76.0
-      '@oxfmt/binding-linux-arm-gnueabihf': 0.76.0
-      '@oxfmt/binding-linux-arm-musleabihf': 0.76.0
-      '@oxfmt/binding-linux-arm64-gnu': 0.76.0
-      '@oxfmt/binding-linux-arm64-musl': 0.76.0
-      '@oxfmt/binding-linux-ppc64-gnu': 0.76.0
-      '@oxfmt/binding-linux-riscv64-gnu': 0.76.0
-      '@oxfmt/binding-linux-riscv64-musl': 0.76.0
-      '@oxfmt/binding-linux-s390x-gnu': 0.76.0
-      '@oxfmt/binding-linux-x64-gnu': 0.76.0
-      '@oxfmt/binding-linux-x64-musl': 0.76.0
-      '@oxfmt/binding-openharmony-arm64': 0.76.0
-      '@oxfmt/binding-win32-arm64-msvc': 0.76.0
-      '@oxfmt/binding-win32-ia32-msvc': 0.76.0
-      '@oxfmt/binding-win32-x64-msvc': 0.76.0
-      vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
-
   oxlint-tsgolint@7.0.2005:
     optionalDependencies:
       '@oxlint-tsgolint/darwin-arm64': 7.0.2005
@@ -5867,30 +5756,6 @@ snapshots:
       '@oxlint/binding-win32-x64-msvc': 1.91.0
       oxlint-tsgolint: 7.0.2005
       vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
-
-  oxlint@1.91.0(oxlint-tsgolint@7.0.2005)(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)):
-    optionalDependencies:
-      '@oxlint/binding-android-arm-eabi': 1.91.0
-      '@oxlint/binding-android-arm64': 1.91.0
-      '@oxlint/binding-darwin-arm64': 1.91.0
-      '@oxlint/binding-darwin-x64': 1.91.0
-      '@oxlint/binding-freebsd-x64': 1.91.0
-      '@oxlint/binding-linux-arm-gnueabihf': 1.91.0
-      '@oxlint/binding-linux-arm-musleabihf': 1.91.0
-      '@oxlint/binding-linux-arm64-gnu': 1.91.0
-      '@oxlint/binding-linux-arm64-musl': 1.91.0
-      '@oxlint/binding-linux-ppc64-gnu': 1.91.0
-      '@oxlint/binding-linux-riscv64-gnu': 1.91.0
-      '@oxlint/binding-linux-riscv64-musl': 1.91.0
-      '@oxlint/binding-linux-s390x-gnu': 1.91.0
-      '@oxlint/binding-linux-x64-gnu': 1.91.0
-      '@oxlint/binding-linux-x64-musl': 1.91.0
-      '@oxlint/binding-openharmony-arm64': 1.91.0
-      '@oxlint/binding-win32-arm64-msvc': 1.91.0
-      '@oxlint/binding-win32-ia32-msvc': 1.91.0
-      '@oxlint/binding-win32-x64-msvc': 1.91.0
-      oxlint-tsgolint: 7.0.2005
-      vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)
 
   parse-entities@4.0.2:
     dependencies:
@@ -6298,12 +6163,12 @@ snapshots:
 
   unpipe@1.0.0: {}
 
-  unplugin@3.7.0(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3):
+  unplugin@3.7.0(@rsbuild/core@2.3.1(@module-federation/runtime-tools@2.9.3))(@rspack/core@2.3.1(@module-federation/runtime-tools@2.9.3)(@swc/helpers@0.5.24))(@types/node@22.20.5)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.5)(typescript@5.9.3)(yaml@2.9.1):
     dependencies:
       '@jridgewell/remapping': 2.3.5
       '@rolldown/pluginutils': 1.0.1
       picomatch: 4.0.7
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
+      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
       webpack-virtual-modules: 0.6.2
     optionalDependencies:
       '@rsbuild/core': 2.3.1(@module-federation/runtime-tools@2.9.3)
@@ -6353,68 +6218,6 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
-
-  vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3):
-    dependencies:
-      '@oxc-project/runtime': 0.157.0
-      '@oxc-project/types': 0.157.0
-      '@oxlint/plugins': 1.91.0
-      '@vitest/browser': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)
-      '@vitest/browser-preview': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)
-      '@vitest/mocker': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)
-      '@vitest/pretty-format': 5.1.0
-      '@vitest/snapshot': 5.1.0
-      '@vitest/spy': 5.1.0
-      '@vitest/utils': 5.1.0
-      oxfmt: 0.76.0(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3))
-      oxlint: 1.91.0(oxlint-tsgolint@7.0.2005)(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3))
-      oxlint-tsgolint: 7.0.2005
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
-      vitest: 5.1.0(@types/node@22.20.5)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3))(jiti@2.7.0)(typescript@5.9.3)
-    optionalDependencies:
-      '@voidzero-dev/vite-plus-darwin-arm64': 1.5.0
-      '@voidzero-dev/vite-plus-darwin-x64': 1.5.0
-      '@voidzero-dev/vite-plus-linux-arm64-gnu': 1.5.0
-      '@voidzero-dev/vite-plus-linux-arm64-musl': 1.5.0
-      '@voidzero-dev/vite-plus-linux-x64-gnu': 1.5.0
-      '@voidzero-dev/vite-plus-linux-x64-musl': 1.5.0
-      '@voidzero-dev/vite-plus-win32-arm64-msvc': 1.5.0
-      '@voidzero-dev/vite-plus-win32-x64-msvc': 1.5.0
-      playwright: 1.64.1
-    transitivePeerDependencies:
-      - '@arethetypeswrong/core'
-      - '@astrojs/compiler-rs'
-      - '@edge-runtime/vm'
-      - '@opentelemetry/api'
-      - '@types/node'
-      - '@typescript/native-preview'
-      - '@vitejs/devtools'
-      - '@vitest/coverage-istanbul'
-      - '@vitest/coverage-v8'
-      - '@vitest/ui'
-      - '@volar/typescript'
-      - '@vue/language-core'
-      - bufferutil
-      - esbuild
-      - happy-dom
-      - jiti
-      - jsdom
-      - less
-      - msw
-      - publint
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - svelte
-      - terser
-      - tsx
-      - typescript
-      - unplugin-unused
-      - unrun
-      - utf-8-validate
-      - vue-tsc
-      - yaml
 
   vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1):
     dependencies:
@@ -6478,9 +6281,9 @@ snapshots:
       - vue-tsc
       - yaml
 
-  vitefu@1.1.3(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)):
+  vitefu@1.1.3(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)):
     optionalDependencies:
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
+      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
 
   vitest@5.1.0(@types/node@22.20.5)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1))(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1):
     dependencies:
@@ -6501,49 +6304,6 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.20.5
       '@vitest/browser-preview': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)(yaml@2.9.1)
-      '@vitest/ui': 5.1.0(vitest@5.1.0)
-    transitivePeerDependencies:
-      - '@arethetypeswrong/core'
-      - '@typescript/native-preview'
-      - '@vitejs/devtools'
-      - '@volar/typescript'
-      - '@vue/language-core'
-      - esbuild
-      - jiti
-      - less
-      - msw
-      - publint
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - terser
-      - tsx
-      - typescript
-      - unplugin-unused
-      - unrun
-      - vue-tsc
-      - yaml
-
-  vitest@5.1.0(@types/node@22.20.5)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3))(jiti@2.7.0)(typescript@5.9.3):
-    dependencies:
-      '@types/chai': 5.2.3
-      '@vitest/mocker': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)
-      chai: 6.3.0
-      es-module-lexer: 2.3.2
-      expect-type: 1.4.0
-      magic-string: 1.4.5
-      obug: 3.0.0
-      picomatch: 4.0.7
-      std-env: 4.3.0
-      tinybench: 6.2.3
-      tinyexec: 1.3.1
-      tinyglobby: 0.2.17
-      vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)'
-      why-is-node-running: 3.2.1
-    optionalDependencies:
-      '@types/node': 22.20.5
-      '@vitest/browser-preview': 5.1.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(vitest@5.1.0)
       '@vitest/ui': 5.1.0(vitest@5.1.0)
     transitivePeerDependencies:
       - '@arethetypeswrong/core'

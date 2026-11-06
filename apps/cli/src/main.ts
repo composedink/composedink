@@ -111,6 +111,7 @@ try {
           },
         };
         break;
+      case "lint":
       case "stash.list":
         input = { doc: positional[0] };
         break;

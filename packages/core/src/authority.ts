@@ -34,6 +34,9 @@ export async function authority(store: Store) {
       await store.append(id, doc.export({ mode: "update", from }));
       return result;
     },
+    async compact(id: string) {
+      await this.serialize(() => store.compact(id, this.get(id).export({ mode: "snapshot" })));
+    },
     async typing(id: string, bytes: Uint8Array) {
       await this.change(id, (doc) => importTyping(doc, bytes));
       return { head: head(this.get(id)) };

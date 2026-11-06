@@ -1,28 +1,18 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
-import { mkdir, link, unlink, readFile, realpath, access } from "node:fs/promises";
+import { mkdir, readFile, realpath, access } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { createServer as createViteServer } from "vite";
 import { WebSocketServer, WebSocket } from "ws";
-import { authority, openStore, bind, atomicWrite } from "@composedink/core/node";
+import { authority, openStore, bind, atomicWrite, acquire } from "@composedink/core/node";
 export async function studio(home: string) {
   await mkdir(home, { recursive: true });
   const port = Number(process.env.COMPOSED_PORT ?? 4747);
   const artifactPort = Number(process.env.COMPOSED_ARTIFACT_PORT ?? 4848);
   const origin = `http://127.0.0.1:${port}`;
   const token = randomBytes(32).toString("base64url");
-  const lock = join(home, "workspace.lock");
-  const pending = join(home, `workspace.${process.pid}.tmp`);
-  const info = {
-    pid: process.pid,
-    processStartTime: Date.now() - process.uptime() * 1000,
-    kind: "studio",
-    socket: `ws://127.0.0.1:${port}`,
-    ready: false,
-  };
-  await atomicWrite(pending, JSON.stringify(info));
-  await link(pending, lock);
-  await unlink(pending);
+  const ownership = await acquire(home, "studio");
+  if (ownership.kind === "connect") return;
   const a = await authority(await openStore(home));
   const run = bind(a);
   await atomicWrite(join(home, "session.token"), token);
@@ -154,7 +144,7 @@ export async function studio(home: string) {
     new Promise<void>((r) => server.listen(port, "127.0.0.1", r)),
     new Promise<void>((r) => artifacts.listen(artifactPort, "127.0.0.1", r)),
   ]);
-  await atomicWrite(lock, JSON.stringify({ ...info, ready: true }));
+  await ownership.ready();
   console.log(JSON.stringify({ ready: true, origin, artifactPort }));
   const close = async () => {
     sockets.close();
@@ -162,7 +152,7 @@ export async function studio(home: string) {
     server.close();
     artifacts.close();
     await vite?.close();
-    await unlink(lock);
+    await ownership.close();
     process.exit(0);
   };
   process.once("SIGTERM", () => {

@@ -1,11 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { acquire, authority, openStore, bind } from "@composedink/core/node";
+import { spawn } from "node:child_process";
 import WebSocket from "ws";
 export const composedHome = () =>
   process.env.COMPOSED_HOME ?? join(process.env.HOME ?? ".", ".composed");
 export async function connect(home: string) {
   const lock: unknown = JSON.parse(
-    await readFile(join(home, "workspace.lock"), "utf8").catch(() => {
+    await readFile(join(home, "owner.json"), "utf8").catch(() => {
       throw new Error("fix: composed studio");
     }),
   );
@@ -22,6 +24,35 @@ export async function connect(home: string) {
   return socket;
 }
 export async function call(home: string, name: string, input: unknown) {
+  if (name === "export") {
+    const child = spawn(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--no-warnings=ExperimentalWarning",
+        new URL("./main.ts", import.meta.url).pathname,
+        "studio",
+        "--headless",
+      ],
+      { env: { ...process.env, COMPOSED_HOME: home }, detached: true, stdio: "ignore" },
+    );
+    child.unref();
+    for (let i = 0; i < 250; i++) {
+      try {
+        const info = JSON.parse(await readFile(join(home, "owner.json"), "utf8"));
+        if (info.kind === "studio" && info.ready) break;
+      } catch {}
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  } else {
+    const lock = await acquire(home, "inline");
+    if (lock.kind === "owner")
+      try {
+        return await bind(await authority(await openStore(home)))(name, input);
+      } finally {
+        await lock.close();
+      }
+  }
   const socket = await connect(home);
   try {
     return await new Promise<unknown>((resolve, reject) => {

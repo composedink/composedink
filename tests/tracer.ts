@@ -85,6 +85,7 @@ function launch(command: string, args: string[], cwd = root) {
 async function cli(args: string[], input = "") {
   const run = launch(process.execPath, [
     "--experimental-strip-types",
+    "--no-warnings=ExperimentalWarning",
     join(root, "apps/cli/src/main.ts"),
     ...args,
   ]);
@@ -115,6 +116,7 @@ try {
   async function studio() {
     const run = launch(process.execPath, [
       "--experimental-strip-types",
+      "--no-warnings=ExperimentalWarning",
       join(root, "apps/cli/src/main.ts"),
       "studio",
     ]);

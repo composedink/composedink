@@ -11,10 +11,25 @@ stores immutable bytes.
 | staging    | https://composedink-staging.devbox.party | Coolify at hosting.devbox.party, project `composed`, env `staging`, app `8oitzjt2m9ihdsvk364lmb4e` |
 | production | https://cdn.composed.ink                 | not deployed; needs composed.ink nameservers, then the same recipe with the ACME rule below        |
 
-The devbox is reached through a Cloudflare tunnel; `*.devbox.party` resolves to it already, so a
-staging host needs no DNS work. A non-devbox domain (cdn.composed.ink) additionally needs the
-tunnel ingress rule for `/.well-known/acme-challenge/` → `http://localhost:80` ahead of the host's
-443 rule, or Traefik never gets a certificate and the edge answers 502.
+The devbox is reached through Cloudflare tunnel `7ba2ef4b-efb4-4738-a9c5-d964ed7a18cd`;
+`*.devbox.party` resolves to it already, so a staging host needs no DNS work. A non-devbox
+domain needs two things, done for cdn.composed.ink on 2026-11-06 with the `cf` CLI pinned in
+`.config/mise.toml` (`mise exec -- cf`, OAuth via `cf auth login`):
+
+```sh
+cf dns records create -z cf51948b3e7e1a758d257bb0fc782a56 --body '{"type":"CNAME","name":"cdn",
+  "content":"7ba2ef4b-efb4-4738-a9c5-d964ed7a18cd.cfargotunnel.com","proxied":true,"ttl":1}'
+cf tunnels config get 7ba2ef4b-...   # PUT replaces the whole config: keep every rule, insert before the 404 catch-all
+cf tunnels config update 7ba2ef4b-... --body '{"config":{"ingress":[ ...existing...,
+  {"path":"^/\\.well-known/acme-challenge/","service":"http://localhost:80","hostname":"cdn.composed.ink","originRequest":{}},
+  {"service":"https://localhost:443","hostname":"cdn.composed.ink","originRequest":{"matchSNItoHost":true}},
+  {"service":"http_status:404"}]}}'
+```
+
+Without the ACME rule Traefik never gets a certificate and the edge answers 502. The first
+probe after deploy returned 502 for a few seconds while Traefik issued the certificate.
+Cloudflare proxies and caches the immutable artifacts (`cf-cache-status: HIT`); it also caches a
+`.js` 404 briefly, which only matters if something fetches a URL before its release commits.
 
 ## Container contract
 
@@ -83,7 +98,11 @@ prints the registry records. Bump versions first with `deploy/publish-npm.sh 0.2
 composed config scope <scope> --server https://composedink-staging.devbox.party --token-ref composed/staging-cdn-token
 ```
 
-Tokens stay in `$COMPOSED_HOME`; documents and locks only carry the public URLs.
+Done on the author Mac on 2026-11-06: scope `lachieh` → `https://cdn.composed.ink`, token ref
+`COMPOSED_CDN_TOKEN` (`~/.composed/scopes.json`). The studio process needs that variable set,
+e.g. `COMPOSED_CDN_TOKEN=$(cat ~/.config/composed/production-cdn-token) composed studio`.
+Tokens stay in `$COMPOSED_HOME` and `~/.config/composed/{staging,production}-cdn-token`;
+documents and locks only carry the public URLs.
 
 ## Repeat the end-to-end deployment proofs
 

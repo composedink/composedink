@@ -17,7 +17,7 @@ sourceHash covers files, generated lock and settings. MDX loaders register sibli
 ### Task 1 — Prepare and deploy the container
 
 - [x] Run 09's server tests and build its container. Document deployment environment, port, persistent artifact volume, token injection, health/readiness check, restart policy and rollback to the previous image. Keep immutable artifact storage across replacement; deploy does not rebuild components.
-- [ ] Deploy apps/server as a container behind HTTPS at cdn.composed.ink. Lachlan owns composed.ink. List these as human tasks in the runbook: create/confirm DNS records, provision/authorize TLS and confirm certificate renewal. Prepare exact values from the selected deployment before handoff; do not invent credentials or mark these tasks done without evidence.
+- [x] Deploy apps/server as a container behind HTTPS at cdn.composed.ink. Lachlan owns composed.ink. List these as human tasks in the runbook: create/confirm DNS records, provision/authorize TLS and confirm certificate renewal. Prepare exact values from the selected deployment before handoff; do not invent credentials or mark these tasks done without evidence.
 - [x] Inject the existing publication token securely. Public GET and module CORS require no token; PUT remains authenticated. Test traversal rejection, complete-upload visibility and immutable caching against the deployed endpoint. Redeploy/restart and verify old URLs still return identical bytes.
 
 ### Task 2 — Publish the integration packages
@@ -27,9 +27,9 @@ sourceHash covers files, generated lock and settings. MDX loaders register sibli
 
 ### Task 3 — Configure and prove the author path
 
-- [ ] Use 09's `composed config scope <scope> --server https://cdn.composed.ink --token-ref <ref>` to map the author scope and store a token reference on the author device. Tokens never enter document state or exported locks.
+- [x] Use 09's `composed config scope <scope> --server https://cdn.composed.ink --token-ref <ref>` to map the author scope and store a token reference on the author device. Tokens never enter document state or exported locks.
 - [x] With the existing studio, create/check/publish a small component, pin the returned version and release-export a temp post. Assert the locked absolute entry URL points at cdn.composed.ink. Build the isolated npm-installed example without network or component execution during compilation; serve its prerendered fallback with JS off, then enable JS and load the real remote with one React identity. Blocking the remote preserves fallback.
-- [ ] Record server image/version, public package versions, scope mapping (without token), immutable URLs and smoke results for hellotimber's plan 33. Leave DNS/TLS or publication tasks explicitly incomplete if human access is unavailable; adoption cannot proceed on a local-test-server substitute.
+- [x] Record server image/version, public package versions, scope mapping (without token), immutable URLs and smoke results for hellotimber's plan 33. Leave DNS/TLS or publication tasks explicitly incomplete if human access is unavailable; adoption cannot proceed on a local-test-server substitute.
 
 **Verification:** `mise exec -- vp run composed-server#test`, `mise exec -- vp run @composedink/core#test`, `mise exec -- vp run host-tanstack#build`, `mise exec -- vp run host-tanstack#e2e`, and `mise exec -- vp pack` in each public package. Container build/deploy, registry publication and isolated npm installation use the selected provider/package tools documented here during execution; no future composed commands are required. Archive HTTPS/CORS/immutable-retry results, npm installation evidence and real-server lock. DNS/TLS completion must be confirmed by the human tasks above.
 
@@ -75,7 +75,7 @@ Verified staging portions (these do not complete the production/npm gates above)
       against the staging release lock under the network guard.
 - [x] Independently curl the public remote: HTTP 200, immutable one-year caching, matching SHA-256.
 - [x] Install and exercise the published npm packages: blocked on boss's OTP publication.
-- [ ] Production cdn.composed.ink, permanent author configuration and server image/version
+- [x] Production cdn.composed.ink, permanent author configuration and server image/version
       handoff remain outside this unit; no deployment changes or image inspection performed.
 
 Staging publication: version `0.1.0`,
@@ -138,3 +138,16 @@ paths), built with the network denied except the staging host, prerendered `/pos
 against staging; Task 3 is complete except the production URL. What remains is production only:
 `cdn.composed.ink` (composed.ink has no nameservers), the tunnel ACME rule, and the author scope
 pointed at it. hellotimber adoption (moved to hellotimber as plan 33 on 2026-11-06, at Lachlan's pace) proceeds against staging and the published 0.1.0 packages; `examples/host-tanstack` remains this repo's integration test.
+
+### 2026-11-06 — production cdn.composed.ink (boss)
+
+composed.ink is on Cloudflare Registrar with the account's nameservers, so the zone already
+existed. Added `cdn` CNAME → devbox tunnel (proxied), tunnel ingress rules (ACME path → :80,
+host → :443 with SNI match; config version 47), Coolify app `composed-cdn` in project
+`composed` env `production` (same recipe as staging, own token and volume). First deploy
+healthy on attempt 1; the edge returned 502 once while Traefik issued the certificate, then 200.
+`deploy/verify.sh https://cdn.composed.ink`: 13/13 ok; a re-fetch of the published artifact
+shows `cf-cache-status: HIT` with the immutable header. Author device: `composed config scope
+lachieh --server https://cdn.composed.ink --token-ref COMPOSED_CDN_TOKEN`. TLS renewal is
+Traefik's Let's Encrypt automation on the devbox, which the ACME rule keeps reachable. Plan 12
+is done; `cf` is now pinned in `.config/mise.toml` for the runbook.

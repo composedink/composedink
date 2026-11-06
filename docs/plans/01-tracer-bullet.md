@@ -51,7 +51,10 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
     vite: "npm:@voidzero-dev/vite-plus-core@1.5.0" # Vite+ requires `vite` to be its core build
     loro-crdt: ^1.17.0
     loro-codemirror: 0.3.3
-    "@module-federation/vite": ^1.23.0
+    "@module-federation/rsbuild-plugin": ~2.9.0
+    "@rsbuild/core": ^2.3.1
+    "@rsbuild/plugin-react": ^2.1.0
+    "@mdx-js/loader": ^3.0.0
     "@module-federation/runtime": ^2.9.0
     react: ^19.0.0
     react-dom: ^19.0.0
@@ -205,19 +208,19 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
   ```
 
 - [x] **Build.** The authority materializes `$COMPOSED_HOME/build/<id>/<sourceHash>/` with the
-      component files and a generated `package.json` whose devDependencies are `react` and
-      `react-dom` at the catalog versions and `@composedink/blocks` as `link:<path>` to the
+      component files and a generated `package.json` whose devDependencies are `react`,
+      `react-dom`, `@rsbuild/core`, `@rsbuild/plugin-react` and `@module-federation/rsbuild-plugin` at the catalog versions and `@composedink/blocks` as `link:<path>` to the
       workspace package (the path comes from the authority's own install location; plan 09/12
       switch this to the published npm version). Resolve the lock first with
       `pnpm install --lockfile-only --ignore-scripts`, include the generated `pnpm-lock.yaml` in
       the build inputs (so `sourceHash` covers exact resolutions), then install with
-      `pnpm install --frozen-lockfile --ignore-scripts`, and build with Vite's programmatic API
-      plus `@module-federation/vite`: `exposes: { "./block": "./block.tsx" }`, remote name
+      `pnpm install --frozen-lockfile --ignore-scripts`, and build with Rsbuild's `createRsbuild` programmatic API
+      plus `@module-federation/rsbuild-plugin`: `exposes: { "./block": "./block.tsx" }`, remote name
       derived from `(id, version)`, shared `react`, `react-dom`, `react/jsx-runtime` as singletons
-      with `import: false`; every other dependency is bundled. Version is `0.1.0-dev.<hash>` where
+      with `import: false`, `requiredVersion: false`; every other dependency is bundled.
+      Emit a `var` library named after the remote, and register remoteEntry.js with `type: "global"` in host-runtime. Version is `0.1.0-dev.<hash>` where
       the hash covers sorted file bytes, the exact dependency resolutions and the build settings.
-      Note `@module-federation/vite` 1.23's caveat that named imports of `import:false` shares
-      need the share present in the host scope — the host supplies all three (Task 4).
+      The host supplies all three singleton modules (Task 4); remote builds include no React implementation.
 - [x] **Fallback evaluator.** `fallback.ts` is rejected if its module graph has any import,
       `require` or dynamic import. Evaluation runs in a `node:worker_threads` Worker that creates
       a `vm` context with `vm.constants.DONT_CONTEXTIFY`, `codeGeneration: { strings: false,
@@ -243,7 +246,7 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
 
 **Files:** `packages/host-runtime/src/index.ts`, `packages/host-tanstack/src/remark.ts`,
 `packages/host-tanstack/src/block.tsx`, tests beside each;
-`examples/host-tanstack/{package.json,vite.config.ts,src/router.tsx,src/routes/__root.tsx,src/routes/posts.$slug.tsx,fixtures/tracer.mdx}`.
+`examples/host-tanstack/{package.json,rsbuild.config.ts,src/router.tsx,src/routes/__root.tsx,src/routes/posts.$slug.tsx,fixtures/tracer.mdx}`.
 
 - [x] `blockLoader(shared)` creates one `createInstance({ name: "composed_host", remotes: [],
       shared })` per page, `registerRemotes` once per `(id, version)` name, then
@@ -263,16 +266,19 @@ artifact server (09); desktop (11). None of these may appear as a placeholder co
       lock pass through untouched. In a production build a `mode: "preview"` lock renders the
       fallback only (no remote registration) and emits one build warning naming the post and the
       fix command — it never fails the build.
-- [x] The injected lock import must put the lock into Vite's module graph so a lock change
-      invalidates the MDX module (R3). If it doesn't under TanStack Start's SSR environment, add a
-      small Vite plugin that invalidates the sibling `index.mdx` on a lock change, with a
-      regression test.
-- [x] The example registers `/posts/$slug`, compiles folder MDX with `@mdx-js/rollup` +
+- [x] Register the sibling lock as an MDX loader dependency using `this.addDependency(lockPath)`
+      before `@mdx-js/loader`; the injected JSON import alone does not recompile Markdown literals.
+      Verify a lock-only change invalidates the MDX module under Rsbuild dev SSR (R3).
+- [x] The example registers `/posts/$slug`, compiles folder MDX with `@mdx-js/loader` +
       `remarkComposed`, and enables prerendering of `/posts/tracer` using the installed TanStack
       Start API (verify the option name against the installed version rather than assuming). The
       committed `fixtures/tracer.mdx` is a template only: the tracer copies the example into the
       temp home and exports into that copy; `content/tracer/index.mdx` is never committed.
-      Scripts: `dev`, `build`, `test`, `e2e` (runs the root tracer).
+      Scripts: `dev: rsbuild dev --host 127.0.0.1`, `build: rsbuild build`, `e2e` (runs the root tracer).
+      With no unit tests, omit the example test script/config; recursive workspace tests skip it.
+      Use `@tanstack/react-start/plugin/rsbuild` and `pluginReact`, plus `import.meta.webpackContext`
+      for eager MDX discovery. Track an empty content directory marker so unexported builds resolve.
+      Filter prerender to `/posts/tracer`: Start otherwise adds a root page returning 404.
 
 ## Task 5 — Collect executable evidence
 
@@ -320,16 +326,12 @@ Run, in order: `mise install`, `mise exec -- vp install`, `mise exec -- vp check
 `mise exec -- vp run host-tanstack#e2e`. Keep the assertion output, the resolved version matrix
 and screenshots as test artifacts.
 
-## Toolchain fallback
+## Toolchain decision
 
-If the runtime-only host cannot load the remote or share React (R1): keep the logs and version
-matrix; add `@module-federation/vite` to the example host with `hostInitInjectLocation: "entry"`
-and all three shares, and rerun the same evidence. If remote loading or prerendering still fails
-on Vite 8: verify `@tanstack/react-start/plugin/rsbuild` exists in the installed version, switch
-**only the example host's** `dev`/`build` to Rsbuild with catalogued dependencies (remotes stay
-Vite-built, `vp check`/tests unchanged), and rerun. Rolldown has no built-in Module Federation
-plugin; do not assume one. Never replace federation with a static import. If that also fails,
-stop and report R1 with logs — it blocks completion.
+TanStack Start is required. All MF hosts and remotes use Rsbuild/Rspack; remotes use
+`@module-federation/rsbuild-plugin`. Vite+ remains for tests/lint/format and non-MF apps.
+The Vite MF spike worked but is no longer used (Lachlan, 2026-11-05). If the selected
+libraries contradict these contracts, record logs and stop; do not revert to Vite MF.
 
 ## Out of scope
 
@@ -505,3 +507,44 @@ passes 8/8 tasks (core 16, blocks 3, boundaries 2, browser binding 1);
 `vp run host-tanstack#build` passes and prerenders one page; `vp run host-tanstack#e2e`
 exits 0 with assertions 1–6 passing. Logs: `test-results/resume-{check,tests,build,e2e}.log`.
 R1 and R3 are resolved. No remaining stop. No hellotimber files changed.
+
+**2026-11-05, toolchain decision.** Lachlan requires TanStack Start and Rsbuild/Rspack for
+all MF builds (example, future hellotimber host and component remotes). The working Vite MF
+spike is retired. Vite+ remains tests/lint/format and non-MF apps; apps/web retains its Loro
+optimizeDeps exclusions. No hellotimber file changed. Plan 10 records its separately verified
+website build/deployment migration to `@tanstack/react-start/plugin/rsbuild`.
+
+The example uses Start's Rsbuild plugin, pluginReact, `@mdx-js/loader` + remarkComposed and
+`import.meta.webpackContext`. `prerender.filter` restricts generation to `/posts/tracer` because
+Start otherwise generates a root page returning 404 (the stop 3 workaround). A tracked empty
+content directory allows builds before any post export. The example has no unit tests, so its
+Vite config/test script are removed and recursive testing skips it (7 tasks instead of 8).
+Rspack compilation membership emits `module-trace.json` for the existing no-component-code proof.
+
+Remote builds use `createRsbuild` and `@module-federation/rsbuild-plugin`. The emitted container
+is a named **var/global** library (`library: { type: "var", name }`), with remoteEntry.js at
+the artifact root; host-runtime registers it with **type: "global"**. Browser interaction and
+shared React useState/createElement identity prove compatibility with the runtime-only host.
+All three singleton shares use the plugin's supported `import: false`, `requiredVersion: false`.
+The materialized devDependencies include React, React DOM, Rsbuild core, React plugin, MF Rsbuild
+plugin and the blocks link. Lock-only resolution → hashed files/lock/settings → frozen install
+is preserved. The remote regression scans every emitted JS file and passes even with the
+studio's development NODE_ENV; no React implementation is bundled.
+
+R3 uses `loaders/composed-lock.cjs` before the MDX loader (loaders execute right-to-left):
+`this.addDependency` registers the sibling lock as a compilation input. A lock edit therefore
+re-runs remarkComposed, replacing the fallback Markdown literals in client and dev SSR output.
+The obsolete Vite invalidation plugin is removed. The tracer separately changes only the lock
+and observes the new SSR text without restart.
+
+Rerun gates all pass: `mise exec -- vp check --fix` (55 files, no warnings/errors),
+`mise exec -- vp run -r test` (7/7 tasks), `mise exec -- vp run host-tanstack#build`
+(one prerendered page), and `mise exec -- vp run host-tanstack#e2e` (all six assertions).
+Final tracer output: assertions 1–6 true; component write → rebuilt/exported SSR **829.58 ms**;
+lock-only invalidation also passes its 2 s deadline. Evidence: `test-results/assertions.json`,
+`tracer.json`, `versions.json`, `server-module-trace.json`, `loaded-assets.json`,
+`updated-ssr.html`, `lock-only-ssr.html`, and `production-fallback.png`, `fallback.png`,
+`remote.png`, `failed.png`. Gate logs: `test-results/migration-{check,tests,build,e2e}.log`.
+Resolved versions: Rsbuild 2.3.1, Rspack 2.3.1, React plugin 2.1.1, MF Rsbuild plugin 2.9.3,
+TanStack Start 1.169.4, React/React DOM 19.3.1; tracer Node 22.22.3. Evidence stays gitignored.
+No remaining library contradiction or stop; the old stop/resolution logs above are historical.

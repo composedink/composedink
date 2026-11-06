@@ -6,6 +6,12 @@
 
 **Goal:** deliver the existing artifact server at `https://cdn.composed.ink`, publish the three host packages to npm, and configure the author device so plan 10 can use npm packages and real locked URLs.
 
+**Build contract:** TanStack Start is required. MF hosts use `@tanstack/react-start/plugin/rsbuild`;
+component builds use Rsbuild/Rspack + `@module-federation/rsbuild-plugin`, named `var` remotes
+loaded as `type: "global"`. Materialization includes the catalogued Rsbuild/React/MF build tools;
+sourceHash covers files, generated lock and settings. MDX loaders register sibling locks through
+`this.addDependency` for dev SSR invalidation. Vite+ remains tests/lint/format and non-MF apps.
+
 **Files:** `apps/server/{Dockerfile,README.md}`, deployment configuration under `deploy/`, public package manifests/pack configuration only if deployment verification requires corrections, deployment runbook. Device configuration stays under `$COMPOSED_HOME`, never in Git or Loro. Do not add sync/accounts or server bundling.
 
 ### Task 1 — Prepare and deploy the container

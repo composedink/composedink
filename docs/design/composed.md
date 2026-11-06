@@ -50,31 +50,9 @@ The publish command prints the actual version (use it in `deps pin`). Export wri
 
 **Host integration planned for hellotimber:**
 
-```ts
-// website/vite.config.ts: inside writingMdx(), retain its query-exclusion wrapper.
-import { remarkComposed } from "@composedink/host-tanstack/remark";
-// mdx options:
-// remarkPlugins: [remarkFrontmatter, [remarkComposed, { production: process.env.NODE_ENV === 'production' }]]
+TanStack Start is required. The website build moves to `@tanstack/react-start/plugin/rsbuild` with Rsbuild/Rspack; component remotes use `@module-federation/rsbuild-plugin`. This is a hellotimber-side change requiring its own plan and verification there. Preserve frontmatter-only loading separately from compiled MDX bodies using Rspack contexts and query-specific loaders, replacing Vite's `import.meta.glob`. Compile MDX with `@mdx-js/loader`, retain frontmatter/Shiki processing and query exclusions, and apply `remarkComposed` only to bodies. Register each sibling lock with the loader's `this.addDependency(lockPath)` so lock changes recompile Markdown in dev SSR.
 
-// website/src/writing/posts.ts
-const FILES = import.meta.glob<FrontmatterModule>("../../content/writing/*/index.mdx", {
-  query: "?frontmatter",
-  import: "default",
-  eager: true,
-});
-export function slugOfFile(file: string): string {
-  const slug = file.split("/").at(-2)!;
-  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) throw new Error(`${file}: invalid post folder`);
-  return slug;
-}
-// website/src/writing/bodies.ts: compiled MDX, WITHOUT ?frontmatter
-const MODULES = import.meta.glob<MDXContent>("../../content/writing/*/index.mdx", {
-  import: "default",
-  eager: true,
-});
-```
-
-`PostPage`, `<Body components={FIGURES} />`, routes and existing figures stay usable. The plugin injects its own resolver import. No composed metadata enters frontmatter: hellotimber rejects unknown keys. Its RSS feed emits summaries only; acceptance is the Nitro SSR response (JS off) containing fallback. hellotimber uses `nitro/vite` with Vercel output, without prerendering; `bodies.ts` compiles every MDX, including drafts. The example host retains prerendering for tracer proof.
+`PostPage`, `<Body components={FIGURES} />`, routes and existing figures stay usable. The plugin injects its own resolver import. No composed metadata enters frontmatter: hellotimber rejects unknown keys. Its RSS feed emits summaries only; acceptance is the SSR response (JS off) containing fallback. The existing consumer uses `nitro/vite` with Vercel output, without prerendering; adoption must verify the equivalent deployment/SSR path under Rsbuild. `bodies.ts` must still compile every MDX, including drafts. The example host retains prerendering for tracer proof.
 
 **Acceptance:** workflows 2, 3, 5 and 7 survive restart and stale agent bases. A failed remote leaves readable fallback. No host build fetches or executes component code. Excluded: sync/ideas, sharing/comments, `component.render`, block children, on-device inference, mobile, listing/discovery, published-site live updates, npm export of authored blocks, federated SSR and Windows/Linux polish.
 
@@ -341,7 +319,7 @@ host-tanstack ──▶ host-runtime, blocks     host-runtime ──▶ blocks  
 
 MVP layout is `packages/{core,blocks,lint,host-runtime,host-tanstack}`, `apps/{cli,web,server,desktop}`, `examples/host-tanstack`. No protocol/preview/ai/editor packages. Core model owns mutation; store imports neither model nor ops and writes only store-local snapshots, updates, receipts, export history and intents; ops composes model/store/export/bundle/rewrite. Explicit package exports expose core `.` (pure reads/types) and `./node`, host `./remark` and `./block`. Root `tests/boundaries.test.ts` checks static/dynamic imports, relative sibling escapes and core layers. Its mutation grep/AST rule permits mutable Loro calls only in core model and the editor binding; scratch projection updates also live in model. Exports reject deep imports. Host code never imports core, storage or authored component implementations.
 
-Tooling is mise + Vite+, tests from `vite-plus/test`, config in `vite.config.ts`, source exports internally. `blocks`, `host-runtime`, `host-tanstack` are `vp pack`-published under `@composedink`; React is a peer plus dev dependency. Dependency baselines from B (Loro 1.17, binding 0.3.3, Vite 8/MF Vite 1.23, runtime 2.9, Zod 4, Harper 3) are spike inputs, not verified compatibility claims. The authority materializes files in `$COMPOSED_HOME/build/<id>/<hash>/`, generates package.json devDependencies for react/react-dom/@composedink/blocks at catalog versions, and installs with pnpm frozen and `--ignore-scripts`. Vite + MF builds share the three singletons with `import:false`; account for MF Vite 1.23's named-import caveat and include the JSX runtime in the host share scope. Local bundling uses Vite + MF; artifact publication is PUT. Server bundling moves to P2 with sync, an explicit grounding deviation.
+Tooling is mise + Vite+ for tests (`vite-plus/test` with `vite.config.ts`), lint, formatting and non-MF apps (`apps/web` retains Vite and its Loro optimizeDeps exclusions). TanStack Start is required; all MF hosts and component builds use Rsbuild/Rspack and `@module-federation/rsbuild-plugin`, with `@tanstack/react-start/plugin/rsbuild` on hosts. Lachlan chose this on 2026-11-05: the Vite MF plugin was spiked and worked but is no longer used. `blocks`, `host-runtime`, `host-tanstack` are `vp pack`-published under `@composedink`; React is a peer plus dev dependency. The authority materializes files in `$COMPOSED_HOME/build/<id>/<hash>/`, generates devDependencies for react/react-dom/@rsbuild/core/@rsbuild/plugin-react/@module-federation/rsbuild-plugin at catalog versions and @composedink/blocks as a workspace link (published version in 09/12). Resolve the lock with --lockfile-only, hash files/lock/settings, then install frozen with --ignore-scripts. Rsbuild's programmatic API builds three singleton shares with `import:false` and `requiredVersion:false`. Remotes expose `./block` through a `var` library named from id+version; the runtime-only host registers remoteEntry.js with `type:"global"`. Local bundling location and artifact PUT publication stay unchanged. Server bundling moves to P2 with sync, an explicit grounding deviation.
 
 ## Behavior
 
@@ -374,7 +352,7 @@ The final decisions supersede candidate assertions. Rejected alternatives and re
 | B React-only components / post deps as exact lock / transitive roll-up | bundle own dependencies; export lock resolves intent; roll-up deferred to P5                                                           |
 | MVP server bundling                                                    | server lacks synced source until P2; local authority builds                                                                            |
 | iframe on every MVP/published block                                    | own authored code already trusted like existing figures; avoid iframe UX/integration cost                                              |
-| A blocksFor/post resolver and general Vite integration                 | B remark injection leaves PostPage and FIGURES intact                                                                                  |
+| A blocksFor/post resolver and general host integration                 | B remark injection leaves PostPage and FIGURES intact                                                                                  |
 | protocol, preview, ai, editor packages now                             | no second runtime consumer; editor stays in web, rewrite in core                                                                       |
 | agent direct flag authorized by by:human                               | capability belongs to adapter; attribution cannot grant permission                                                                     |
 | silently reattach deleted proposals / diff against latest              | stash detached work; fork at exported/read base preserves concurrent edits                                                             |

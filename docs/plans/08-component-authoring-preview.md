@@ -6,12 +6,18 @@
 
 **Goal:** author a real component package, validate it, and see good builds refresh the real example host while failures preserve the last good preview. Widen existing component.read/write; never duplicate them.
 
+**Build contract:** TanStack Start is required. MF hosts use `@tanstack/react-start/plugin/rsbuild`;
+component builds use Rsbuild/Rspack + `@module-federation/rsbuild-plugin`, named `var` remotes
+loaded as `type: "global"`. Materialization includes the catalogued Rsbuild/React/MF build tools;
+sourceHash covers files, generated lock and settings. MDX loaders register sibling locks through
+`this.addDependency` for dev SSR invalidation. Vite+ remains tests/lint/format and non-MF apps.
+
 **Files:** `packages/core/src/{bundle,export}.ts`, `src/model/files.ts`, `src/component/{check,workspace,preview}.ts`, tests; `apps/cli/src/component-edit.ts`; `packages/blocks/src/{schema,static-value}.ts`; example authoring e2e. Add TypeScript/materialization dependencies explicitly through catalog.
 
 ### Task 1 — Validate/materialize packages
 
 - [ ] Extend component files to arbitrary safe relative modules, package.json dependencies and exact resolver lock. Reject path traversal, symlink escapes and install scripts. Own dependencies are bundled; only react/react-dom/react/jsx-runtime are shared singleton/import:false. Do not roll dependencies up into post deps.
-- [ ] Implement component.check: materialize through the authority at `$COMPOSED_HOME/build/<id>/<hash>/` with generated catalog-version react/react-dom/@composedink/blocks devDependencies, resolve/freeze exact dependencies and pnpm install frozen with --ignore-scripts, typecheck, extract defineBlock literal props/sample/editor/kind, validate schema/sample, and check fallback.ts has no imports/require/dynamic imports. Return positioned diagnostics and manifest; do not import block.tsx to inspect metadata. Ensure defaults are applied before instance hashing.
+- [ ] Implement component.check: materialize through the authority at `$COMPOSED_HOME/build/<id>/<hash>/` with generated catalog-version react/react-dom/@rsbuild/core/@rsbuild/plugin-react/@module-federation/rsbuild-plugin devDependencies plus @composedink/blocks link, resolve/freeze exact dependencies and pnpm install frozen with --ignore-scripts, typecheck, extract defineBlock literal props/sample/editor/kind, validate schema/sample, and check fallback.ts has no imports/require/dynamic imports. Return positioned diagnostics and manifest; do not import block.tsx to inspect metadata. Ensure defaults are applied before instance hashing.
 - [ ] Build twice from the same files/resolutions/settings and assert same sourceHash and equivalent immutable artifacts; changed dependencies alter the hash. Check bad props and non-literal schema fail at file:line. Constrained fallback tests from 01 continue to pass.
 
 ### Task 2 — Add file editing and sustained preview

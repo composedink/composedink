@@ -6,6 +6,12 @@
 
 **Goal:** immutable publication and reproducible offline host compilation, plus safe round-tripping of outside-file edits. No deployment or real npm publish is required to complete this implementation plan.
 
+**Build contract:** TanStack Start is required. MF hosts use `@tanstack/react-start/plugin/rsbuild`;
+component builds use Rsbuild/Rspack + `@module-federation/rsbuild-plugin`, named `var` remotes
+loaded as `type: "global"`. Materialization includes the catalogued Rsbuild/React/MF build tools;
+sourceHash covers files, generated lock and settings. MDX loaders register sibling locks through
+`this.addDependency` for dev SSR invalidation. Vite+ remains tests/lint/format and non-MF apps.
+
 **Files:** `apps/server/{package.json,tsconfig.json,vite.config.ts,src/main.ts,src/artifacts.ts,tests/artifacts.test.ts,Dockerfile,README.md}`; `packages/core/src/{publish,export}.ts`, `src/store/{intents,receipts,export-history}.ts`, `src/model/{apply,releases}.ts` and tests; `apps/cli/src/{import,config}.ts`; host remark/runtime tests; publishable package manifests/pack configs; example release e2e.
 
 ### Task 1 — Serve immutable artifacts

@@ -4,7 +4,7 @@
 
 **Depends on:** 09. Execute before 10; plan numbers do not imply execution order.
 
-**Goal:** deliver the existing artifact server at `https://cdn.composed.ink`, publish the three host packages to npm, and configure the author device so plan 10 can use npm packages and real locked URLs.
+**Goal:** deliver the existing artifact server at `https://cdn.composed.ink`, publish the three host packages to npm, and configure the author device so hellotimber's adoption (its plan 33) can use npm packages and real locked URLs.
 
 **Build contract:** TanStack Start is required. MF hosts use `@tanstack/react-start/plugin/rsbuild`;
 component builds use Rsbuild/Rspack + `@module-federation/rsbuild-plugin`, named `var` remotes
@@ -29,7 +29,7 @@ sourceHash covers files, generated lock and settings. MDX loaders register sibli
 
 - [ ] Use 09's `composed config scope <scope> --server https://cdn.composed.ink --token-ref <ref>` to map the author scope and store a token reference on the author device. Tokens never enter document state or exported locks.
 - [x] With the existing studio, create/check/publish a small component, pin the returned version and release-export a temp post. Assert the locked absolute entry URL points at cdn.composed.ink. Build the isolated npm-installed example without network or component execution during compilation; serve its prerendered fallback with JS off, then enable JS and load the real remote with one React identity. Blocking the remote preserves fallback.
-- [ ] Record server image/version, public package versions, scope mapping (without token), immutable URLs and smoke results for 10. Leave DNS/TLS or publication tasks explicitly incomplete if human access is unavailable; plan 10 cannot proceed on a local-test-server substitute.
+- [ ] Record server image/version, public package versions, scope mapping (without token), immutable URLs and smoke results for hellotimber's plan 33. Leave DNS/TLS or publication tasks explicitly incomplete if human access is unavailable; adoption cannot proceed on a local-test-server substitute.
 
 **Verification:** `mise exec -- vp run composed-server#test`, `mise exec -- vp run @composedink/core#test`, `mise exec -- vp run host-tanstack#build`, `mise exec -- vp run host-tanstack#e2e`, and `mise exec -- vp pack` in each public package. Container build/deploy, registry publication and isolated npm installation use the selected provider/package tools documented here during execution; no future composed commands are required. Archive HTTPS/CORS/immutable-retry results, npm installation evidence and real-server lock. DNS/TLS completion must be confirmed by the human tasks above.
 
@@ -137,4 +137,4 @@ paths), built with the network denied except the staging host, prerendered `/pos
 (`test-results/tarball-consumer-proof.json`, `source: "registry"`). Tasks 1 and 2 are complete
 against staging; Task 3 is complete except the production URL. What remains is production only:
 `cdn.composed.ink` (composed.ink has no nameservers), the tunnel ACME rule, and the author scope
-pointed at it. Plan 10 proceeds against staging and the published 0.1.0 packages.
+pointed at it. hellotimber adoption (moved to hellotimber as plan 33 on 2026-11-06, at Lachlan's pace) proceeds against staging and the published 0.1.0 packages; `examples/host-tanstack` remains this repo's integration test.

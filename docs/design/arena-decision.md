@@ -112,7 +112,7 @@ Verdict (all **act on**, applied in one revision pass; nothing classified consid
 6. Plan 01 executability (both): evidence 6 needs the rebuild→re-export loop; preview server
    owner; export into a temp copy; studio serving `apps/web`; React for component builds; mise
    path; tsconfig include → all assigned to plan 01 / fixed.
-7. No deployable workflow 7 (Claude) → plan 12 (deploy), plan 10 depends on it.
+7. No deployable workflow 7 (Claude) → plan 12 (deploy); hellotimber adoption (now hellotimber plan 33) depends on it.
 8. Preview locks would fail hellotimber production builds for drafts (Claude) → fallback-only
    with a warning; acceptance reworded to SSR.
 9. Contract drift: `export` lacks `view`, `composed import` had no op, receipts in the

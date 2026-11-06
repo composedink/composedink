@@ -511,7 +511,7 @@ R1 and R3 are resolved. No remaining stop. No hellotimber files changed.
 **2026-11-05, toolchain decision.** Lachlan requires TanStack Start and Rsbuild/Rspack for
 all MF builds (example, future hellotimber host and component remotes). The working Vite MF
 spike is retired. Vite+ remains tests/lint/format and non-MF apps; apps/web retains its Loro
-optimizeDeps exclusions. No hellotimber file changed. Plan 10 records its separately verified
+optimizeDeps exclusions. No hellotimber file changed. hellotimber's plan 33 records its separately verified
 website build/deployment migration to `@tanstack/react-start/plugin/rsbuild`.
 
 The example uses Start's Rsbuild plugin, pluginReact, `@mdx-js/loader` + remarkComposed and

@@ -388,10 +388,10 @@ The tracer is one post with `<Hello name="Lachlan" />`, one inline block with a 
 | 07   | model rewrites                                                      | 05          | provider double proposes, never overwrites                        |
 | 08   | component authoring/live preview                                    | 03,05       | own bundled dependency, checked file sync, last-good preview      |
 | 09   | publish/artifact server/release import                              | 02,04,05,08 | immutable retries, offline host build, tarball consumer           |
-| 10   | separately authorized hellotimber adoption                          | 12          | folder globs, real build, no-JS fallback, summary feed unchanged  |
+| 10   | hellotimber adoption (hellotimber plan 33, in that repo)            | 12          | folder globs, real build, no-JS fallback, summary feed unchanged  |
 | 11   | desktop                                                             | 03–09       | packaged relaunch/CLI visibility/one authority                    |
 | 12   | deploy server + npm integrations, device scope config               | 09          | cdn.composed.ink, npm installs, real locked URLs                  |
 
-Run 12 before 10: deploy the container at Lachlan-owned `cdn.composed.ink`, publish `@composedink/{blocks,host-runtime,host-tanstack}` from `vp pack` outputs to Lachlan-created npm org `composedink`, and configure the author device scope → server. DNS/TLS are human tasks in plan 12.
+Run 12 before hellotimber's plan 33: deploy the container at Lachlan-owned `cdn.composed.ink`, publish `@composedink/{blocks,host-runtime,host-tanstack}` from `vp pack` outputs to Lachlan-created npm org `composedink`, and configure the author device scope → server. DNS/TLS are human tasks in plan 12.
 
 All units require vp check --fix and recursive tests. Their [index](../plans/README.md) names per-unit commands. The editor is deliberately widened across 03/04/05/07 so no completion test invokes a later unit's operation.

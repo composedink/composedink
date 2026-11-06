@@ -14,7 +14,9 @@
   "dependencies": {
     "@composedink/blocks": "workspace:*",
     "@mdx-js/mdx": "catalog:",
-    "@module-federation/vite": "catalog:",
+    "@module-federation/rsbuild-plugin": "catalog:",
+    "@rsbuild/core": "catalog:",
+    "@rsbuild/plugin-react": "catalog:",
     "loro-crdt": "catalog:",
     "mdast-util-from-markdown": "catalog:",
     "remark-mdx": "catalog:",

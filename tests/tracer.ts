@@ -3,12 +3,48 @@ import { mkdtemp, cp, symlink, mkdir, writeFile, readFile, rm, readdir } from "n
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
+import { createRequire } from "node:module";
 import { chromium, expect } from "@playwright/test";
 import { assertInteractiveRemote } from "../examples/host-tanstack/tests/tracer.spec.ts";
 const root = resolve(import.meta.dirname, "..");
 console.log("runtime", process.version, process.execPath);
 const evidence = join(root, "test-results");
 await mkdir(evidence, { recursive: true });
+const coreRequire = createRequire(join(root, "packages/core/package.json"));
+const hostRequire = createRequire(join(root, "examples/host-tanstack/package.json"));
+const rsbuildRequire = createRequire(coreRequire.resolve("@rsbuild/core"));
+const versions: Record<string, string> = { node: process.version };
+for (const [name, resolver] of [
+  ["@rsbuild/core", coreRequire],
+  ["@rspack/core", rsbuildRequire],
+  ["@rsbuild/plugin-react", coreRequire],
+  ["@module-federation/rsbuild-plugin", coreRequire],
+  ["@tanstack/react-start", hostRequire],
+  ["react", hostRequire],
+  ["react-dom", hostRequire],
+] as const) {
+  for (const directory of resolver.resolve.paths(name) ?? []) {
+    let metadata: unknown;
+    try {
+      metadata = JSON.parse(await readFile(join(directory, name, "package.json"), "utf8"));
+    } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+      continue;
+    }
+    if (
+      !metadata ||
+      typeof metadata !== "object" ||
+      !("version" in metadata) ||
+      typeof metadata.version !== "string"
+    )
+      throw Error(`Missing package version: ${name}`);
+    versions[name] = metadata.version;
+    break;
+  }
+  if (!versions[name]) throw Error(`Missing package: ${name}`);
+}
+await writeFile(join(evidence, "versions.json"), JSON.stringify(versions, null, 2));
+
 const home = await mkdtemp(join(tmpdir(), "composed-tracer-"));
 const example = join(home, "example");
 const children = new Set<ChildProcess>();
@@ -144,7 +180,11 @@ try {
   await writeFile(join(evidence, "exported.mdx"), source);
   await writeFile(join(evidence, "exported.lock.json"), JSON.stringify(lock, null, 2));
   await writeFile(join(evidence, "durable-read.txt"), await cli(["cat", "tracer"]));
-  const build = launch(join(root, "node_modules/.bin/vp"), ["build"], example);
+  const build = launch(
+    join(root, "examples/host-tanstack/node_modules/.bin/rsbuild"),
+    ["build"],
+    example,
+  );
   await build.done.finally(() => writeFile(join(evidence, "tracer-build.log"), build.output()));
   const prerender = await readFile(join(example, "dist/client/posts/tracer/index.html"), "utf8");
   await writeFile(join(evidence, "prerender.html"), prerender);
@@ -207,7 +247,7 @@ try {
   await stop(productionServer.child);
   checks["3"] = true;
   const host = launch(
-    join(root, "node_modules/.bin/vp"),
+    join(root, "examples/host-tanstack/node_modules/.bin/rsbuild"),
     ["dev", "--host", "127.0.0.1", "--port", String(hostPort)],
     example,
   );

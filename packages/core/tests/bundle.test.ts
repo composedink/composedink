@@ -22,9 +22,9 @@ it("builds a real immutable federated component with a generated frozen lock", a
       componentTemplate("inline"),
       "http://127.0.0.1:4848",
     );
-    const directory = join(home, "artifacts", built.name, "assets");
+    const directory = join(home, "artifacts", built.name);
     const assets = await Promise.all(
-      (await readdir(directory))
+      (await readdir(directory, { recursive: true }))
         .filter((name) => name.endsWith(".js"))
         .map((name) => readFile(join(directory, name), "utf8")),
     );

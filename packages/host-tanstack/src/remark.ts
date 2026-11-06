@@ -103,7 +103,7 @@ export function remarkComposed(options: { production?: boolean } = {}) {
     }
     walk(tree);
     if (!used || !object(tree) || !Array.isArray(tree.children)) return;
-    // Retain the lock import in generated JS so Vite tracks the sibling dependency.
+    // Retain the lock import in generated JS so the bundler tracks the sibling dependency.
     const sources = [
       ['import _lock from "./composed.lock.json";', "_lock", "./composed.lock.json"],
       [
@@ -179,18 +179,5 @@ export function remarkComposed(options: { production?: boolean } = {}) {
       warnings.add(file.path);
       console.warn(`${file.path}: preview lock renders fallback only; composed export ${lock.doc}`);
     }
-  };
-}
-
-export function composedLockReload(): import("vite-plus").Plugin {
-  return {
-    name: "composed-lock-reload",
-    hotUpdate({ file, modules }) {
-      if (!file.endsWith("/composed.lock.json")) return;
-      const graph = this.environment.moduleGraph;
-      const siblings = [...(graph.getModulesByFile(join(dirname(file), "index.mdx")) ?? [])];
-      for (const module of siblings) graph.invalidateModule(module);
-      return [...modules, ...siblings];
-    },
   };
 }

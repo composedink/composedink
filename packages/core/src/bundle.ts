@@ -3,8 +3,10 @@ import { join, dirname, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { build, parseAst } from "vite";
-import { federation } from "@module-federation/vite";
+import { parseAst } from "vite";
+import { createRsbuild } from "@rsbuild/core";
+import { pluginReact } from "@rsbuild/plugin-react";
+import { pluginModuleFederation } from "@module-federation/rsbuild-plugin";
 import {
   SHARED_SINGLETONS,
   staticValue,
@@ -124,6 +126,9 @@ export async function bundle(
         devDependencies: {
           react: version("react"),
           "react-dom": version("react-dom"),
+          "@rsbuild/core": version("@rsbuild/core"),
+          "@rsbuild/plugin-react": version("@rsbuild/plugin-react"),
+          "@module-federation/rsbuild-plugin": version("@module-federation/rsbuild-plugin"),
           "@composedink/blocks": `link:${blocks}`,
         },
       }),
@@ -132,7 +137,16 @@ export async function bundle(
     const lock = await readFile(join(temporary, "pnpm-lock.yaml"), "utf8");
     const settings = {
       exposes: { "./block": "./block.tsx" },
-      shared: [...SHARED_SINGLETONS],
+      shared: Object.fromEntries(
+        SHARED_SINGLETONS.map((key) => [
+          key,
+          { singleton: true, import: false as const, requiredVersion: false as const },
+        ]),
+      ),
+      bundler: "rsbuild",
+      libraryType: "var",
+      manifest: true,
+      publicPath: artifactOrigin,
       jsxDevelopment: false,
       nodeEnv: "production",
       entry: "empty",
@@ -157,30 +171,34 @@ export async function bundle(
         directory,
       );
       await writeFile(join(directory, ".composed-entry.js"), "export {};\n");
-      await build({
-        configFile: false,
-        oxc: { jsx: { development: false } },
-        define: { "process.env.NODE_ENV": JSON.stringify("production") },
-        root: directory,
-        base: `${artifactOrigin}/${name}/`,
-        plugins: [
-          federation({
-            name,
-            dts: false,
-            filename: "remoteEntry.js",
-            exposes: settings.exposes,
-            shared: Object.fromEntries(
-              SHARED_SINGLETONS.map((key) => [key, { singleton: true, import: false }]),
-            ),
-          }),
-        ],
-        build: {
-          outDir: join(directory, "dist"),
-          rolldownOptions: { input: join(directory, ".composed-entry.js") },
-          target: "esnext",
-          minify: false,
+      const builder = await createRsbuild({
+        cwd: directory,
+        rsbuildConfig: {
+          mode: "production",
+          source: {
+            entry: { index: join(directory, ".composed-entry.js") },
+            define: { "process.env.NODE_ENV": JSON.stringify("production") },
+          },
+          output: {
+            distPath: { root: join(directory, "dist") },
+            assetPrefix: `${artifactOrigin}/${name}/`,
+            minify: false,
+          },
+          plugins: [
+            pluginReact(),
+            pluginModuleFederation({
+              name,
+              library: { type: "var", name },
+              dts: false,
+              manifest: true,
+              filename: "remoteEntry.js",
+              exposes: settings.exposes,
+              shared: settings.shared,
+            }),
+          ],
         },
       });
+      await builder.build();
       await mkdir(dirname(artifact), { recursive: true });
       await cp(join(directory, "dist"), artifact, { recursive: true });
     }

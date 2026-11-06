@@ -201,3 +201,13 @@ passed; the aggregate run is not green. The final added focused tests report
 (test-results/plan-04-stop-check.log). Implementation is intentionally retained
 uncommitted for resolution and further verification; only Task 1 and this stop
 record are committed. Nothing was pushed to origin.
+
+**Resolution 2 (boss, 2026-11-05).** The peer-order case is a tie-break on concurrent inserts at
+one position, so the version must not depend on it. Rule: filter the merged interval by
+authorship — keep a character only if the agent authored it (`text.getCursor(i, 0).pos().peer`
+equals the agent fork's peer) or it lies inside the live-anchor interval resolved in the merged
+fork. Verified with `test-results/plan-04-loro-spike-authorship.mjs` on loro-crdt 1.17.1 for
+edges, inside-edit, first-sentence deletion and ¶2/¶4 under both peer orders: versions are
+identical, and simulated flips give `LEFT Agent sentence. Another sentence. RIGHT` with no
+duplication. Add it beside the extraction regression in `packages/core/tests/`; the CLI's
+detached-text assertion should compare against this rule's output, not a peer-specific string.

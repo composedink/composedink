@@ -1,0 +1,82 @@
+:root {
+  font: 16px/1.5 system-ui;
+  color: #25332e;
+  background: #faf9f5;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 1400px;
+  margin: auto;
+  padding: 2rem;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+h1 {
+  margin-right: auto;
+}
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(250px, 1fr);
+  gap: 2rem;
+}
+.cm-editor {
+  background: white;
+  border: 1px solid #b6c4ba;
+  min-height: 55vh;
+  font-size: 17px;
+}
+.cm-content {
+  padding: 1rem;
+}
+.cm-line {
+  line-height: 1.7;
+}
+aside {
+  border-left: 1px solid #b6c4ba;
+  padding-left: 2rem;
+}
+.chip {
+  border: 1px solid #b6c4ba;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+label {
+  display: block;
+  margin: 1rem 0;
+}
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+textarea {
+  display: block;
+  width: 90%;
+  min-height: 6rem;
+}
+button {
+  cursor: pointer;
+}
+[role="alert"] {
+  color: #952f20;
+}
+@media (max-width: 700px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+  header {
+    flex-wrap: wrap;
+  }
+}

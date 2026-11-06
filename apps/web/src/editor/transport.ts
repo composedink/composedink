@@ -3,6 +3,7 @@ import { encodeFrontiers, type LoroDoc } from "loro-crdt";
 
 export class EditorTransport {
   private socket?: WebSocket;
+  private session = crypto.randomUUID();
   private stopped = false;
   private timer?: ReturnType<typeof setTimeout>;
   private sequence = 0;
@@ -45,6 +46,7 @@ export class EditorTransport {
         socket.send(
           JSON.stringify({
             subscribe: this.id,
+            session: this.session,
             base: btoa(String.fromCharCode(...encodeFrontiers(this.doc.frontiers()))),
           }),
         );
@@ -96,7 +98,15 @@ export class EditorTransport {
     const request = ++this.request;
     return new Promise<unknown>((resolve, reject) => {
       this.calls.set(request, { resolve, reject });
-      this.socket!.send(JSON.stringify({ request, name, input }));
+      this.socket!.send(JSON.stringify({ request, name, input, human: true }));
+    });
+  }
+  async undoOperation() {
+    await this.flush();
+    const request = ++this.request;
+    return new Promise<unknown>((resolve, reject) => {
+      this.calls.set(request, { resolve, reject });
+      this.socket!.send(JSON.stringify({ request, undo: true }));
     });
   }
   destroy() {

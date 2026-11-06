@@ -1,5 +1,6 @@
+import { inverse, applyInverse, type Inverse } from "./model/inverse.ts";
 import type { Envelope } from "./store/receipts.ts";
-import { LoroDoc } from "loro-crdt";
+import { LoroDoc, decodeFrontiers } from "loro-crdt";
 import type { Store } from "./store/store.ts";
 import { read, head } from "./model/read.ts";
 import { importTyping } from "./model/text.ts";
@@ -10,6 +11,7 @@ export async function authority(store: Store) {
     for (const b of bytes) doc.import(b);
     documents.set(id, doc);
   }
+  const undo = new Map<string, Inverse[][]>();
   const listeners = new Set<(id: string, bytes: Uint8Array) => void>();
   let effects: Envelope["effects"] = [];
   let reconciliations: string[] = [];
@@ -27,11 +29,44 @@ export async function authority(store: Store) {
     documents,
     get(id: string) {
       const doc = documents.get(id);
-      if (!doc) throw new Error(`UnknownDoc: ${id}`);
+      if (!doc || doc.getMap("meta").get("deleted")) throw new Error(`UnknownDoc: ${id}`);
       return doc;
+    },
+    synchronize(id: string, base?: string) {
+      const doc = this.get(id);
+      if (base) {
+        try {
+          const from = doc.frontiersToVV(decodeFrontiers(Buffer.from(base, "base64")));
+          return doc.export({ mode: "update", from });
+        } catch {
+          // Offline local frontiers may not exist here until retained typing is resent.
+        }
+      }
+      return doc.export({ mode: "snapshot" });
     },
     read(id: string) {
       return read(this.get(id));
+    },
+    async sessionOperation(session: string, run: () => Promise<unknown>) {
+      const before = new Map(documents);
+      const result = await run();
+      const actions = [...documents]
+        .filter(([id, doc]) => doc !== before.get(id))
+        .map(([id, doc]) => inverse(id, before.get(id), doc));
+      if (actions.length) undo.set(session, [...(undo.get(session) ?? []), actions]);
+      return result;
+    },
+    async undo(session: string, after?: (ids: string[]) => Promise<void>) {
+      const stack = undo.get(session);
+      const actions = stack?.at(-1);
+      if (!actions) throw Error("NothingToUndo");
+      await this.transaction(undefined, "session-undo", async () => {
+        for (const action of actions)
+          await this.change(action.id, (doc) => applyInverse(doc, action));
+        await after?.(actions.map((action) => action.id));
+      });
+      stack!.pop();
+      return { remaining: stack!.length };
     },
     async transaction(request: string | undefined, hash: string, run: () => Promise<unknown>) {
       const prior = request ? store.journal.lookup(request, hash) : undefined;

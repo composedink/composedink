@@ -4,7 +4,14 @@ import { mkdir, readFile, realpath, access } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { createServer as createViteServer } from "vite";
 import { WebSocketServer, WebSocket } from "ws";
-import { authority, openStore, bind, atomicWrite, acquire } from "@composedink/core/node";
+import {
+  authority,
+  openStore,
+  bind,
+  atomicWrite,
+  acquire,
+  undoSession,
+} from "@composedink/core/node";
 export async function studio(home: string) {
   await mkdir(home, { recursive: true });
   const port = Number(process.env.COMPOSED_PORT ?? 4747);
@@ -86,6 +93,7 @@ export async function studio(home: string) {
     sockets.handleUpgrade(req, socket, head, (ws) => sockets.emit("connection", ws, req));
   });
   sockets.on("connection", (socket) => {
+    let session = randomBytes(16).toString("hex");
     let unsubscribe: (() => void) | undefined;
     socket.on("close", () => unsubscribe?.());
     let frames = Promise.resolve();
@@ -100,6 +108,8 @@ export async function studio(home: string) {
           );
           try {
             if (frame.subscribe) {
+              if (typeof frame.session === "string" && /^[0-9a-f-]{36}$/.test(frame.session))
+                session = frame.session;
               unsubscribe?.();
               unsubscribe = a.subscribe((doc, bytes) => {
                 if (doc === frame.subscribe && socket.readyState === WebSocket.OPEN)
@@ -108,11 +118,12 @@ export async function studio(home: string) {
                   );
               });
               await a.serialize(async () => {
-                const doc = a.get(frame.subscribe);
                 socket.send(
                   JSON.stringify({
                     doc: frame.subscribe,
-                    snapshot: Buffer.from(doc.export({ mode: "snapshot" })).toString("base64"),
+                    snapshot: Buffer.from(a.synchronize(frame.subscribe, frame.base)).toString(
+                      "base64",
+                    ),
                     head: a.read(frame.subscribe).base,
                   }),
                 );
@@ -123,7 +134,11 @@ export async function studio(home: string) {
               );
               socket.send(JSON.stringify({ doc: frame.doc, seq: frame.seq, ...result }));
             } else {
-              const result = await run(frame.name, frame.input);
+              const result = frame.undo
+                ? await undoSession(a, session)
+                : frame.human
+                  ? await run(frame.name, frame.input, session)
+                  : await run(frame.name, frame.input);
               socket.send(JSON.stringify({ request: frame.request, result }));
             }
           } catch (error) {

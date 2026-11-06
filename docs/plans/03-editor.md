@@ -16,10 +16,10 @@
 
 ### Task 2 — Build editor foundation using existing operations
 
-- [ ] Add Markdown/MDX syntax styling, selection context and source/preview split. Render existing block usages as non-executing chips showing tag/version/props validation; author remotes appear only on the blog/example dev server's own origin, never studio's origin. Source/preview split links to that surface; P3 adds usercontent for editor-side previews. Props validation reads the same schema contract as export.
-- [ ] Expose only shipped create/read/component write/deps/preview actions. Create extension points for decorations/panels without nonfunctional alternative or dim buttons. Plans 04/05 add those actions when their ops exist; plan 07 adds rewrite UI.
-- [ ] Implement session operation undo records on the authority: each op commit has an inverse action using semantic IDs/cursors, not a whole-document reset. Record direct user ops separately from normalization. Keystrokes undo via the binding manager; operation undo invokes the authority inverse. After an op, the binding must not claim its import as a local keystroke undo group. Remote/agent ops are not automatically added to the human's undo stack.
-- [ ] Test normalization import does not become a separate user undo item. For initial supported actions, undo restores only that action. Extend inverse coverage with each later mutation; fail when a target is detached, never guess a new location.
+- [x] Add Markdown/MDX syntax styling, selection context and source/preview split. Render existing block usages as non-executing chips showing tag/version/props validation; author remotes appear only on the blog/example dev server's own origin, never studio's origin. Source/preview split links to that surface; P3 adds usercontent for editor-side previews. Props validation reads the same schema contract as export.
+- [x] Expose only shipped create/read/component write/deps/preview actions. Create extension points for decorations/panels without nonfunctional alternative or dim buttons. Plans 04/05 add those actions when their ops exist; plan 07 adds rewrite UI.
+- [x] Implement session operation undo records on the authority: each op commit has an inverse action using semantic IDs/cursors, not a whole-document reset. Record direct user ops separately from normalization. Keystrokes undo via the binding manager; operation undo invokes the authority inverse. After an op, the binding must not claim its import as a local keystroke undo group. Remote/agent ops are not automatically added to the human's undo stack.
+- [x] Test normalization import does not become a separate user undo item. For initial supported actions, undo restores only that action. Extend inverse coverage with each later mutation; fail when a target is detached, never guess a new location.
 
 **Verification:** add `composed-web#e2e` using Playwright. Run `mise exec -- vp run composed-web#test`, `mise exec -- vp run composed-web#e2e`, and tracer e2e. Tests type prose, persist/reload, change dependency through CLI, observe imported state, undo local typing without undoing authority changes, disconnect/type/reconnect, and verify durable acknowledgement. Archive the R2 event-order cases with view/text equality. All actions exercised exist by this plan.
 
@@ -45,3 +45,43 @@ real Chromium IME, local keystroke undo, offline typing/reconnect/durable read),
 plan-03-task1-check.log (no lint/type warnings/errors), plan-03-task1-all-tests.log (7/7 tasks),
 plan-03-task1-tracer.log (six tracer assertions true, refresh 1133.65 ms).
 No policy rewrite of imported typing; no later-plan operation; no stop.
+
+**2026-11-05, Task 2 verified.** Added the Markdown/MDX source pane, UTF-16 selection
+context, source/preview split with a link to the blog's own origin, non-executing block chips,
+and a shipped-operation JSON action panel with results/errors. Chips use the same literal
+manifest, JSX props and defaults/schema validator as export. CodeMirror decorations and React
+panels have extension points; no alternatives/dim/stash/rewrite controls or placeholder ops.
+Added @codemirror/language as a direct catalog dependency for syntax highlighting (previously
+transitive), flagged during implementation; lockfile updated only through vp install.
+
+Authority session undo records carry inverse CRDT update bytes built at the exact operation
+frontiers, container identities and changed-field guards. They do not reset a document.
+Creation undo tombstones its stable ID; subsequent edits make that target busy. File and
+dependency inverses preserve other fields and later same-file typing, and fail visibly for
+replaced/deleted targets or a new file edited by another writer. Component inverses refresh
+registered previews through the existing export transaction path. Direct studio mutations
+enter the human stack; CLI/agent operations and normalization imports do not. The browser
+session ID retains operation history across reconnects. Keystrokes continue to use only the
+binding UndoManager. Read/export delivery without a document commit adds no document inverse;
+undo does not retract external exported files. Pending bytes and undo history are in memory,
+so closing/reloading an unsaved tab is outside reconnect retention.
+
+Final evidence (gitignored test-results/):
+
+- plan-03-final-check.log: format passes, no lint/type warnings/errors (82 files).
+- plan-03-final-tests.log: 7/7 workspace tasks, including existing 1,000-write durability,
+  boundary, receipts, election, compaction and export regressions.
+- plan-03-final-web-test.log: 2 files / 2 tests; R2 event order/equality, Unicode/syntax
+  selection/imported-edit undo and exact acknowledgement retention.
+- plan-03-final-e2e.log, plan-03-editor.json/png: actual studio; ordered frames, persistence,
+  Chromium IME, imported CLI deps, typing undo, offline typing/durable reconnect, operation
+  undo across reconnect, remote ops excluded, valid/invalid props and zero remoteEntry loads.
+- plan-03-undo-focused.log: 2 files / 8 tests; action-specific inverse, normalization/typing
+  isolation, same-file concurrent edits, changed/deleted targets, unknown bases.
+- plan-03-final-focused.log: 5 files / 11 tests, including store/ops/export after final changes.
+- plan-03-final-tracer.log: all six tracer assertions true; preview refresh 845.67 ms.
+- plan-03-final-web-build.log: production Vite build passes; large-bundle advisory retained.
+- plan-03-evidence.md maps scenarios to files; r2.json preserves both ordered event batches.
+
+No contradiction or stop. No hellotimber modification. Task 1 commit: 0c646f1; Task 2 is the
+following feat(web) commit, with the requested co-author trailer. Push follows final checks.

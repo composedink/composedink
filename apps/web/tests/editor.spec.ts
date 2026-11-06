@@ -93,6 +93,18 @@ try {
   await expect(editor).not.toContainText("Local");
   await expect(page.getByRole("status")).toHaveText("Saved");
   results.keystrokeUndo = true;
+  await page.getByText("Workspace actions", { exact: true }).click();
+  await page.getByRole("combobox").selectOption("deps.add");
+  await page.getByLabel("Input (JSON)").fill(
+    JSON.stringify({
+      doc: "editor",
+      tag: "Human",
+      component: "composed:test/block",
+      version: "dev",
+    }),
+  );
+  await page.getByRole("button", { name: "Run action" }).click();
+  await expect(page.getByTestId("deps")).toContainText("Human");
   await context.setOffline(true);
   await page.waitForTimeout(300);
   await editor.press("ControlOrMeta+End");
@@ -102,6 +114,34 @@ try {
   await expect(page.getByRole("status")).toHaveText("Saved", { timeout: 15000 });
   expect(JSON.parse(cli("cat", "editor", "--json")).text).toContain("offline 🐈");
   results.reconnectDurableAck = true;
+  await expect(page.getByTestId("deps")).toContainText("Card");
+  await page.getByRole("button", { name: "Undo operation" }).click();
+  await expect(page.getByTestId("deps")).not.toContainText("Human");
+  await expect(page.getByTestId("deps")).toContainText("Card");
+  expect(JSON.parse(cli("cat", "editor", "--json")).text).toContain("offline 🐈");
+  results.operationUndoIsolation = true;
+  results.operationUndoAfterReconnect = true;
+  await page.getByRole("button", { name: "Undo operation" }).click();
+  await expect(page.getByRole("alert")).toContainText("NothingToUndo");
+  results.remoteOpsExcluded = true;
+  await editor.press("ControlOrMeta+End");
+  await page.keyboard.insertText('\n\n<Card name="Lachlan" />');
+  await expect(page.locator(".chip")).toContainText("Valid props");
+  await expect(page.locator(".chip")).toContainText("@dev");
+  expect(
+    await page.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .filter((n) => n.includes("remoteEntry")),
+    ),
+  ).toEqual([]);
+  results.chipsDoNotExecuteRemotes = true;
+  await editor.press("ControlOrMeta+End");
+  await page.keyboard.insertText("\n\n<Card name={123} />");
+  await expect(page.locator(".chip").last()).not.toContainText("Valid props");
+  results.schemaValidation = true;
+
   await page.screenshot({ path: join(root, "test-results/plan-03-editor.png") });
   await writeFile(join(root, "test-results/plan-03-editor.json"), JSON.stringify(results, null, 2));
   console.log(results);

@@ -69,7 +69,12 @@ export async function runEditing() {
   doc.import(authority.export({ mode: "update", from: doc.version() }));
   const beforeUndo = view.state.doc.toString();
   view.contentDOM.dispatchEvent(
-    new KeyboardEvent("keydown", { key: "z", metaKey: true, bubbles: true }),
+    new KeyboardEvent("keydown", {
+      key: "z",
+      metaKey: /Mac/.test(navigator.platform),
+      ctrlKey: !/Mac/.test(navigator.platform),
+      bubbles: true,
+    }),
   );
   const result = {
     selected,

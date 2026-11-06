@@ -45,11 +45,14 @@ export function select(doc: LoroDoc, at: z.infer<typeof selectionSchema>) {
 }
 export function anchors(doc: LoroDoc, from: number, to: number) {
   const text = doc.getText("mdx");
+  const source = text.toString();
+  const previous = (offset: number) =>
+    offset > 1 && /[\uDC00-\uDFFF]/.test(source[offset - 1]) ? offset - 2 : Math.max(0, offset - 1);
   const start = text.getCursor(
-    from < to ? from : Math.max(0, from - 1),
+    from < to ? from : previous(from),
     from < to ? -1 : from > 0 ? 1 : -1,
   );
-  const end = text.getCursor(from < to ? to - 1 : to, from < to ? 1 : -1);
+  const end = text.getCursor(from < to ? previous(to) : to, from < to ? 1 : -1);
   if (!start || !end) throw Error("InvalidInvariant: cursor unavailable");
   return { start: Array.from(start.encode()), end: Array.from(end.encode()) };
 }
@@ -57,7 +60,12 @@ export function interval(doc: LoroDoc, a: { start: number[]; end: number[] }) {
   const pos = (bytes: number[]) => {
     const p = doc.getCursorPos(Cursor.decode(Uint8Array.from(bytes)));
     if (!p) throw Error("InvalidInvariant: unresolved cursor");
-    return p.offset + (p.side === 1 ? 1 : 0);
+    return (
+      p.offset +
+      (p.side === 1
+        ? String.fromCodePoint(doc.getText("mdx").toString().codePointAt(p.offset) ?? 0).length
+        : 0)
+    );
   };
   return { from: pos(a.start), to: pos(a.end) };
 }

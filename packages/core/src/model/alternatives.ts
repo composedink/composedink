@@ -1,3 +1,4 @@
+import { insertSnippet } from "./marks.ts";
 import { proposalVersion } from "./proposal.ts";
 import { LoroList, LoroMap, type LoroDoc } from "loro-crdt";
 import { z } from "zod";
@@ -141,10 +142,18 @@ export function flip(doc: LoroDoc, id: string, to: number | "next" | "prev") {
   doc.commit();
   return { active: index };
 }
-export function resolve(doc: LoroDoc, id: string) {
+export function resolve(doc: LoroDoc, id: string, rest: "stash" | "ghost" = "stash") {
   const a = alternatives(doc).find((a) => a.id === id);
   if (!a) throw Error("UnknownAlt");
-  for (const v of a.versions) stash(doc, v, "alt");
+  if (rest === "stash") for (const v of a.versions) stash(doc, v, "alt");
+  else {
+    let at = interval(doc, a).to;
+    for (const v of a.versions)
+      if (v.text !== undefined) {
+        insertSnippet(doc, at, { text: v.text, dim: v.text.length ? [[0, v.text.length]] : [] });
+        at += v.text.length;
+      }
+  }
   doc.getMap("alts").delete(id);
   doc.commit();
 }

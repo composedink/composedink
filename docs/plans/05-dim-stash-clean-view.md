@@ -10,9 +10,9 @@
 
 ### Task 1 — Implement marks and stash
 
-- [ ] Test mark expansion none at each edge, cross-boundary edits, emoji, inactive-version marks and restart. Implement `ghost.set`, `stash.add/restore`, `alt.resolve(rest:ghost)` and inverses through authority. Use stable stash IDs, not mutable list indices.
-- [ ] Add Mod-. selection toggle, dim decorations, stash panel/Insert and Mod-Shift-Enter. Resolve ghost keeps the current version and inserts inactive versions dimmed after it; original order is retained. Stash cut removes text atomically; restore validates a live insertion anchor, inserts its marks and removes the item atomically. Detached restore targets fail instead of guessing a location.
-- [ ] Authority normalization dissolves alternatives crossed by typing and preserves inactive snippets/marks in stash. Test a browser keystroke import, separate repair commit and durable acknowledgement; no rewritten replicated history.
+- [x] Test mark expansion none at each edge, cross-boundary edits, emoji, inactive-version marks and restart. Implement `ghost.set`, `stash.add/restore`, `alt.resolve(rest:ghost)` and inverses through authority. Use stable stash IDs, not mutable list indices.
+- [x] Add Mod-. selection toggle, dim decorations, stash panel/Insert and Mod-Shift-Enter. Resolve ghost keeps the current version and inserts inactive versions dimmed after it; original order is retained. Stash cut removes text atomically; restore validates a live insertion anchor, inserts its marks and removes the item atomically. Detached restore targets fail instead of guessing a location.
+- [x] Authority normalization dissolves alternatives crossed by typing and preserves inactive snippets/marks in stash. Test a browser keystroke import, separate repair commit and durable acknowledgement; no rewritten replicated history.
 
 ### Task 2 — Project and map at the base
 
@@ -33,3 +33,22 @@ interface Projection {
 **Out of scope:** compacting historical bases away, host frontmatter policy, lint/rewrite, sync, public release pins/server.
 
 **Common completion gate:** `mise exec -- vp check --fix` and `mise exec -- vp run -r test`. Tests import from `vite-plus/test`; use package `vite.config.ts`, never `vitest.config.ts`. Add any named script in this plan before invoking it. Repeat formatting until stable, stage only this unit’s files, commit the completed task, and update this index’s status. Commands are planned implementation gates, not results from this documentation task.
+
+## Implementation log
+
+2026-11-05 — Task 1 verified. Read the plan/design and Plans 01–04 logs before changes;
+installed through mise. Wrote the seeded clean-apply property test first: the existing
+identity projection fails (`test-results/plan-05-focused-red.log`). The Loro probe passes:
+`expand:"none"` excludes concurrent edge insertions, mark/unmark uses UTF-16 offsets,
+emoji and snapshot reload retain marks. Contiguous selections use one mark range so
+interior typing inherits dim. Flip tests preserve inactive dim spans. Found and fixed
+zero-length clipped marks in the existing snippet helper and surrogate-pair cursor ends.
+
+Implemented authority ghost.set, stable-ID cut/restore, detached-anchor rejection,
+empty-document insertion, and ordered ghost resolution. Existing operation inverses
+cover these operations. Crossing typing imports unchanged; repair gets a separate commit
+and preserves inactive marked snippets. Browser verifies Mod-., Mod-Shift-Enter, marked
+flips, ghost resolution, cut/Insert, operation undo for each and reload. Evidence:
+plan-05-task1-tests.log, plan-05-dim-e2e.log, plan-05-dim.json/png, and
+plan-05-task1-all-tests.log (7/7 tasks). Check passes with no warnings/errors.
+No contradiction or stop. Task 2 remains in progress.

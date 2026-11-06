@@ -88,3 +88,9 @@ button {
 .alternative button {
   margin-left: 0.5rem;
 }
+.cm-dim {
+  opacity: 0.4;
+}
+.stash-item pre {
+  white-space: pre-wrap;
+}

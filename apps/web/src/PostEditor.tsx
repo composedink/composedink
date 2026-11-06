@@ -1,3 +1,5 @@
+import { dimControls } from "./editor/dim";
+import { selection as captureSelection } from "./editor/selection";
 import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternatives";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EditorView } from "@codemirror/view";
@@ -12,6 +14,8 @@ type Inspection = {
 };
 export function PostEditor({ panels }: { panels?: ReactNode }) {
   const parent = useRef<HTMLDivElement>(null);
+  const editorView = useRef<EditorView | null>(null);
+  const [stash, setStash] = useState<{ id: string; text: string }[]>([]);
   const transport = useRef<EditorTransport | null>(null);
   const [alts, setAlts] = useState<Alt[]>([]);
   const liveAlts = useRef<Alt[]>([]);
@@ -24,20 +28,42 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   const id = new URLSearchParams(location.search).get("doc") ?? "tracer";
   useEffect(() => {
     const doc = new LoroDoc();
+    doc.configTextStyle({ dim: { expand: "none" } });
     let view: EditorView | undefined;
     let timer: ReturnType<typeof setTimeout>;
     const connection = new EditorTransport(doc, id, setStatus, () => {
       if (!view && parent.current)
         view = sourceEditor(parent.current, doc, [
+          dimControls(doc, (v) => {
+            void captureSelection(v, connection)
+              .then((at) =>
+                connection.operation("ghost.set", {
+                  doc: id,
+                  at,
+                  dim: !(() => {
+                    let offset = 0,
+                      marked = 0;
+                    for (const p of doc.getText("mdx").toDelta()) {
+                      const end = offset + (p.insert?.length ?? 0);
+                      if (p.attributes?.dim)
+                        marked += Math.max(0, Math.min(end, at.to) - Math.max(offset, at.from));
+                      offset = end;
+                    }
+                    return marked === at.to - at.from;
+                  })(),
+                }),
+              )
+              .catch((e) => setError(String(e)));
+          }),
           alternativeGutter(() => liveAlts.current),
           alternativeKeys(
             () => liveAlts.current,
             (alt, action) => {
               void connection
                 .operation(
-                  action === "keep" ? "alt.resolve" : "alt.flip",
-                  action === "keep"
-                    ? { doc: id, alt, rest: "stash" }
+                  action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
+                  action === "keep" || action === "ghost"
+                    ? { doc: id, alt, rest: action === "ghost" ? "ghost" : "stash" }
                     : { doc: id, alt, to: action },
                 )
                 .catch((e) => setError(String(e)));
@@ -52,8 +78,24 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
             );
           }),
         ]);
+      editorView.current = view ?? null;
       clearTimeout(timer);
       timer = setTimeout(() => {
+        void connection
+          .operation("stash.list", { doc: id })
+          .then((value) => {
+            if (Array.isArray(value))
+              setStash(
+                value.filter(
+                  (v): v is { id: string; text: string } =>
+                    !!v &&
+                    typeof v === "object" &&
+                    typeof v.id === "string" &&
+                    typeof v.text === "string",
+                ),
+              );
+          })
+          .catch((e) => setError(String(e)));
         void connection
           .operation("doc.read", { doc: id })
           .then((result) => {
@@ -169,23 +211,65 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               <span>
                 ● Alternative {alt.active + 1}/{alt.count}
               </span>
-              {(["prev", "next", "keep"] as const).map((action) => (
+              {(["prev", "next", "keep", "ghost"] as const).map((action) => (
                 <button
                   key={action}
                   onClick={() =>
                     void transport.current
                       ?.operation(
-                        action === "keep" ? "alt.resolve" : "alt.flip",
-                        action === "keep"
-                          ? { doc: id, alt: alt.id, rest: "stash" }
+                        action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
+                        action === "keep" || action === "ghost"
+                          ? { doc: id, alt: alt.id, rest: action === "ghost" ? "ghost" : "stash" }
                           : { doc: id, alt: alt.id, to: action },
                       )
                       .catch((e) => setError(String(e)))
                   }
                 >
-                  {action === "keep" ? "Keep" : action === "prev" ? "↑" : "↓"}
+                  {action === "keep"
+                    ? "Keep"
+                    : action === "ghost"
+                      ? "Keep and ghost the rest"
+                      : action === "prev"
+                        ? "↑"
+                        : "↓"}
                 </button>
               ))}
+            </article>
+          ))}
+          <h3>Stash</h3>
+          <button
+            onClick={() => {
+              const v = editorView.current,
+                c = transport.current;
+              if (v && c)
+                void captureSelection(v, c)
+                  .then((at) => c.operation("stash.add", { doc: id, at }))
+                  .catch((e) => setError(String(e)));
+            }}
+          >
+            Stash selection
+          </button>
+          {stash.map((item) => (
+            <article className="stash-item" key={item.id}>
+              <pre>{item.text}</pre>
+              <button
+                onClick={() => {
+                  const v = editorView.current,
+                    c = transport.current;
+                  if (v && c)
+                    void captureSelection(v, c)
+                      .then((at) =>
+                        c.operation("stash.restore", {
+                          doc: id,
+                          item: item.id,
+                          at: { ...at, to: at.from },
+                        }),
+                      )
+                      .catch((e) => setError(String(e)));
+                }}
+              >
+                Insert
+              </button>
             </article>
           ))}
           <h3>Block usages</h3>

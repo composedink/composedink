@@ -26,7 +26,10 @@ try {
     let input: unknown;
     switch (operation.name) {
       case "export":
-        input = { doc: positional[0], to: option("--to") };
+        input = {
+          doc: positional[0],
+          to: option("--to"),
+        };
         break;
       case "doc.apply": {
         let text = "";
@@ -44,7 +47,7 @@ try {
         input = { slug: positional[0] };
         break;
       case "doc.read":
-        input = { doc: positional[0] };
+        input = { doc: positional[0], view: values.includes("--view") ? option("--view") : "full" };
         break;
       case "component.create":
         input = { id: component(positional[0]), kind: option("--kind") };
@@ -86,7 +89,25 @@ try {
         };
         break;
       case "alt.resolve":
-        input = { doc: positional[0], alt: positional[1], rest: "stash" };
+        input = {
+          doc: positional[0],
+          alt: positional[1],
+          rest: values.includes("--ghost") ? "ghost" : "stash",
+        };
+        break;
+      case "ghost.set":
+      case "stash.add":
+      case "stash.restore":
+        input = {
+          doc: positional[0],
+          item: positional[1],
+          dim: !values.includes("--undim"),
+          at: {
+            base: option("--base"),
+            from: Number(option("--from")),
+            to: Number(option("--to")),
+          },
+        };
         break;
       case "stash.list":
         input = { doc: positional[0] };

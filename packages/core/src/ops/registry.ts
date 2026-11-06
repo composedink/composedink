@@ -1,6 +1,7 @@
 import { apply } from "../model/apply.ts";
 import { propose, flip, resolve } from "../model/alternatives.ts";
-import { stashList } from "../model/stash.ts";
+import { ghost } from "../model/marks.ts";
+import { cut, restore, stashList } from "../model/stash.ts";
 import { authorSchema, selectionSchema } from "../model/selection.ts";
 import { inspect } from "../inspect.ts";
 import { payloadHash } from "../store/receipts.ts";
@@ -32,6 +33,27 @@ function operation<S extends z.ZodType>(
   };
 }
 export const registry = [
+  operation(
+    "ghost.set",
+    z.object({ doc: z.string(), at: selectionSchema, dim: z.boolean() }),
+    true,
+    ["ghost", "set"],
+    (a, i) => a.change(i.doc, (d) => ghost(d, i.at, i.dim)),
+  ),
+  operation(
+    "stash.add",
+    z.object({ doc: z.string(), at: selectionSchema }),
+    true,
+    ["stash", "add"],
+    (a, i) => a.change(i.doc, (d) => cut(d, i.at)),
+  ),
+  operation(
+    "stash.restore",
+    z.object({ doc: z.string(), item: z.string(), at: selectionSchema }),
+    true,
+    ["stash", "restore"],
+    (a, i) => a.change(i.doc, (d) => restore(d, i.item, i.at)),
+  ),
   operation(
     "doc.apply",
     z.object({
@@ -71,10 +93,10 @@ export const registry = [
   ),
   operation(
     "alt.resolve",
-    z.object({ doc: z.string(), alt: z.string(), rest: z.literal("stash") }),
+    z.object({ doc: z.string(), alt: z.string(), rest: z.enum(["stash", "ghost"]) }),
     true,
     ["alt", "resolve"],
-    (a, i) => a.change(i.doc, (d) => resolve(d, i.alt)),
+    (a, i) => a.change(i.doc, (d) => resolve(d, i.alt, i.rest)),
   ),
   operation("stash.list", z.object({ doc: z.string() }), false, ["stash", "list"], (a, i) =>
     stashList(a.get(i.doc)),

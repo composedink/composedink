@@ -25,8 +25,14 @@ export function normalize(doc: LoroDoc) {
   if (doc.getMap(KEYS.meta).get("kind") !== "post")
     throw new Error("InvalidInvariant: typing requires a post");
   for (const value of Object.values(doc.getMap(KEYS.deps).toJSON())) {
-    if (!value || typeof value !== "object" || !("version" in value) || value.version !== "dev")
-      throw new Error("InvalidInvariant: invalid dev dependency");
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("version" in value) ||
+      typeof value.version !== "string" ||
+      !/^(dev|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/.test(value.version)
+    )
+      throw new Error("InvalidInvariant: invalid dependency");
   }
   doc.getText(KEYS.mdx);
   normalizeAlternatives(doc);

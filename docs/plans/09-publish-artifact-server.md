@@ -16,10 +16,10 @@ sourceHash covers files, generated lock and settings. MDX loaders register sibli
 
 ### Task 1 — Serve immutable artifacts
 
-- [ ] Implement token-authenticated PUT and public GET under `/c/<scope>/<name>/<version>/...`; strict path/version validation, safe filesystem storage, correct MIME, immutable caching and CORS for module loading. Same bytes returns 200; differing bytes at an existing version returns 409. Upload a complete manifest/artifact set before exposing its entry; reject partial release visibility. Token comes from environment/server config and device token reference, never doc/lock.
-- [ ] component.publish captures source frontiers, checks/builds locally, allocates semver bump under authority serialization, PUTs artifacts to scope's configured server, and calls model/releases to mutate the immutable release record only after success. Store writes only local files, never Loro; all Loro mutation remains in model (+ web binding). Persist publish intent so retry uses the same version/bytes. A lost response must not bump again. sourceHash records files plus exact dependency resolution/build settings.
-- [ ] Ship device-only `composed config scope <scope> --server <url> --token-ref <ref>` in CLI config, persisting scope mapping/token reference under COMPOSED_HOME; never token values in docs/locks.
-- [ ] Implement deps.pin. Post deps remains version intent; release export rejects dev/unpublished pins, resolves exact release/version/absolute entry/sourceHash. Config changes do not redirect existing locks.
+- [x] Implement token-authenticated PUT and public GET under `/c/<scope>/<name>/<version>/...`; strict path/version validation, safe filesystem storage, correct MIME, immutable caching and CORS for module loading. Same bytes returns 200; differing bytes at an existing version returns 409. Upload a complete manifest/artifact set before exposing its entry; reject partial release visibility. Token comes from environment/server config and device token reference, never doc/lock.
+- [x] component.publish captures source frontiers, checks/builds locally, allocates semver bump under authority serialization, PUTs artifacts to scope's configured server, and calls model/releases to mutate the immutable release record only after success. Store writes only local files, never Loro; all Loro mutation remains in model (+ web binding). Persist publish intent so retry uses the same version/bytes. A lost response must not bump again. sourceHash records files plus exact dependency resolution/build settings.
+- [x] Ship device-only `composed config scope <scope> --server <url> --token-ref <ref>` in CLI config, persisting scope mapping/token reference under COMPOSED_HOME; never token values in docs/locks.
+- [x] Implement deps.pin. Post deps remains version intent; release export rejects dev/unpublished pins, resolves exact release/version/absolute entry/sourceHash. Config changes do not redirect existing locks.
 
 ### Task 2 — Release and import safely
 
@@ -37,3 +37,20 @@ sourceHash covers files, generated lock and settings. MDX loaders register sibli
 **Out of scope:** accounts/sync, server bundling, deployment, real registry publish, listing/promote, federated SSR, RSS bodies.
 
 **Common completion gate:** `mise exec -- vp check --fix` and `mise exec -- vp run -r test`. Tests import from `vite-plus/test`; use package `vite.config.ts`, never `vitest.config.ts`. Add any named script in this plan before invoking it. Repeat formatting until stable, stage only this unit’s files, commit the completed task, and update this index’s status. Commands are planned implementation gates, not results from this documentation task.
+
+## Implementation log
+
+2026-11-06 — Task 1 verified. Added the Node 22.22.3 artifact app, filesystem
+staging and atomic complete-set publication, authenticated PUT, immutable retry/409,
+public GET with CORS/cache/MIME, Dockerfile and local operation instructions.
+A regression additionally recreates a crash after writing the staging manifest but
+before directory promotion: retry now completes promotion. Its red and green logs
+are plan-09-server-crash-red.log and plan-09-server-final.log under test-results/.
+Publication checks/builds the captured frontiers, persists exact artifact bytes and
+version before PUT, and writes releases only through model/releases after success.
+A lost-response test reopens the authority and verifies identical bytes/version.
+Added device scope config with environment token references, deps.pin, exact release
+resolution and UnpinnedDependency validation. Tokens never enter documents/locks.
+Evidence: plan-09-server-red.log, plan-09-publish.log, plan-09-focused.log (13 tests),
+plan-09-task1-tests-final.log (9/9 tasks), plan-09-check.log and final-check.log.
+Task 2 and Task 3 verification is being completed; no contradiction or stop.

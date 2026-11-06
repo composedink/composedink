@@ -18,8 +18,10 @@ export async function bundle(
   id: string,
   files: Record<string, string>,
   artifactOrigin: string,
+  releaseVersion?: string,
 ) {
   const settings = {
+    releaseVersion: releaseVersion ?? null,
     exposes: { "./block": "./block.tsx" },
     shared: Object.fromEntries(
       SHARED_SINGLETONS.map((key) => [
@@ -41,7 +43,7 @@ export async function bundle(
   const extracted = manifest(files["block.tsx"]);
   const fallback = await compileFallback(files["fallback.ts"]);
 
-  const versionString = `0.1.0-dev.${sourceHash}`;
+  const versionString = releaseVersion ?? `0.1.0-dev.${sourceHash}`;
   const name = `composed_${sha256(id + versionString)}`;
   const artifact = join(home, "artifacts", name);
   try {
@@ -76,7 +78,7 @@ export async function bundle(
         },
         output: {
           distPath: { root: join(directory, "dist") },
-          assetPrefix: `${artifactOrigin}/${name}/`,
+          assetPrefix: releaseVersion ? `${artifactOrigin}/` : `${artifactOrigin}/${name}/`,
           minify: false,
         },
         plugins: [
@@ -107,7 +109,9 @@ export async function bundle(
     version: versionString,
     name,
     sourceHash,
-    entry: `${artifactOrigin}/${name}/remoteEntry.js`,
+    entry: releaseVersion
+      ? `${artifactOrigin}/remoteEntry.js`
+      : `${artifactOrigin}/${name}/remoteEntry.js`,
     fallback,
     logs,
   };

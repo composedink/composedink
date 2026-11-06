@@ -1,3 +1,4 @@
+import { published } from "./publish.ts";
 import { importFile } from "./import.ts";
 import { validateProjection } from "./model/validate.ts";
 import { snippet } from "./model/stash.ts";
@@ -13,8 +14,14 @@ import { bundle, sha256 } from "./bundle.ts";
 import { evaluateFallback } from "./fallback/evaluator.ts";
 import { fileHash, previewTargets } from "./store/intents.ts";
 import { exportHistory } from "./store/export-history.ts";
-export async function preview(a: Authority, docId: string, to: string, view: View = "clean") {
-  const target = resolve(to, a.read(docId).slug);
+export async function preview(
+  a: Authority,
+  docId: string,
+  to: string,
+  view: View = "clean",
+  mode: "release" | "preview" = "preview",
+) {
+  const target = resolve(to,a.read(docId).slug);
   const old: [string | null, string | null] = [
     await fileHash(join(target, "index.mdx")),
     await fileHash(join(target, "composed.lock.json")),
@@ -45,7 +52,7 @@ export async function preview(a: Authority, docId: string, to: string, view: Vie
   );
   const lock: ExportLock = {
     composed: 1,
-    mode: "preview",
+    mode,
     doc: projected.doc,
     base: projected.base,
     view,
@@ -53,6 +60,17 @@ export async function preview(a: Authority, docId: string, to: string, view: Vie
     blocks: {},
   };
   const deps = a.get(docId).getMap(KEYS.deps).toJSON();
+  if (mode === "release")
+    for (const dep of Object.values(deps)) {
+      if (
+        !object(dep) ||
+        typeof dep.id !== "string" ||
+        typeof dep.version !== "string" ||
+        dep.version === "dev"
+      )
+        throw Error("UnpinnedDependency: release export requires published pins");
+      await published(a, dep.id, dep.version);
+    }
   const uses: Array<{ tag: string; node: Record<string, unknown> }> = [];
   function walk(node: unknown) {
     if (!object(node)) return;
@@ -67,17 +85,29 @@ export async function preview(a: Authority, docId: string, to: string, view: Vie
   walk(ast);
   for (const { tag, node } of uses) {
     const dep = deps[tag];
-    if (!object(dep) || typeof dep.id !== "string" || dep.version !== "dev")
+    if (
+      !object(dep) ||
+      typeof dep.id !== "string" ||
+      typeof dep.version !== "string" ||
+      (mode === "release" && dep.version === "dev")
+    )
       throw new Error("UnpinnedDependency");
     if (Array.isArray(node.children) && node.children.length)
       throw new Error("Block children are not supported");
-    const built = await bundle(
-      a.store.home,
-      dep.id,
-      readFiles(a.get(dep.id)).files,
-      process.env.COMPOSED_ARTIFACT_ORIGIN ??
-        `http://127.0.0.1:${process.env.COMPOSED_ARTIFACT_PORT ?? 4848}`,
-    );
+    const released = dep.version === "dev" ? undefined : await published(a, dep.id, dep.version);
+    const built = released
+      ? {
+          ...released.built,
+          props: released.built.props,
+          version: released.version,
+        }
+      : await bundle(
+          a.store.home,
+          dep.id,
+          readFiles(a.get(dep.id)).files,
+          process.env.COMPOSED_ARTIFACT_ORIGIN ??
+            `http://127.0.0.1:${process.env.COMPOSED_ARTIFACT_PORT ?? 4848}`,
+        );
     const props = applyDefaults(built.props, jsxProps(node.attributes));
     const hash = sha256(canonical(props));
     const descriptor = (lock.blocks[tag] ??= {
@@ -95,7 +125,7 @@ export async function preview(a: Authority, docId: string, to: string, view: Vie
         markdown: await evaluateFallback(built.fallback, props),
       };
   }
-  const directory = resolve(to, projected.slug);
+  const directory = target;
   await mkdir(directory, { recursive: true });
   const lockBytes = JSON.stringify(lock, null, 2) + "\n";
   await a.exportPair(directory, [text, lockBytes], projected.base, old);

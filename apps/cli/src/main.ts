@@ -1,3 +1,4 @@
+import { configureScope } from "@composedink/core/node";
 import { componentEdit } from "./component-edit.ts";
 import { humanDirect } from "@composedink/core/node";
 import { readFile } from "node:fs/promises";
@@ -7,7 +8,14 @@ import { call, composedHome } from "./client.ts";
 import { studio } from "./studio.ts";
 const args = process.argv.slice(2);
 try {
-  if (args[0] === "mcp") await mcp();
+  if (args[0] === "config" && args[1] === "scope") {
+    await configureScope(
+      composedHome(),
+      args[2],
+      args[args.indexOf("--server") + 1],
+      args[args.indexOf("--token-ref") + 1],
+    );
+  } else if (args[0] === "mcp") await mcp();
   else if (args[0] === "studio") await studio(composedHome());
   else if (args[0] === "component" && args[1] === "edit")
     await componentEdit(
@@ -16,6 +24,7 @@ try {
       args[3],
     );
   else {
+    if (args[0] === "export") args[0] = "preview";
     const operation = registry.find((op) => op.cli.every((part, i) => args[i] === part));
     if (!operation)
       throw new Error(`Commands: studio, ${registry.map((op) => op.cli.join(" ")).join(", ")}`);
@@ -27,13 +36,30 @@ try {
     const component = (value: string) =>
       value.startsWith("composed:") ? value : `composed:${value}`;
     const direct = values.includes("--direct");
-    if (direct || (operation.name === "doc.create" && values.includes("--from")))
+    if (
+      direct ||
+      (operation.name === "doc.create" && values.includes("--from"))
+    )
       humanDirect(!!process.stdin.isTTY, values.includes("--i-am-human"));
     if (direct && values.includes("--propose")) throw Error("Choose --direct or --propose");
     let input: unknown;
     switch (operation.name) {
+      case "component.publish":
+        input = {
+          id: component(positional[0]),
+          bump: values.includes("--major")
+            ? "major"
+            : values.includes("--minor")
+              ? "minor"
+              : "patch",
+        };
+        break;
+      case "deps.pin":
+        input = { doc: positional[0], tag: positional[1], version: values[2] };
+        break;
       case "export":
         input = {
+          mode: process.argv[2] === "export" ? "release" : "preview",
           doc: positional[0],
           to: option("--to"),
           view: values.includes("--include-dim") ? "full" : "clean",

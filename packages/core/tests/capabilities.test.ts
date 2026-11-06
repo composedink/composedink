@@ -14,9 +14,10 @@ it("capability projection admits only implemented ops and rejects mode independe
   expect(tool.parse({ doc: "p", base: "base", text: "text", by: { kind: "human" } })).toMatchObject(
     { mode: "propose" },
   );
-  expect(mcpRegistry.map((t) => t.name)).not.toEqual(
+  expect(mcpRegistry.map((t) => t.name)).toEqual(
     expect.arrayContaining(["alt_rewrite", "ghost_set", "stash_restore", "component_publish"]),
   );
+  expect(mcpRegistry.map((t) => t.name)).not.toContain("doc_import");
 });
 it("new mutations have durable receipts and session inverses including detached stash", async () => {
   const home = await mkdtemp(join(tmpdir(), "apply-inverse-"));

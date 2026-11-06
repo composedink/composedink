@@ -1,3 +1,4 @@
+import { publish } from "../publish.ts";
 import { checkComponent } from "../component/check.ts";
 import { loadRewriteConfig, rewriteProvider, rewriteCount } from "../rewrite.ts";
 import { select } from "../model/selection.ts";
@@ -14,7 +15,7 @@ import { z } from "zod";
 import type { Authority } from "../authority.ts";
 import { createPost } from "../model/text.ts";
 import { createComponent, readFiles, writeFiles, safePath } from "../model/files.ts";
-import { addDependency } from "../model/deps.ts";
+import { pinDependency, addDependency } from "../model/deps.ts";
 import { componentTemplate } from "../model/component-template.ts";
 const slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 const id = z.string().regex(/^composed:[a-z0-9-]+\/[a-z0-9-]+$/);
@@ -37,6 +38,24 @@ function operation<S extends z.ZodType>(
   };
 }
 export const registry = [
+  operation(
+    "component.publish",
+    z.object({ id, bump: z.enum(["patch", "minor", "major"]) }),
+    true,
+    ["component", "publish"],
+    (a, i) => publish(a, i.id, i.bump),
+  ),
+  operation(
+    "deps.pin",
+    z.object({
+      doc: z.string(),
+      tag: z.string(),
+      version: z.string().regex(/^(dev|(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/),
+    }),
+    true,
+    ["deps", "pin"],
+    (a, i) => a.change(i.doc, (d) => pinDependency(d, i.tag, i.version)),
+  ),
   operation("component.check", z.object({ id }), false, ["component", "check"], (a, i) =>
     checkComponent(a.store.home, i.id, readFiles(a.get(i.id)).files),
   ),
@@ -123,10 +142,15 @@ export const registry = [
   ),
   operation(
     "export",
-    z.object({ doc: z.string(), to: z.string(), view: z.enum(["full", "clean"]) }),
+    z.object({
+      doc: z.string(),
+      to: z.string(),
+      view: z.enum(["full", "clean"]),
+      mode: z.enum(["release", "preview"]).default("preview"),
+    }),
     true,
     ["preview"],
-    (a, i) => preview(a, i.doc, i.to, i.view),
+    (a, i) => preview(a, i.doc, i.to, i.view, i.mode),
   ),
   operation("doc.create", z.object({ slug }), true, ["new", "post"], (a, i) =>
     a.create(i.slug, createPost(i.slug)),
@@ -235,7 +259,9 @@ export function bind(a: Authority) {
     const commit = (run: () => Promise<unknown>) =>
       a.serialize(async () => {
         const execute = async () => (op.mutation ? a.transaction(request, hash, run) : run());
-        return session && op.mutation ? a.sessionOperation(session, execute) : execute();
+        return session && op.mutation && name !== "component.publish"
+          ? a.sessionOperation(session, execute)
+          : execute();
       });
     if (name !== "alt.rewrite") return commit(async () => op.run(a, parsed));
     const prior = await a.serialize(async () =>

@@ -11,12 +11,14 @@ const owners = new Map([
   ["packages/host-runtime", "@composedink/host-runtime"],
   ["packages/host-tanstack", "@composedink/host-tanstack"],
   ["apps/cli", "composed-cli"],
+  ["apps/server", "composed-server"],
   ["apps/web", "composed-web"],
   ["examples/host-tanstack", "host-tanstack"],
 ]);
 const allowed = new Map([
   ["@composedink/lint", ["@composedink/blocks"]],
   ["@composedink/blocks", []],
+  ["composed-server", ["@composedink/blocks"]],
   ["@composedink/core", ["@composedink/blocks", "@composedink/lint"]],
   ["@composedink/host-runtime", ["@composedink/blocks"]],
   ["@composedink/host-tanstack", ["@composedink/blocks", "@composedink/host-runtime"]],

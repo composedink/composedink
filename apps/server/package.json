@@ -1,0 +1,14 @@
+{
+  "name": "composed-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vp test run",
+    "start": "node --experimental-strip-types src/main.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

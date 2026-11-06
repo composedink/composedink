@@ -20,6 +20,9 @@ it("publishes complete immutable releases with authenticated retries and public 
       body,
     });
   try {
+    const health = await fetch(`http://127.0.0.1:${address.port}/healthz`);
+    expect([health.status, await health.text()]).toEqual([200, "ok"]);
+    expect((await fetch(`http://127.0.0.1:${address.port}/`)).status).toBe(400);
     expect((await put("remoteEntry.js", "hello", "wrong")).status).toBe(401);
     expect((await put("remoteEntry.js", "hello")).status).toBe(200);
     expect((await fetch(base + "/remoteEntry.js")).status).toBe(404);

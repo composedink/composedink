@@ -22,6 +22,10 @@ export function artifactServer({ root, token }: { root: string; token: string })
         return;
       }
       const parts = decodeURIComponent((req.url ?? "").split("?")[0]).split("/");
+      if (req.method === "GET" && parts.join("/") === "/healthz") {
+        res.writeHead(200, { "Content-Type": "text/plain" }).end("ok");
+        return;
+      }
       const [, prefix, scope, name, version, ...files] = parts;
       if (
         prefix !== "c" ||

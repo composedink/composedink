@@ -21,7 +21,7 @@ it("validates the implemented registry and applies component writes at retained 
     await expect(
       run("component.write", { id, base, files: { "../escape": "x" } }),
     ).rejects.toThrow();
-    await expect(run("alt.rewrite", {})).rejects.toThrow("Unknown operation");
+    await expect(run("future.operation", {})).rejects.toThrow("Unknown operation");
   } finally {
     await rm(home, { recursive: true, force: true });
   }

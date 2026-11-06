@@ -1,3 +1,5 @@
+import { loadRewriteConfig, rewriteProvider, rewriteCount } from "../rewrite.ts";
+import { select } from "../model/selection.ts";
 import { lint } from "./lint.ts";
 import { apply } from "../model/apply.ts";
 import { propose, flip, resolve } from "../model/alternatives.ts";
@@ -34,6 +36,18 @@ function operation<S extends z.ZodType>(
   };
 }
 export const registry = [
+  operation(
+    "alt.rewrite",
+    z.object({
+      doc: z.string(),
+      at: selectionSchema,
+      instruction: z.string().optional(),
+      count: rewriteCount,
+    }),
+    true,
+    ["alt", "rewrite"],
+    (a, i) => performRewrite(a, i),
+  ),
   operation("lint", z.object({ doc: z.string() }), false, ["lint"], (a, i) => lint(a, i.doc)),
   operation(
     "ghost.set",
@@ -168,25 +182,90 @@ export const registry = [
     (a, i) => a.change(i.doc, (doc) => addDependency(doc, i.tag, i.component)),
   ),
 ];
+const pendingRewrites = new WeakMap<
+  Authority,
+  Map<string, { hash: string; work: Promise<unknown> }>
+>();
+async function performRewrite(
+  a: Authority,
+  i: {
+    doc: string;
+    at: import("zod").infer<typeof selectionSchema>;
+    instruction?: string;
+    count: number;
+  },
+  signal?: AbortSignal,
+  commit: (run: () => Promise<unknown>) => Promise<unknown> = (run) => a.serialize(run),
+) {
+  const text = await a.serialize(async () => {
+    const { fork, from, to } = select(a.get(i.doc), i.at);
+    if (from === to) throw Error("InvalidInvariant: select text to rewrite");
+    return fork.getText("mdx").toString().slice(from, to);
+  });
+  const config = await loadRewriteConfig(a.store.home);
+  const { versions } = await rewriteProvider(
+    config,
+    { text, instruction: i.instruction, count: i.count },
+    signal,
+  );
+  return commit(async () => {
+    if (signal?.aborted) throw Error("ProviderFailed: cancelled; fix: retry the rewrite");
+    return a.change(i.doc, (d) =>
+      propose(d, i.at, versions, { kind: "model", model: config.model }),
+    );
+  });
+}
 export function bind(a: Authority) {
-  return (name: string, input: unknown, session?: string) =>
-    a.serialize(async () => {
-      const op = registry.find((op) => op.name === name);
-      if (!op) throw new Error(`Unknown operation: ${name}`);
-      const parsed = op.input.parse(input);
-      const request =
-        parsed &&
-        typeof parsed === "object" &&
-        "request" in parsed &&
-        typeof parsed.request === "string"
-          ? parsed.request
-          : undefined;
-      const execute = async () =>
-        op.mutation
-          ? a.transaction(request, payloadHash(name, parsed), async () => op.run(a, parsed))
-          : op.run(a, parsed);
-      return session && op.mutation ? a.sessionOperation(session, execute) : execute();
-    });
+  return async (name: string, input: unknown, session?: string, signal?: AbortSignal) => {
+    const op = registry.find((op) => op.name === name);
+    if (!op) throw new Error(`Unknown operation: ${name}`);
+    const parsed = op.input.parse(input);
+    const request =
+      parsed &&
+      typeof parsed === "object" &&
+      "request" in parsed &&
+      typeof parsed.request === "string"
+        ? parsed.request
+        : undefined;
+    const hash = payloadHash(name, parsed);
+    const commit = (run: () => Promise<unknown>) =>
+      a.serialize(async () => {
+        const execute = async () => (op.mutation ? a.transaction(request, hash, run) : run());
+        return session && op.mutation ? a.sessionOperation(session, execute) : execute();
+      });
+    if (name !== "alt.rewrite") return commit(async () => op.run(a, parsed));
+    const prior = await a.serialize(async () =>
+      request ? a.store.journal.lookup(request, hash) : undefined,
+    );
+    if (prior) return prior.result;
+    const i = z
+      .object({
+        doc: z.string(),
+        at: selectionSchema,
+        instruction: z.string().optional(),
+        count: rewriteCount,
+      })
+      .parse(parsed);
+    let pending = pendingRewrites.get(a);
+    if (!pending) {
+      pending = new Map();
+      pendingRewrites.set(a, pending);
+    }
+    if (request) {
+      const same = pending.get(request);
+      if (same) {
+        if (same.hash !== hash) throw Error("RequestConflict: different rewrite payload");
+        return same.work;
+      }
+    }
+    const work = performRewrite(a, i, signal, commit);
+    if (request) pending.set(request, { hash, work });
+    try {
+      return await work;
+    } finally {
+      if (request) pending.delete(request);
+    }
+  };
 }
 
 export function undoSession(a: Authority, session: string) {

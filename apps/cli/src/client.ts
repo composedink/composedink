@@ -3,8 +3,7 @@ import { join } from "node:path";
 import { acquire, authority, openStore, bind } from "@composedink/core/node";
 import { spawn } from "node:child_process";
 import WebSocket from "ws";
-export const composedHome = () =>
-  process.env.COMPOSED_HOME ?? join(process.env.HOME ?? ".", ".composed");
+export { composedHome } from "./config.ts";
 export async function connect(home: string) {
   const lock: unknown = JSON.parse(
     await readFile(join(home, "owner.json"), "utf8").catch(() => {

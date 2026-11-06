@@ -42,7 +42,7 @@ it("real binary + MCP SDK enforce propose capability and complete workflow 3", a
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name)).toContain("doc_apply");
     expect(tools.map((t) => t.name)).toContain("lint");
-    expect(tools.map((t) => t.name)).not.toContain("alt_rewrite");
+    expect(tools.map((t) => t.name)).toContain("alt_rewrite");
     const lintFile = join(home, "lint.mdx");
     await writeFile(lintFile, "😀 This is an test.");
     cli(["new", "post", "lint-post", "--from", lintFile, "--i-am-human"]);

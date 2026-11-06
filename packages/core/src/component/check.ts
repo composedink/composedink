@@ -38,6 +38,29 @@ export async function checkComponent(
     report("package.json", error);
     return { ok: false, diagnostics };
   }
+  for (const [file, source] of Object.entries(files)) {
+    if (!/\.[cm]?tsx?$/.test(file) || /\.d\.[cm]?ts$/.test(file)) continue;
+    const parsed = ts.transpileModule(source, {
+      fileName: file,
+      reportDiagnostics: true,
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext,
+        jsx: ts.JsxEmit.ReactJSX,
+      },
+    });
+    for (const d of parsed.diagnostics ?? []) {
+      const position = d.file?.getLineAndCharacterOfPosition(d.start ?? 0);
+      diagnostics.push({
+        file,
+        line: (position?.line ?? 0) + 1,
+        column: (position?.character ?? 0) + 1,
+        code: `TS${d.code}`,
+        message: ts.flattenDiagnosticMessageText(d.messageText, "\n"),
+      });
+    }
+  }
+  if (diagnostics.length) return { ok: false, diagnostics };
   let extracted;
   try {
     extracted = manifest(files["block.tsx"]);

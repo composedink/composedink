@@ -4,6 +4,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/rsbuild";
 import { remarkComposed } from "@composedink/host-tanstack/remark";
 import { fileURLToPath } from "node:url";
 export default defineConfig(({ command }) => ({
+  dev: { hmr: false, liveReload: true },
   plugins: [
     tanstackStart({
       prerender: {

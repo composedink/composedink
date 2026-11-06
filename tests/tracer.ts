@@ -136,6 +136,18 @@ try {
     ) +
       '\nexport const __composedReactIdentity = React;\nif (typeof window !== "undefined") Reflect.set(window, "__composedSentinel", "COMPOSED_HELLO_IMPLEMENTATION_SENTINEL");\n',
   );
+  const ownDependency = JSON.parse(await cli(["component", "read", "lachieh/hello"]));
+  await cli(
+    ["component", "write", "lachieh/hello", "--base", ownDependency.base, "--file", "package.json"],
+    JSON.stringify({ type: "module", dependencies: { "escape-string-regexp": "5.0.0" } }),
+  );
+  const ownBlock = JSON.parse(await cli(["component", "read", "lachieh/hello"]));
+  await cli(
+    ["component", "write", "lachieh/hello", "--base", ownBlock.base, "--file", "block.tsx"],
+    'import escape from "escape-string-regexp";\n' +
+      ownBlock.files["block.tsx"] +
+      '\nif(typeof window!=="undefined") Reflect.set(window,"__ownDependency",escape("OWN[DEPENDENCY]"));\n',
+  );
   const routerPath = join(example, "src/router.tsx");
   await writeFile(
     routerPath,
@@ -327,6 +339,15 @@ try {
   );
   checks["4"] = true;
   await capture(live, "remote.png");
+  expect(await live.evaluate(() => Reflect.get(window, "__ownDependency"))).toBe(
+    "OWN\\[DEPENDENCY\\]",
+  );
+  checks["own-dependency"] = true;
+  const hostJs = await readdir(join(example, "dist/client"), { recursive: true });
+  for (const asset of hostJs.filter((name) => name.endsWith(".js")))
+    expect(await readFile(join(example, "dist/client", asset), "utf8")).not.toContain(
+      "OWN[DEPENDENCY]",
+    );
   const blocked = await browser.newPage();
   const warnings: string[] = [];
   blocked.on("console", (m) => {
@@ -341,10 +362,50 @@ try {
   checks["5"] = true;
   await writeFile(join(evidence, "warnings.json"), JSON.stringify(warnings));
   await capture(blocked, "failed.png");
-  const component = JSON.parse(await cli(["component", "read", "lachieh/hello"]));
+  const ownSentinel = async () => {
+    try {
+      return await live.evaluate(() => Reflect.get(window, "__ownDependency"));
+    } catch (error) {
+      if (String(error).includes("Execution context was destroyed")) return undefined;
+      throw error;
+    }
+  };
+  const editDirectory = join(home, "checkout");
+  const edit = launch(process.execPath, [
+    "--experimental-strip-types",
+    join(root, "apps/cli/src/main.ts"),
+    "component",
+    "edit",
+    "lachieh/hello",
+    editDirectory,
+  ]);
+  await expect.poll(() => edit.output(), { timeout: 10000 }).toContain('"editing"');
+  const ownerBefore = JSON.parse(await readFile(join(home, "owner.json"), "utf8"));
+  const lockBeforeFailure = await readFile(
+    join(example, "content/tracer/composed.lock.json"),
+    "utf8",
+  );
+  const checkedBlock = await readFile(join(editDirectory, "block.tsx"), "utf8");
+  await writeFile(
+    join(editDirectory, "block.tsx"),
+    checkedBlock.replace('sample:{name:"Lachlan"}', "sample:{name:process.exit()}"),
+  );
+  await expect.poll(() => edit.output(), { timeout: 10000 }).toContain("BuildFailed");
+  expect(await readFile(join(example, "content/tracer/composed.lock.json"), "utf8")).toBe(
+    lockBeforeFailure,
+  );
+  await live.reload();
+  await expect.poll(ownSentinel, { timeout: 10000 }).toBe("OWN\\[DEPENDENCY\\]");
+  await writeFile(join(editDirectory, "block.tsx"), checkedBlock);
+  await expect
+    .poll(
+      async () => JSON.parse(await cli(["component", "read", "lachieh/hello"])).files["block.tsx"],
+      { timeout: 10000 },
+    )
+    .toBe(checkedBlock);
   const start = performance.now();
-  await cli(
-    ["component", "write", "lachieh/hello", "--base", component.base, "--file", "fallback.ts"],
+  await writeFile(
+    join(editDirectory, "fallback.ts"),
     "export default ({name}: {name:string}) => `Updated **${name}**.`;",
   );
   await expect
@@ -355,6 +416,77 @@ try {
   checks["6-ms"] = performance.now() - start;
   expect(checks["6-ms"]).toBeLessThanOrEqual(2000);
   await writeFile(join(evidence, "updated-ssr.html"), await (await fetch(url)).text());
+  checks["file-sync-ms"] = checks["6-ms"];
+  expect(JSON.parse(await readFile(join(home, "owner.json"), "utf8")).pid).toBe(ownerBefore.pid);
+  const codeStart = performance.now();
+  await writeFile(
+    join(editDirectory, "block.tsx"),
+    checkedBlock.replace("OWN[DEPENDENCY]", "OWN[UPDATED]"),
+  );
+  await expect
+    .poll(ownSentinel, {
+      timeout: 2000,
+      intervals: [20],
+    })
+    .toBe("OWN\\[UPDATED\\]");
+  checks["code-save-ms"] = performance.now() - codeStart;
+  expect(checks["code-save-ms"]).toBeLessThanOrEqual(2000);
+  const priorDependencyLock = await readFile(
+    join(example, "content/tracer/composed.lock.json"),
+    "utf8",
+  );
+  await live.evaluate(() => Reflect.set(window, "__ownDependency", undefined));
+  const dependencyStart = performance.now();
+  await writeFile(
+    join(editDirectory, "package.json"),
+    JSON.stringify({ type: "module", dependencies: { "escape-string-regexp": "4.0.0" } }),
+  );
+  await expect
+    .poll(async () => await readFile(join(example, "content/tracer/composed.lock.json"), "utf8"), {
+      timeout: 2000,
+      intervals: [20],
+    })
+    .not.toBe(priorDependencyLock);
+  await expect
+    .poll(ownSentinel, {
+      timeout: 2000,
+      intervals: [20],
+    })
+    .toBe("OWN\\[UPDATED\\]");
+  checks["dependency-save-ms"] = performance.now() - dependencyStart;
+  expect(checks["dependency-save-ms"]).toBeLessThanOrEqual(2000);
+  await assertInteractiveRemote(live);
+  const prose = JSON.parse(await cli(["cat", "tracer", "--json"]));
+  await cli(
+    ["apply", "tracer", "--base", prose.base, "--direct", "--i-am-human"],
+    prose.text + "\n\nProse-only refresh.\n",
+  );
+  await expect
+    .poll(async () => await (await fetch(url)).text(), { timeout: 2000 })
+    .toContain("Prose-only refresh");
+  checks["prose-refresh"] = true;
+  await writeFile(
+    join(evidence, "authoring.json"),
+    JSON.stringify(
+      {
+        ownDependency: "escape-string-regexp",
+        version: "4.0.0",
+        hostExcludesSentinel: true,
+        reactIdentity: true,
+        checks,
+      },
+      null,
+      2,
+    ),
+  );
+  await stop(edit.child);
+  const retainedPair = await readFile(join(example, "content/tracer/composed.lock.json"), "utf8");
+  await stop(owner.child);
+  owner = await studio();
+  expect(await readFile(join(example, "content/tracer/composed.lock.json"), "utf8")).toBe(
+    retainedPair,
+  );
+  checks["last-good-restart"] = true;
   const lockPath = join(example, "content/tracer/composed.lock.json");
   const changedLock = JSON.parse(await readFile(lockPath, "utf8"));
   const instance = Object.values(changedLock.blocks.Hello.instances)[0];

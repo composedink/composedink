@@ -11,6 +11,7 @@ import {
   atomicWrite,
   acquire,
   undoSession,
+  refreshPreviews,
 } from "@composedink/core/node";
 export async function studio(home: string) {
   await mkdir(home, { recursive: true });
@@ -84,6 +85,21 @@ export async function studio(home: string) {
     });
   });
   const sockets = new WebSocketServer({ noServer: true });
+  const unsubscribePreviews = a.subscribe((id) => {
+    // Component operations refresh inside their transaction; typing and post operations refresh here.
+    if (a.documents.get(id)?.getMap("meta").get("kind") !== "post") return;
+    void a
+      .serialize(() =>
+        a.transaction(undefined, "preview-refresh", async () => {
+          const diagnostics = await refreshPreviews(a, id);
+          if (diagnostics.length)
+            for (const socket of sockets.clients)
+              if (socket.readyState === WebSocket.OPEN)
+                socket.send(JSON.stringify({ preview: { diagnostics } }));
+        }),
+      )
+      .catch((error) => console.error(`BuildFailed: ${String(error)}`));
+  });
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "/", origin);
     if (req.headers.origin !== origin || url.searchParams.get("token") !== token) {
@@ -162,6 +178,16 @@ export async function studio(home: string) {
                 : frame.human
                   ? await run(frame.name, frame.input, session)
                   : await run(frame.name, frame.input);
+              if (
+                result &&
+                typeof result === "object" &&
+                "diagnostics" in result &&
+                Array.isArray(result.diagnostics) &&
+                result.diagnostics.length
+              )
+                for (const peer of sockets.clients)
+                  if (peer.readyState === WebSocket.OPEN)
+                    peer.send(JSON.stringify({ preview: { diagnostics: result.diagnostics } }));
               socket.send(JSON.stringify({ request: frame.request, result }));
             }
           } catch (error) {
@@ -198,6 +224,7 @@ export async function studio(home: string) {
   await ownership.ready();
   console.log(JSON.stringify({ ready: true, origin, artifactPort }));
   const close = async () => {
+    unsubscribePreviews();
     sockets.close();
     for (const socket of sockets.clients) socket.terminate();
     server.close();

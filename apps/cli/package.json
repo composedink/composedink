@@ -15,7 +15,8 @@
     "@modelcontextprotocol/sdk": "catalog:",
     "composed-web": "workspace:*",
     "vite": "catalog:",
-    "ws": "catalog:"
+    "ws": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

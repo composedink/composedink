@@ -102,9 +102,11 @@ export async function preview(a: Authority, docId: string, to: string, view: Vie
   return { directory, lock };
 }
 export async function refreshPreviews(a: Authority, component: string) {
+  const diagnostics: Array<{ code: "BuildFailed"; doc: string; message: string }> = [];
   for (const { doc, to } of await previewTargets(a.store.home)) {
     const deps = a.get(doc).getMap(KEYS.deps).toJSON();
     if (
+      doc === component ||
       Object.values(deps).some(
         (dep) => object(dep) && dep.id === component && dep.version === "dev",
       )
@@ -112,7 +114,12 @@ export async function refreshPreviews(a: Authority, component: string) {
       const lock = JSON.parse(
         await readFile(resolve(to, a.read(doc).slug, "composed.lock.json"), "utf8"),
       );
-      await preview(a, doc, to, lock.view === "full" ? "full" : "clean");
+      try {
+        await preview(a, doc, to, lock.view === "full" ? "full" : "clean");
+      } catch (error) {
+        diagnostics.push({ code: "BuildFailed", doc, message: String(error) });
+      }
     }
   }
+  return diagnostics;
 }

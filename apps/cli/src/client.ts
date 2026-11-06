@@ -22,27 +22,9 @@ export async function connect(home: string) {
   });
   return socket;
 }
-export async function call(home: string, name: string, input: unknown) {
-  if (name === "export") {
-    const child = spawn(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        "--no-warnings=ExperimentalWarning",
-        new URL("./main.ts", import.meta.url).pathname,
-        "studio",
-        "--headless",
-      ],
-      { env: { ...process.env, COMPOSED_HOME: home }, detached: true, stdio: "ignore" },
-    );
-    child.unref();
-    for (let i = 0; i < 250; i++) {
-      try {
-        const info = JSON.parse(await readFile(join(home, "owner.json"), "utf8"));
-        if (info.kind === "studio" && info.ready) break;
-      } catch {}
-      await new Promise((r) => setTimeout(r, 20));
-    }
+export async function call(home: string, name: string, input: unknown, studioRequired = false) {
+  if (name === "export" || studioRequired) {
+    await ensureStudio(home);
   } else {
     const lock = await acquire(home, "inline");
     if (lock.kind === "owner")
@@ -77,4 +59,40 @@ export async function call(home: string, name: string, input: unknown) {
   } finally {
     socket.close();
   }
+}
+
+export async function ensureStudio(home: string) {
+  try {
+    const info = JSON.parse(await readFile(join(home, "owner.json"), "utf8"));
+    if (info.kind === "studio" && info.ready) {
+      const socket = await connect(home);
+      socket.close();
+      return;
+    }
+  } catch {}
+
+  const child = spawn(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      "--no-warnings=ExperimentalWarning",
+      new URL("./main.ts", import.meta.url).pathname,
+      "studio",
+      "--headless",
+    ],
+    { env: { ...process.env, COMPOSED_HOME: home }, detached: true, stdio: "ignore" },
+  );
+  child.unref();
+  for (let i = 0; i < 250; i++) {
+    try {
+      const info = JSON.parse(await readFile(join(home, "owner.json"), "utf8"));
+      if (info.kind === "studio" && info.ready) {
+        const socket = await connect(home);
+        socket.close();
+        return;
+      }
+    } catch {}
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  throw Error("TargetBusy: studio did not become ready; retry composed studio --headless");
 }

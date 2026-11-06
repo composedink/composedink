@@ -52,6 +52,10 @@ export class EditorTransport {
         );
       socket.onmessage = (event) => {
         const frame = JSON.parse(event.data);
+        if (frame.preview) {
+          this.status(`Preview — ${JSON.stringify(frame.preview.diagnostics)}`);
+          return;
+        }
         if (frame.error) {
           const call = this.calls.get(frame.request);
           call?.reject(new Error(frame.error));

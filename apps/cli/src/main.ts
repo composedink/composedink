@@ -1,3 +1,4 @@
+import { componentEdit } from "./component-edit.ts";
 import { humanDirect } from "@composedink/core/node";
 import { readFile } from "node:fs/promises";
 import { mcp } from "./mcp.ts";
@@ -8,6 +9,12 @@ const args = process.argv.slice(2);
 try {
   if (args[0] === "mcp") await mcp();
   else if (args[0] === "studio") await studio(composedHome());
+  else if (args[0] === "component" && args[1] === "edit")
+    await componentEdit(
+      composedHome(),
+      args[2].startsWith("composed:") ? args[2] : `composed:${args[2]}`,
+      args[3],
+    );
   else {
     const operation = registry.find((op) => op.cli.every((part, i) => args[i] === part));
     if (!operation)

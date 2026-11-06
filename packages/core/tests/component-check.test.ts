@@ -17,6 +17,12 @@ it("checks materialized modules and reports positioned type, metadata and fallba
       ]),
     );
     delete files["nested/value.ts"];
+    files["syntax.ts"] = "export const a=1;\n\nconst broken = ;";
+    expect((await checkComponent(home, "composed:test/check", files)).diagnostics).toEqual(
+      expect.arrayContaining([expect.objectContaining({ file: "syntax.ts", line: 3 })]),
+    );
+    delete files["syntax.ts"];
+
     expect((await checkComponent(home, "composed:test/check", files)).ok).toBe(true);
     files["block.tsx"] = files["block.tsx"].replace(
       'sample:{name:"Lachlan"}',

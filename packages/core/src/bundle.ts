@@ -1,4 +1,4 @@
-import { createRsbuild } from "@rsbuild/core";
+import { createRsbuild, type Rspack } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
 import { pluginModuleFederation } from "@module-federation/rsbuild-plugin";
 import { manifest } from "./component/manifest.ts";
@@ -48,10 +48,28 @@ export async function bundle(
     await access(join(artifact, "remoteEntry.js"));
   } catch {
     await writeFile(join(directory, ".composed-entry.js"), "export {};\n");
+    let buildDiagnostics = "";
     const builder = await createRsbuild({
       cwd: directory,
       rsbuildConfig: {
         mode: "production",
+        tools: {
+          rspack(config) {
+            config.plugins ??= [];
+            config.plugins.push({
+              apply(compiler: Rspack.Compiler) {
+                compiler.hooks.done.tap("composed-diagnostics", (stats) => {
+                  if (stats.hasErrors())
+                    buildDiagnostics = stats.toString({
+                      all: false,
+                      errors: true,
+                      errorDetails: true,
+                    });
+                });
+              },
+            });
+          },
+        },
         source: {
           entry: { index: join(directory, ".composed-entry.js") },
           define: { "process.env.NODE_ENV": JSON.stringify("production") },
@@ -75,7 +93,11 @@ export async function bundle(
         ],
       },
     });
-    await builder.build();
+    try {
+      await builder.build();
+    } catch (error) {
+      throw Error(`BuildFailed: ${buildDiagnostics || String(error)}`);
+    }
     await mkdir(dirname(artifact), { recursive: true });
     await cp(join(directory, "dist"), artifact, { recursive: true });
   }

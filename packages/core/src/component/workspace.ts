@@ -9,8 +9,26 @@ export function packageDefinition(files: Record<string, string>) {
   for (const path of Object.keys(files)) safePath(path);
   const pkg: unknown = JSON.parse(files["package.json"]);
   if (!object(pkg)) throw Error("Invalid package.json");
-  if (pkg.scripts !== undefined && (!object(pkg.scripts) || Object.keys(pkg.scripts).length))
-    throw Error("Install scripts are forbidden");
+  if (pkg.scripts !== undefined) {
+    if (
+      !object(pkg.scripts) ||
+      Object.values(pkg.scripts).some((value) => typeof value !== "string")
+    )
+      throw Error("Invalid package scripts");
+    const scripts = pkg.scripts;
+    if (
+      [
+        "preinstall",
+        "install",
+        "postinstall",
+        "prepare",
+        "preprepare",
+        "postprepare",
+        "prepublish",
+      ].some((name) => name in scripts)
+    )
+      throw Error("Install scripts are forbidden");
+  }
   for (const field of ["dependencies", "devDependencies"]) {
     if (pkg[field] === undefined) continue;
     if (!object(pkg[field])) throw Error(`Invalid ${field}`);
@@ -57,6 +75,7 @@ export async function materialize(
       JSON.stringify({
         ...pkg,
         devDependencies: {
+          ...(object(pkg.devDependencies) ? pkg.devDependencies : {}),
           typescript: version("typescript"),
           "@types/react": version("@types/react"),
           "@types/react-dom": version("@types/react-dom"),
@@ -78,7 +97,9 @@ export async function materialize(
         ".yaml",
     );
     try {
-      await writeFile(join(temporary, "pnpm-lock.yaml"), await readFile(resolution));
+      if (files["pnpm-lock.yaml"] !== undefined)
+        await writeFile(join(temporary, "pnpm-lock.yaml"), files["pnpm-lock.yaml"]);
+      else await writeFile(join(temporary, "pnpm-lock.yaml"), await readFile(resolution));
     } catch {
       logs += await command("pnpm", ["install", "--lockfile-only", "--ignore-scripts"], temporary);
       await writeFile(resolution, await readFile(join(temporary, "pnpm-lock.yaml")));

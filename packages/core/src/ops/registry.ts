@@ -169,8 +169,8 @@ export const registry = [
     ["component", "write"],
     async (a, i) => {
       const result = await a.change(i.id, (doc) => writeFiles(doc, i.base, i.files));
-      await refreshPreviews(a, i.id);
-      return result;
+      const diagnostics = await refreshPreviews(a, i.id);
+      return { ...result, diagnostics };
     },
   ),
   operation(

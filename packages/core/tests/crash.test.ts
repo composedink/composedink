@@ -61,7 +61,7 @@ for (const point of ["export:intent", "export:rename-0", "export:rename-1"])
       );
       expect(child.signal).toBe("SIGKILL");
       const b = await authority(await openStore(home));
-      await bind(b)("export", { doc: "post", to: target, request: "export-retry" });
+      await bind(b)("export", { view: "clean", doc: "post", to: target, request: "export-retry" });
       expect(await readFile(join(target, "post", "index.mdx"), "utf8")).toBe("prepared text");
       const lock = JSON.parse(await readFile(join(target, "post", "composed.lock.json"), "utf8"));
       expect(lock.base).toBe(b.read("post").base);

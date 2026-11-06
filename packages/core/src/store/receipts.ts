@@ -20,6 +20,7 @@ const schema = z.object({
   applied: z.boolean(),
   effects: z.array(effectSchema).default([]),
   reconciliations: z.array(z.string()).default([]),
+  reconciliationResults: z.record(z.string(), z.unknown()).default({}),
 });
 export type Envelope = z.infer<typeof schema>;
 export const payloadHash = (name: string, input: unknown) =>
@@ -61,6 +62,7 @@ export async function receipts(home: string, apply: (envelope: Envelope) => Prom
   const directory = join(home, "state", "receipts");
   await mkdir(directory, { recursive: true });
   const reconciled = new Set<string>();
+  const reconciliationResults = new Map<string, unknown>();
   const index = new Map<string, Envelope>();
 
   for (const name of (await readdir(directory)).filter((n) => n.endsWith(".json")).sort()) {
@@ -71,7 +73,10 @@ export async function receipts(home: string, apply: (envelope: Envelope) => Prom
       e.applied = true;
       await saveReceipt(path, e);
     }
-    e.reconciliations.forEach((k) => reconciled.add(k));
+    e.reconciliations.forEach((k) => {
+      reconciled.add(k);
+      reconciliationResults.set(k, e.reconciliationResults[k]);
+    });
     if (e.request) {
       index.set(e.request, e);
       indexState(home, "receipt", e.request, JSON.stringify(e));
@@ -79,6 +84,7 @@ export async function receipts(home: string, apply: (envelope: Envelope) => Prom
   }
   return {
     reconciled: (key: string) => reconciled.has(key),
+    reconciliation: (key: string) => reconciliationResults.get(key),
     lookup(request: string, payload: string) {
       const prior = index.get(request);
       if (prior && prior.hash !== payload)
@@ -92,7 +98,10 @@ export async function receipts(home: string, apply: (envelope: Envelope) => Prom
       await apply(e);
       e.applied = true;
       await saveReceipt(path, e);
-      e.reconciliations.forEach((k) => reconciled.add(k));
+      e.reconciliations.forEach((k) => {
+        reconciled.add(k);
+        reconciliationResults.set(k, e.reconciliationResults[k]);
+      });
       if (e.request) {
         index.set(e.request, e);
         indexState(home, "receipt", e.request, JSON.stringify(e));

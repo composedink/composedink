@@ -59,7 +59,7 @@ export const registry = [
     z.object({
       doc: z.string(),
       base: z.string(),
-      view: z.literal("full").default("full"),
+      view: z.enum(["full", "clean"]).default("full"),
       text: z.string(),
       mode: z.enum(["direct", "propose"]),
       by: authorSchema,
@@ -101,13 +101,23 @@ export const registry = [
   operation("stash.list", z.object({ doc: z.string() }), false, ["stash", "list"], (a, i) =>
     stashList(a.get(i.doc)),
   ),
-  operation("export", z.object({ doc: z.string(), to: z.string() }), true, ["preview"], (a, i) =>
-    preview(a, i.doc, i.to),
+  operation(
+    "export",
+    z.object({ doc: z.string(), to: z.string(), view: z.enum(["full", "clean"]) }),
+    true,
+    ["preview"],
+    (a, i) => preview(a, i.doc, i.to, i.view),
   ),
   operation("doc.create", z.object({ slug }), true, ["new", "post"], (a, i) =>
     a.create(i.slug, createPost(i.slug)),
   ),
-  operation("doc.read", z.object({ doc: z.string() }), false, ["cat"], (a, i) => inspect(a, i.doc)),
+  operation(
+    "doc.read",
+    z.object({ doc: z.string(), view: z.enum(["full", "clean"]).default("full") }),
+    false,
+    ["cat"],
+    (a, i) => inspect(a, i.doc, i.view),
+  ),
   operation(
     "component.create",
     z.object({ id, kind: z.enum(["inline", "block"]) }),

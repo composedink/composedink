@@ -79,3 +79,15 @@ it("clips zero-length snippet marks so proposals at a dim boundary have no empty
 function container(d: import("loro-crdt").LoroDoc) {
   return d.getText("mdx");
 }
+it("interior typing inherits dim and cross-boundary deletion clips it", () => {
+  const d = createPost("p");
+  replaceText(d, "aHIDDENz");
+  ghost(d, { base: head(d), view: "full", from: 1, to: 7 }, true);
+  const t = container(d);
+  t.insert(3, "X");
+  d.commit();
+  expect(snippet(d, 0, t.length).dim).toEqual([[1, 8]]);
+  t.delete(0, 4);
+  d.commit();
+  expect(snippet(d, 0, t.length)).toEqual({ text: "DDENz", dim: [[0, 4]] });
+});

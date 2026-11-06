@@ -14,16 +14,19 @@ export function proposalVersion(
   const text = merged.getText("mdx");
   let value = "";
   const dim: [number, number][] = [];
-  for (let i = range.from; i < range.to; i++) {
-    const authored = text.getCursor(i, 0)?.pos()?.peer === agent.peerIdStr;
-    if (!authored && !(i >= live.from && i < live.to)) continue;
-    const offset = i - range.from;
+  for (let i = range.from; i < range.to;) {
+    const position = i;
+    const offset = position - range.from;
+    const character = String.fromCodePoint(source.text.codePointAt(offset)!);
+    i += character.length;
+    const authored = text.getCursor(position, 0)?.pos()?.peer === agent.peerIdStr;
+    if (!authored && !(position >= live.from && position < live.to)) continue;
     if (source.dim.some(([from, to]) => offset >= from && offset < to)) {
       const last = dim.at(-1);
-      if (last && last[1] === value.length) last[1]++;
-      else dim.push([value.length, value.length + 1]);
+      if (last && last[1] === value.length) last[1] += character.length;
+      else dim.push([value.length, value.length + character.length]);
     }
-    value += source.text[offset];
+    value += character;
   }
   return { text: value, dim };
 }

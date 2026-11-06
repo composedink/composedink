@@ -29,6 +29,7 @@ try {
         input = {
           doc: positional[0],
           to: option("--to"),
+          view: values.includes("--include-dim") ? "full" : "clean",
         };
         break;
       case "doc.apply": {
@@ -37,6 +38,7 @@ try {
         input = {
           doc: positional[0],
           base: option("--base"),
+          view: values.includes("--view") ? option("--view") : "full",
           text,
           mode: direct ? "direct" : "propose",
           by: { kind: direct ? "human" : "agent", ...(direct ? {} : { name: "cli" }) },

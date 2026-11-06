@@ -78,24 +78,23 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
             );
           }),
         ]);
+      setStash(
+        doc
+          .getMovableList("stash")
+          .toArray()
+          .filter(
+            (v): v is { id: string; text: string } =>
+              !!v &&
+              typeof v === "object" &&
+              "id" in v &&
+              "text" in v &&
+              typeof v.id === "string" &&
+              typeof v.text === "string",
+          ),
+      );
       editorView.current = view ?? null;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        void connection
-          .operation("stash.list", { doc: id })
-          .then((value) => {
-            if (Array.isArray(value))
-              setStash(
-                value.filter(
-                  (v): v is { id: string; text: string } =>
-                    !!v &&
-                    typeof v === "object" &&
-                    typeof v.id === "string" &&
-                    typeof v.text === "string",
-                ),
-              );
-          })
-          .catch((e) => setError(String(e)));
         void connection
           .operation("doc.read", { doc: id })
           .then((result) => {

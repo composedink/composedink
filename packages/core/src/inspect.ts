@@ -1,10 +1,14 @@
-import { createProcessor } from "@mdx-js/mdx";
+import { validateProjection } from "./model/validate.ts";
 import { applyDefaults, jsxProps, object } from "@composedink/blocks";
 import type { Authority } from "./authority.ts";
 import { manifest } from "./bundle.ts";
 import { readFiles } from "./model/files.ts";
-export function inspect(a: Authority, id: string) {
-  const result = a.read(id);
+export function inspect(
+  a: Authority,
+  id: string,
+  view: import("./model/projection.ts").View = "full",
+) {
+  const result = a.read(id, view);
   const deps = a.get(id).getMap("deps").toJSON();
   const blocks: Array<{
     tag: string;
@@ -47,7 +51,7 @@ export function inspect(a: Authority, id: string) {
     if (Array.isArray(node.children)) node.children.forEach(walk);
   }
   try {
-    walk(createProcessor().parse(result.text));
+    walk(validateProjection(result.text, []));
   } catch (error) {
     diagnostic = String(error);
   }

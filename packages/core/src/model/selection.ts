@@ -1,3 +1,4 @@
+import { projection } from "./projection.ts";
 import { Cursor, decodeFrontiers, type LoroDoc } from "loro-crdt";
 import { z } from "zod";
 export const authorSchema = z.discriminatedUnion("kind", [
@@ -6,7 +7,7 @@ export const authorSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("model"), model: z.string() }),
 ]);
 export const selectionSchema = z.intersection(
-  z.object({ base: z.string(), view: z.literal("full").default("full") }),
+  z.object({ base: z.string(), view: z.enum(["full", "clean"]).default("full") }),
   z.union([
     z.object({ from: z.number().int().nonnegative(), to: z.number().int().nonnegative() }),
     z.object({ quote: z.string().min(1), nth: z.number().int().nonnegative().optional() }),
@@ -22,7 +23,8 @@ export function baseFork(doc: LoroDoc, base: string) {
 }
 export function select(doc: LoroDoc, at: z.infer<typeof selectionSchema>) {
   const fork = baseFork(doc, at.base),
-    text = fork.getText("mdx").toString();
+    projected = projection(fork, at.view),
+    text = projected.text;
   let from: number, to: number;
   if ("quote" in at) {
     const hits: number[] = [];
@@ -41,7 +43,7 @@ export function select(doc: LoroDoc, at: z.infer<typeof selectionSchema>) {
     to = at.to;
   }
   if (to < from || to > text.length) throw Error("InvalidInvariant: selection bounds");
-  return { fork, from, to };
+  return { fork, from: projected.offset(from), to: projected.offset(to) };
 }
 export function anchors(doc: LoroDoc, from: number, to: number) {
   const text = doc.getText("mdx");

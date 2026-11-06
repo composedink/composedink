@@ -15,6 +15,7 @@ export async function authority(store: Store) {
   const listeners = new Set<(id: string, bytes: Uint8Array) => void>();
   let effects: Envelope["effects"] = [];
   let reconciliations: string[] = [];
+  let reconciliationResults: Record<string, unknown> = {};
   let poisoned = false;
   let staged: Envelope["writes"] | undefined;
   let queue = Promise.resolve();
@@ -44,8 +45,8 @@ export async function authority(store: Store) {
       }
       return doc.export({ mode: "snapshot" });
     },
-    read(id: string) {
-      return read(this.get(id));
+    read(id: string, view: import("./model/projection.ts").View = "full") {
+      return read(this.get(id), view);
     },
     async sessionOperation(session: string, run: () => Promise<unknown>) {
       const before = new Map(documents);
@@ -75,6 +76,7 @@ export async function authority(store: Store) {
       staged = [];
       effects = [];
       reconciliations = [];
+      reconciliationResults = {};
       let committing = false;
       try {
         const result = await run();
@@ -82,6 +84,7 @@ export async function authority(store: Store) {
         await store.journal.commit({
           effects,
           reconciliations,
+          reconciliationResults,
           request,
           hash,
           result: result ?? null,
@@ -116,16 +119,16 @@ export async function authority(store: Store) {
           effects.push({ target, bytes, base, old });
         });
     },
-    async reconcile(key: string, id: string, run: (doc: LoroDoc) => void) {
-      if (store.journal.reconciled(key) || reconciliations.includes(key)) return;
-      if (staged) {
-        await this.change(id, run);
+    async reconcile(key: string, id: string, run: (doc: LoroDoc) => unknown): Promise<unknown> {
+      if (store.journal.reconciled(key)) return store.journal.reconciliation(key);
+      if (reconciliations.includes(key)) return reconciliationResults[key];
+      const execute = async () => {
+        const result = await this.change(id, run);
         reconciliations.push(key);
-      } else
-        await this.transaction(undefined, "reconcile", async () => {
-          await this.change(id, run);
-          reconciliations.push(key);
-        });
+        reconciliationResults[key] = result;
+        return result;
+      };
+      return staged ? execute() : this.transaction(undefined, "reconcile", execute);
     },
     async create(id: string, doc: LoroDoc) {
       if (documents.has(id)) throw new Error(`InvalidInvariant: duplicate ${id}`);

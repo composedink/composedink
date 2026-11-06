@@ -153,18 +153,20 @@ it("reconciles outside text at the retained export base and rejects an old-MDX/c
     await run("doc.create", { slug: "p" });
     await a.change("p", (d) => replaceText(d, "one"));
     const to = join(home, "content");
-    await run("export", { doc: "p", to });
+    await run("export", { view: "clean", doc: "p", to });
     const path = join(to, "p", "index.mdx");
     await writeFile(path, "outside");
-    await run("export", { doc: "p", to });
+    await run("export", { view: "clean", doc: "p", to });
     expect(a.read("p").text).toBe("outside");
     const base = a.read("p").base;
-    await run("export", { doc: "p", to });
+    await run("export", { view: "clean", doc: "p", to });
     expect(a.read("p").base).toBe(base);
     await a.change("p", (d) => replaceText(d, "three"));
-    await run("export", { doc: "p", to });
+    await run("export", { view: "clean", doc: "p", to });
     await writeFile(path, "one");
-    await expect(run("export", { doc: "p", to })).rejects.toThrow("RecoveryRequired");
+    await expect(run("export", { view: "clean", doc: "p", to })).rejects.toThrow(
+      "RecoveryRequired",
+    );
     expect(await readFile(path, "utf8")).toBe("one");
   } finally {
     await rm(home, { recursive: true, force: true });

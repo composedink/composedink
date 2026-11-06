@@ -1,6 +1,6 @@
 import { chromium, expect } from "@playwright/test";
 import { spawn, execFileSync } from "node:child_process";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { createServer } from "node:net";
@@ -103,6 +103,7 @@ try {
       console.log(await page.locator("body").innerText());
       throw e;
     });
+  await expect(page.locator(".stash-item")).toHaveCount(0);
   await editor.press("ControlOrMeta+a");
   await page.getByRole("button", { name: "Stash selection", exact: true }).click();
   await expect(page.locator(".stash-item")).toHaveCount(1);
@@ -119,6 +120,40 @@ try {
   await expect(page.locator(".stash-item")).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".cm-dim")).not.toHaveCount(0);
+  const to = join(home, "export");
+  const exported = JSON.parse(cli("preview", "editor", "--to", to));
+  const clean = await readFile(join(to, "editor/index.mdx"), "utf8");
+  expect(exported.lock.view).toBe("clean");
+  expect(clean).not.toContain("First sentence.");
+  const full = JSON.parse(cli("preview", "editor", "--to", to, "--include-dim"));
+  expect(full.lock.view).toBe("full");
+  expect(await readFile(join(to, "editor/index.mdx"), "utf8")).toContain(
+    "First sentence.Agent sentence.",
+  );
+  const crossingBase = JSON.parse(cli("cat", "editor", "--json")).base;
+  cli(
+    "alt",
+    "propose",
+    "editor",
+    "--base",
+    crossingBase,
+    "--quote",
+    "First sentence.",
+    "--version",
+    "Crossing replacement.",
+  );
+  await expect(page.locator(".alternative")).toHaveCount(1);
+  await page.locator(".alternative").getByRole("button", { name: "↓", exact: true }).click();
+  await expect(editor).toContainText("Crossing replacement.");
+  await editor.press("ControlOrMeta+a");
+  await page.keyboard.insertText("Typed across boundary.");
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.locator(".alternative")).toHaveCount(0);
+  expect(JSON.parse(cli("stash", "list", "editor"))).toMatchObject([
+    { text: "First sentence.", dim: [[0, 15]] },
+  ]);
+  await page.reload();
+  await expect(editor).toHaveText("Typed across boundary.");
   await page.screenshot({ path: join(root, "test-results/plan-05-dim.png") });
   await writeFile(
     join(root, "test-results/plan-05-dim.json"),

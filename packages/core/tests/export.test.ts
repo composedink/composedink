@@ -14,7 +14,7 @@ it("exports exact MDX and schema-validated locked Markdown, then refreshes on co
     await run("component.create", { id, kind: "inline" });
     await run("deps.add", { doc: "tracer", tag: "Hello", component: id, version: "dev" });
     await a.change("tracer", (doc) => replaceText(doc, 'A <Hello name="Lachlan" />.'));
-    const result = await run("export", { doc: "tracer", to: join(home, "content") });
+    const result = await run("export", { view: "clean", doc: "tracer", to: join(home, "content") });
     expect(result).toMatchObject({
       lock: { mode: "preview", blocks: { Hello: { instances: expect.any(Object) } } },
     });

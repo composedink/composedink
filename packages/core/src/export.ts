@@ -1,6 +1,9 @@
+import { importFile } from "./import.ts";
+import { validateProjection } from "./model/validate.ts";
+import { snippet } from "./model/stash.ts";
+import type { View } from "./model/projection.ts";
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { createProcessor } from "@mdx-js/mdx";
 import { applyDefaults, canonical, jsxProps, object, type ExportLock } from "@composedink/blocks";
 import type { Authority } from "./authority.ts";
 import { project } from "./model/projection.ts";
@@ -8,10 +11,9 @@ import { KEYS } from "./model/keys.ts";
 import { readFiles } from "./model/files.ts";
 import { bundle, sha256 } from "./bundle.ts";
 import { evaluateFallback } from "./fallback/evaluator.ts";
-import { importOutside } from "./model/text.ts";
 import { fileHash, previewTargets } from "./store/intents.ts";
 import { exportHistory } from "./store/export-history.ts";
-export async function preview(a: Authority, docId: string, to: string) {
+export async function preview(a: Authority, docId: string, to: string, view: View = "clean") {
   const target = resolve(to, a.read(docId).slug);
   const old: [string | null, string | null] = [
     await fileHash(join(target, "index.mdx")),
@@ -31,26 +33,26 @@ export async function preview(a: Authority, docId: string, to: string) {
     if (lockHash !== last.lockHash)
       throw new Error("RecoveryRequired: export lock changed; preserve bytes");
     if (current !== last.mdxHash) {
-      if (!current || history.entries.some((e) => e.mdxHash === current))
-        throw new Error("RecoveryRequired: MDX matches an old export or is missing");
-      const outside = await readFile(join(target, "index.mdx"), "utf8");
-      const key = canonical([target, last.base, current]);
-      await a.reconcile(key, docId, (doc) => importOutside(doc, last.base, outside));
+      if (!current) throw Error("RecoveryRequired: outside MDX missing");
+      await importFile(a, docId, target);
     }
   }
-  const projected = project(a.get(docId));
+  const projected = project(a.get(docId), view);
   const text = projected.text;
+  const ast = validateProjection(
+    text,
+    snippet(a.get(docId), 0, a.get(docId).getText("mdx").length).dim,
+  );
   const lock: ExportLock = {
     composed: 1,
     mode: "preview",
     doc: projected.doc,
     base: projected.base,
-    view: "full",
+    view,
     sha256: sha256(text),
     blocks: {},
   };
   const deps = a.get(docId).getMap(KEYS.deps).toJSON();
-  const ast = createProcessor().parse(text);
   const uses: Array<{ tag: string; node: Record<string, unknown> }> = [];
   function walk(node: unknown) {
     if (!object(node)) return;
@@ -106,7 +108,11 @@ export async function refreshPreviews(a: Authority, component: string) {
       Object.values(deps).some(
         (dep) => object(dep) && dep.id === component && dep.version === "dev",
       )
-    )
-      await preview(a, doc, to);
+    ) {
+      const lock = JSON.parse(
+        await readFile(resolve(to, a.read(doc).slug, "composed.lock.json"), "utf8"),
+      );
+      await preview(a, doc, to, lock.view === "full" ? "full" : "clean");
+    }
   }
 }

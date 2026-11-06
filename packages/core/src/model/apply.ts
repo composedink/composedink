@@ -1,3 +1,5 @@
+import { projection, type View } from "./projection.ts";
+import { insertSnippet } from "./marks.ts";
 import { proposalVersion } from "./proposal.ts";
 import { LoroDoc } from "loro-crdt";
 import { createProcessor } from "@mdx-js/mdx";
@@ -126,14 +128,19 @@ export function proposeBranch(
 }
 export function apply(
   doc: LoroDoc,
-  input: { base: string; text: string; mode: "direct" | "propose"; by: Author },
+  input: { base: string; view?: View; text: string; mode: "direct" | "propose"; by: Author },
 ) {
   const base = baseFork(doc, input.base),
     old = base.getText("mdx").toString(),
-    changes = hunks(old, input.text);
-  const ranges = input.mode === "propose" ? units(old, changes) : [];
+    projected = projection(base, input.view),
+    visibleChanges = hunks(projected.text, input.text);
+
   const agent = base.fork();
-  agent.getText("mdx").update(input.text);
+  for (const h of [...visibleChanges].reverse()) {
+    const ranges = projected.ranges(h.from, h.to);
+    for (const r of [...ranges].reverse()) agent.getText("mdx").delete(r.from, r.to - r.from);
+    insertSnippet(agent, projected.offset(h.from), { text: h.insert, dim: [] });
+  }
   agent.commit();
   if (input.mode === "direct") {
     const before = doc.fork();
@@ -142,6 +149,8 @@ export function apply(
     normalize(doc);
     return { mode: "direct" as const, head: head(doc) };
   }
-  const result = proposeBranch(doc, base, agent, ranges, changes, input.by);
+  const branchChanges = hunks(old, agent.getText("mdx").toString());
+  const ranges = units(old, branchChanges);
+  const result = proposeBranch(doc, base, agent, ranges, branchChanges, input.by);
   return { mode: "propose" as const, ...result, head: head(doc) };
 }

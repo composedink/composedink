@@ -13,6 +13,7 @@ import { renderArticle } from "./render.ts";
 import type { LinkRow, Links, Question } from "./links.ts";
 import type { Replicas } from "./replicas.ts";
 import type { GuestRate } from "./rate.ts";
+import { guestName, type Guests } from "./guest.ts";
 
 /**
  * The page's only script: the guest comment UI. A selection must sit inside one text node of the
@@ -287,8 +288,8 @@ export function renderLink(link: LinkRow, links: Links, replica: Replicas, guest
   });
 }
 
-/** `/s/...`: rate-limited per token before lookup; anything not usable is the one 404. */
-export function linkPages(links: Links, replica: Replicas, rate: GuestRate) {
+/** `/s/...`: rate-limited per token before lookup; anything not usable is the one 404. Guest POSTs go to `guests`. */
+export function linkPages(links: Links, replica: Replicas, rate: GuestRate, guests: Guests) {
   return async function handle(req: IncomingMessage, res: ServerResponse, parts: string[]) {
     const token = parts[2];
     if (!token) return sendNotFound(res);
@@ -301,7 +302,8 @@ export function linkPages(links: Links, replica: Replicas, rate: GuestRate) {
     if (!link || replica.get(link.doc_id).getMap(KEYS.meta).get("deleted"))
       return sendNotFound(res);
     if (req.method === "GET" && parts.length === 3)
-      return sendPage(res, 200, renderLink(link, links, replica));
+      return sendPage(res, 200, renderLink(link, links, replica, guestName(req)));
+    if (req.method === "POST") return guests(req, res, parts, link);
     return sendNotFound(res);
   };
 }

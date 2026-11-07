@@ -47,16 +47,30 @@ function live(doc: LoroDoc, a: { start: number[]; end: number[] }) {
  * Opens a thread on a unique quote of a retained base. Cursors sit on the quote's first and
  * last characters (sides Left/Right), so edge typing stays outside; they resolve in current
  * history, and a quote deleted since the base opens detached rather than relocating.
+ * `detachedIfMissing` stores a quote the base does not contain as a detached thread with empty
+ * anchors (a guest quoting a pinned page whose text has since changed); without it, QuoteNotFound.
  */
 export function openThread(
   doc: LoroDoc,
   at: z.input<typeof selectionSchema>,
   first: { text: string; by: ThreadAuthor; question?: string; at?: number },
   id: string = crypto.randomUUID(),
+  options: { detachedIfMissing?: boolean } = {},
 ) {
   if (!("quote" in at) || !at.quote) throw Error("InvalidInvariant: a thread needs a quote");
-  const { fork, from, to } = select(doc, { view: "full", ...at });
-  const cursors = anchors(fork, from, to);
+  let cursors: { start: number[]; end: number[] };
+  try {
+    const { fork, from, to } = select(doc, { view: "full", ...at });
+    cursors = anchors(fork, from, to);
+  } catch (error) {
+    if (
+      !options.detachedIfMissing ||
+      !(error instanceof Error) ||
+      error.message !== "QuoteNotFound"
+    )
+      throw error;
+    cursors = { start: [], end: [] };
+  }
   if (doc.getMap(KEYS.threads).get(id) !== undefined)
     throw Error(`InvalidInvariant: duplicate thread ${id}`);
   const thread = doc.getMap(KEYS.threads).setContainer(id, new LoroMap());

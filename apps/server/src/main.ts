@@ -11,6 +11,7 @@ import { replicas } from "./replicas.ts";
 import { links } from "./links.ts";
 import { linkPages } from "./link-page.ts";
 import { guestRate } from "./rate.ts";
+import { guests } from "./guest.ts";
 
 export interface ServerOptions {
   /** `$COMPOSED_STORAGE`: artifacts and `server.db`. */
@@ -37,7 +38,7 @@ export function composedServer(options: ServerOptions) {
   const replica = replicas(db);
   const shared = links(db, replica);
   const relay = sync(db, devices, events, replica, shared);
-  const pages = linkPages(shared, replica, guestRate());
+  const pages = linkPages(shared, replica, guestRate(), guests(replica, relay.append));
   const server = createServer(async (req, res) => {
     try {
       const parts = segments(req.url);

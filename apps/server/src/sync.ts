@@ -108,6 +108,23 @@ export function sync(
       if (error instanceof HttpError) throw error;
       throw new HttpError(400, "BadRequest", "update does not import");
     }
+    return { ...append(docId, device.accountId, device.deviceId, bytes, row), duplicate: false };
+  }
+
+  /**
+   * Stores an update the replica already contains: one transaction for the row (`head_seq + 1`), the
+   * `docs` row on a first push, and a snapshot every 256 rows or 4 MiB; then notifies the account's
+   * streams. Device pushes and guest comments (`fromDevice` null) both land here. Any failure evicts
+   * the replica so it reloads from what was stored.
+   */
+  function append(
+    docId: string,
+    accountId: string,
+    fromDevice: string | null,
+    bytes: Uint8Array,
+    row = db.prepare("SELECT * FROM docs WHERE doc_id = ?").get(docId) as DocRow | undefined,
+  ) {
+    const doc = replica.get(docId);
     const after = doc.oplogVersion().encode();
     const seq = (row?.head_seq ?? 0) + 1;
     try {
@@ -115,12 +132,12 @@ export function sync(
         if (!row)
           db.prepare("INSERT INTO docs (doc_id, account_id, kind) VALUES (?,?,?)").run(
             docId,
-            device.accountId,
+            accountId,
             isPost(doc) ? "post" : "component",
           );
         db.prepare(
           "INSERT INTO updates (doc_id, seq, from_device, bytes, vv, at) VALUES (?,?,?,?,?,?)",
-        ).run(docId, seq, device.deviceId, bytes, after, Date.now());
+        ).run(docId, seq, fromDevice, bytes, after, Date.now());
         const snapshotSeq = row?.snapshot_seq ?? 0;
         const { size } = db
           .prepare(
@@ -143,8 +160,8 @@ export function sync(
       replica.evict(docId);
       throw error;
     }
-    events.publish(device.accountId, { docId, seq });
-    return { seq, vv: encode(after), duplicate: false };
+    events.publish(accountId, { docId, seq });
+    return { seq, vv: encode(after) };
   }
 
   function pull(device: Device, docId: string, req: IncomingMessage) {
@@ -195,5 +212,6 @@ export function sync(
     }
     throw new HttpError(404, "NotFound", "no such route");
   }
-  return { handle };
+  return { handle, append };
 }
+export type Append = ReturnType<typeof sync>["append"];

@@ -95,6 +95,44 @@ it("rejects duplicate, missing and empty quotes; unknown threads fail", async ()
   }
 });
 
+it("opens a detached thread for a missing quote only with detachedIfMissing", async () => {
+  const f = await fixture();
+  const guest = { kind: "guest", name: "Ada", linkId: "link-1" } as const;
+  try {
+    const base = f.a.read("p").base;
+    const first = { text: "Where did this go?", by: guest, question: undefined };
+    await expect(
+      f.a.change("p", (d) => openThread(d, { base, quote: "vanished" }, first)),
+    ).rejects.toThrow("QuoteNotFound");
+    const thread = await f.a.change("p", (d) =>
+      openThread(d, { base, quote: "vanished" }, first, "t-missing", { detachedIfMissing: true }),
+    );
+    expect(thread).toBe("t-missing");
+    expect(f.list()).toEqual([
+      {
+        thread: "t-missing",
+        from: null,
+        to: null,
+        state: "detached",
+        messages: [{ by: guest, at: expect.any(Number), text: "Where did this go?" }],
+      },
+    ]);
+    const stored = f.a.get("p").getMap(KEYS.threads).toJSON()["t-missing"];
+    expect(stored).toMatchObject({ start: [], end: [], state: "detached" });
+    // Other selection errors are unchanged by the option.
+    await f.type(() => ({ at: 0, insert: "beta " }));
+    await expect(
+      f.a.change("p", (d) =>
+        openThread(d, { base: f.a.read("p").base, quote: "beta" }, first, "t2", {
+          detachedIfMissing: true,
+        }),
+      ),
+    ).rejects.toThrow("AmbiguousQuote");
+  } finally {
+    await f.close();
+  }
+});
+
 it("anchors a stale-base quote in current history and creates detached when it is gone", async () => {
   const f = await fixture();
   try {

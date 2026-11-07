@@ -163,6 +163,24 @@ export function links(db: DatabaseSync, replica: Replicas) {
     throw new HttpError(404, "NotFound", "no such route");
   }
 
-  return { handle };
+  /** The link behind a token while it is usable: unknown, revoked and expired are all undefined. */
+  function active(token: string, now = Date.now()) {
+    const row = db.prepare("SELECT * FROM links WHERE token_hash = ?").get(sha256(token)) as
+      | LinkRow
+      | undefined;
+    if (!row || row.revoked_at !== null) return undefined;
+    if (row.expires_at !== null && row.expires_at <= now) return undefined;
+    return row;
+  }
+
+  /** The render snapshot uploaded with the link: `{[renderKey]: markdown}`. */
+  function instances(linkId: string) {
+    const row = db
+      .prepare("SELECT instances FROM render_snapshots WHERE link_id = ?")
+      .get(linkId) as { instances: string } | undefined;
+    return row ? (JSON.parse(row.instances) as Record<string, string>) : {};
+  }
+
+  return { handle, active, instances };
 }
 export type Links = ReturnType<typeof links>;

@@ -14,7 +14,14 @@
     "@composedink/blocks": "workspace:*",
     "@composedink/core": "workspace:*",
     "@types/node": "catalog:",
+    "mdast-util-from-markdown": "catalog:",
+    "rehype-stringify": "catalog:",
+    "remark-frontmatter": "catalog:",
+    "remark-mdx": "catalog:",
+    "remark-parse": "catalog:",
+    "remark-rehype": "catalog:",
     "typescript": "catalog:",
+    "unified": "catalog:",
     "vite-plus": "catalog:"
   }
 }

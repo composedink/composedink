@@ -9,6 +9,8 @@ import { eventHub } from "./events.ts";
 import { sync } from "./sync.ts";
 import { replicas } from "./replicas.ts";
 import { links } from "./links.ts";
+import { linkPages } from "./link-page.ts";
+import { guestRate } from "./rate.ts";
 
 export interface ServerOptions {
   /** `$COMPOSED_STORAGE`: artifacts and `server.db`. */
@@ -20,7 +22,7 @@ export interface ServerOptions {
   migrations?: readonly string[];
 }
 
-/** One `node:http` server for `/healthz`, `/c/` (artifacts), `/auth/` and `/sync/`. */
+/** One `node:http` server for `/healthz`, `/c/` (artifacts), `/auth/`, `/sync/` and `/s/` (links). */
 export function composedServer(options: ServerOptions) {
   mkdirSync(options.storage, { recursive: true });
   const db = openDatabase(options.storage, options.migrations);
@@ -35,6 +37,7 @@ export function composedServer(options: ServerOptions) {
   const replica = replicas(db);
   const shared = links(db, replica);
   const relay = sync(db, devices, events, replica, shared);
+  const pages = linkPages(shared, replica, guestRate());
   const server = createServer(async (req, res) => {
     try {
       const parts = segments(req.url);
@@ -50,6 +53,7 @@ export function composedServer(options: ServerOptions) {
       if (parts[1] === "c") return artifacts(req, res, parts);
       if (parts[1] === "auth") return await devices.handle(req, res, parts);
       if (parts[1] === "sync") return await relay.handle(req, res, parts);
+      if (parts[1] === "s") return await pages(req, res, parts);
       throw new HttpError(404, "NotFound", "no such route");
     } catch (error) {
       sendError(res, error);

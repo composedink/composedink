@@ -10,3 +10,4 @@ export * from "./feedback.ts";
 export { read, head } from "./read.ts";
 export * from "./projection.ts";
 export * from "./selection.ts";
+export { renderKey } from "./render-key.ts";

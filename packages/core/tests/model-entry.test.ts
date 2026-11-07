@@ -4,8 +4,12 @@ import ts from "typescript";
 import { expect, it } from "vite-plus/test";
 
 const model = resolve(import.meta.dirname, "../src/model");
+/** `@composedink/blocks` (render keys: `jsxProps`, `canonical`) has no runtime dependencies. */
 const allowed = (specifier: string) =>
-  specifier === "loro-crdt" || specifier === "zod" || specifier.startsWith("node:");
+  specifier === "loro-crdt" ||
+  specifier === "zod" ||
+  specifier === "@composedink/blocks" ||
+  specifier.startsWith("node:");
 
 /** External specifiers reachable through runtime (non type-only) imports from `entry`. */
 function externals(entry: string) {

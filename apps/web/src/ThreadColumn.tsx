@@ -2,7 +2,14 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
 import type { Alt } from "./editor/alternatives";
 import { selectionNow } from "./editor/selection";
-import { anchorTop, authorName, stack, type FeedbackRequest, type Thread } from "./editor/threads";
+import {
+  anchorTop,
+  authorName,
+  authorTag,
+  stack,
+  type FeedbackRequest,
+  type Thread,
+} from "./editor/threads";
 import type { EditorTransport } from "./editor/transport";
 
 export type ThreadFilter = "open" | "resolved" | "all";
@@ -113,11 +120,15 @@ function ThreadCard({
     >
       {question && <p className="thread-question">Q: {question}</p>}
       {quote && <blockquote>{quote}</blockquote>}
-      {thread.messages.map((m, i) => (
-        <p className="message" key={i}>
-          <strong>{authorName(m.by)}</strong> {m.text}
-        </p>
-      ))}
+      {thread.messages.map((m, i) => {
+        const tag = authorTag(m.by);
+        return (
+          <p className="message" key={i}>
+            <strong>{authorName(m.by)}</strong>
+            {tag && <span className="author-tag"> {tag}</span>} {m.text}
+          </p>
+        );
+      })}
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -376,7 +387,13 @@ export function FeedbackPanel({
       )}
       {requests.map((r) => (
         <article className="request" key={r.request} data-status={r.state.status}>
-          {r.state.status === "pending" && (
+          {r.state.status === "pending" && !r.to.includes("model") && (
+            <p>
+              Waiting for guests on{" "}
+              {r.to.map((to) => `link ${to.slice("link:".length, "link:".length + 6)}`).join(", ")}
+            </p>
+          )}
+          {r.state.status === "pending" && r.to.includes("model") && (
             <p>
               Waiting for the model…{" "}
               {asking && (

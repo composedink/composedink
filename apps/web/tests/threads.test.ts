@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 import { LoroDoc, LoroMap, LoroMovableList } from "loro-crdt";
-import { readRequests, readThreads, stack } from "../src/editor/threads";
+import { authorName, authorTag, readRequests, readThreads, stack } from "../src/editor/threads";
 
 it("stacks colliding cards below each other in anchor order and leaves free cards in place", () => {
   const tops = stack(
@@ -72,4 +72,11 @@ it("reads replicated threads with live local anchors, newest typing included", (
       state: { status: "pending" },
     },
   ]);
+});
+
+it("labels guests by name with their link, and nobody else", () => {
+  const guest = { kind: "guest", name: "Ada", linkId: "3f9a2c71-aaaa" } as const;
+  expect([authorName(guest), authorTag(guest)]).toEqual(["Ada", "guest · link 3f9a2c"]);
+  expect(authorTag({ kind: "human" })).toBeUndefined();
+  expect(authorTag({ kind: "agent", name: "model" })).toBeUndefined();
 });

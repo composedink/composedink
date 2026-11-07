@@ -342,3 +342,59 @@ button {
   margin-block: 0.25rem;
   text-align: left;
 }
+
+.share-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.share-fix {
+  color: #952f20;
+  font-size: 14px;
+}
+.share-fix code {
+  font-size: 13px;
+}
+.share-panel {
+  border-left: 3px solid #4f7d6a;
+  padding: 0.25rem 0 0.25rem 1rem;
+  margin-block: 1rem;
+}
+.share-panel h2 {
+  margin-top: 0;
+}
+.share-panel form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+.share-links {
+  list-style: none;
+  padding: 0;
+}
+.share-links li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block: 0.4rem;
+}
+.share-links li.revoked {
+  color: #5b6b61;
+}
+.share-url {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.share-url input {
+  width: 28rem;
+  max-width: 60vw;
+  font:
+    13px ui-monospace,
+    monospace;
+}
+.message .author-tag {
+  color: #5b6b61;
+  font-size: 13px;
+}

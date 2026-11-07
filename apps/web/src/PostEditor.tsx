@@ -13,6 +13,7 @@ import { LoroDoc } from "loro-crdt";
 import { sourceEditor } from "./editor/editor";
 import { EditorTransport } from "./editor/transport";
 import { SessionStatus, type Session } from "./SessionStatus";
+import { ShareButton, SharePanel } from "./SharePanel";
 import {
   readRequests,
   readThreads,
@@ -48,6 +49,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   const liveAlts = useRef<Alt[]>([]);
   const [status, setStatus] = useState("Connecting");
   const [session, setSession] = useState<Session>();
+  const [sharing, setSharing] = useState(false);
   const [context, setContext] = useState("No selection");
   const [inspection, setInspection] = useState<Inspection>();
   const [error, setError] = useState("");
@@ -356,7 +358,16 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
         >
           Undo operation
         </button>
+        <ShareButton
+          session={session}
+          open={sharing}
+          zen={zen}
+          onToggle={() => setSharing((open) => !open)}
+        />
       </header>
+      {sharing && session?.signedIn && !zen && (
+        <SharePanel id={id} transport={transport.current} onError={setError} />
+      )}
       {rewriting && (
         <p>
           Rewriting selection…{" "}

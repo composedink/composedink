@@ -32,6 +32,8 @@ export type Answer = {
 export type FeedbackRequest = {
   request: string;
   at: number;
+  /** `"model"` and `"link:<linkId>"` recipients; link requests stay pending for guests. */
+  to: string[];
   questions: { id: string; text: string }[];
   state:
     | { status: "pending" }
@@ -99,6 +101,9 @@ export const authorName = (by: Author) =>
         : by.name === "model"
           ? "Model"
           : `Agent (${by.name})`;
+/** A guest's provenance next to their name: `guest · link <first 6 chars of linkId>`. */
+export const authorTag = (by: Author) =>
+  by.kind === "guest" ? `guest · link ${by.linkId.slice(0, 6)}` : undefined;
 /**
  * Collision stacking: cards keep document order and sit at their anchor unless the card above
  * would overlap, in which case they move just below it.

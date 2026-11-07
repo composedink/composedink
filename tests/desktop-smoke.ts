@@ -120,6 +120,12 @@ try {
   // The packaged studio page shows the server session; this home never signed in.
   await expect(page.getByTestId("session")).toContainText("Signed out");
   proof.signedOutStatus = true;
+  // Sharing needs a session: the packaged signed-out page disables Share and shows the fix.
+  await expect(page.getByRole("button", { name: "Share", exact: true })).toBeDisabled();
+  await expect(page.getByTestId("share-fix")).toHaveText(
+    "Sign in to share — fix: composed login <server>",
+  );
+  proof.signedOutShareDisabled = true;
   const read = () => run("cat", "tracer", "--json").then((s) => JSON.parse(s));
   assert.match((await read()).text, new RegExp(sentence));
   assert.equal((await owner()).pid, initial.pid);

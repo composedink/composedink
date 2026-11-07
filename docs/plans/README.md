@@ -85,6 +85,14 @@ its own conventions when Lachlan is ready. Nothing in this repo changes consumer
 
 **Phase 1.5 (writing process):** `docs/design/writing-process.md`, plans 13–15 (kinds and rulesets, edit measurements, threads and feedback). Shared preview links follow in P2 after accounts.
 
+**Follow-ups from phase 1.5** (logged in plans 13–15; none blocking):
+
+- The kind's `export.strip` list is not recorded in the lock or export history, so changing it between export and import fails with RecoveryRequired (13). Belongs in the lock.
+- `thread.open` takes a quote with no occurrence picker; a phrase that appears twice is ambiguous (15).
+- Model review is not on the operation-undo stack; thread ops are (15). Accepting a model rewrite detaches the model's note inside the replaced range by the never-relocate rule (15).
+- Prose masking limits: four-space-indented lines read as code and count as a visual, `snake_case` counts as two words, setext headings are not recognised (14).
+- After each edit the editor's background check triggers a second lint that clears diagnostics until it returns (06/13).
+
 **Later phases:** P2 sync/accounts/device tokens/ideas/remote MCP/server bundling;
 P3 sharing/comments/component.render and sandboxed usercontent in editor/preview/share
 hosts; P4 mobile after a webview spike plus on-device AI; P5 listing/npm export of

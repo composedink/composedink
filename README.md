@@ -14,7 +14,7 @@ MVP complete (2026-11-06): studio and editor, alternatives/dim/stash, Harper lin
 rewrites, component authoring with live preview, immutable artifact server, release locks,
 macOS desktop app, and deployment. `@composedink/{blocks,host-runtime,host-tanstack}@0.1.0` are
 on npm; the artifact server runs at `https://cdn.composed.ink` (staging:
-`https://composedink-staging.devbox.party`). Next: the writing-process unit (plans 13–15).
+`https://composedink-staging.devbox.party`). Phase 1.5 (writing process, plans 13–15) complete 2026-11-06: document kinds and rulesets, zen mode, edit measurements with a sentence-length sparkline, anchored comment threads and directed model feedback. Next: P2 server session, then shared preview links with guest comments.
 
 - `docs/design/grounding.md` — what was decided before design began
 - `docs/design/composed.md` — the design package

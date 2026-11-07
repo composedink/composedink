@@ -51,3 +51,96 @@
 **Out of scope:** learned style scoring, automatic fixes, new prose/model copies, charts derived from a second tokenizer, model feedback (15), performance guarantees without measurement, new document stages.
 
 **Common completion gate:** `mise exec -- vp check --fix` and `mise exec -- vp run -r test`. Tests import from `vite-plus/test`; use package `vite.config.ts`, never `vitest.config.ts`. Add any named script in this plan before invoking it. Repeat formatting until stable, stage only this unit's files, commit the completed task, and update this index's status. Commands are planned implementation gates, not results from this documentation task.
+
+## Implementation log
+
+### 2026-11-06 — implemented (Claude Opus 5.5 implementer)
+
+Commits: 8cd03e8 `feat(lint): positioned sentences from one shared prose tokenizer`, 3ce7ea5
+`feat(lint): the configurable measurement rule table with fixtures for every rule`, d2dbd68
+`feat(web): severity underlines and the sentence-length sparkline`.
+
+Built per task:
+
+1. `prose.ts` `analyze()` keeps the existing masking and now also returns blocks (markdown
+   paragraphs and list items with continuation lines, split by headings, items and fully masked
+   lines inside a blank-line group) and heading sections with visual presence. `splitSentences`
+   is the one tokenizer; `LintResult.sentences` holds `{from,to,text,words}` for the whole
+   document, cached per paragraph with block shape in the key and rebased on reuse.
+   `tests/sentences.test.ts` records exact sentences and counts independently.
+2. `ruleset.ts` gains `RULE_DEFAULTS` (the plan's option table, now the post `rules.json` via
+   `DEFAULT_RULES`), strict option validation in `parseRuleset` and `ruleOptions` (defaults
+   merged by key, `limits` per medium). `rules.ts` has `paragraphRules` (legacy style codes,
+   filler, preamble, sentence.length, paragraph.length, bullets.long, bold.inline; cached) and
+   `documentRules` (budget, visuals, rhythm; recomputed each pass). `tests/fixtures/measurements.ts`
+   has positive/negative fixtures for all ten codes and 41 boundary/option cases.
+   `measurements.test.ts` runs each fixture positive, negative, disabled and hidden in six MDX
+   places (frontmatter, fenced and indented code, JSX attribute, expression, nested JSX
+   attribute), asserting no diagnostics and no sentences, and fails if a registered code lacks a
+   fixture. The core `lint` op test runs all ten through a kind's effective rules with options,
+   checks option validation on `kind.write`, and confirms that disabling silences those codes only.
+3. `SentenceSparkline.tsx` (`bucketSentences`, `byLength`) in the status bar, fed only by the
+   accepted result's sentences; `editor/lint.ts` hands `{base, sentences}` to the editor, which
+   marks it stale once the document base moves (list closes, bars dim, jumps refuse).
+   Underlines carry `cm-lint-<severity>`; the feedback panel shows a severity label.
+   `tests/sparkline.test.ts` checks hand-calculated buckets (0, 2, 120, 121, 240, 250, N=7/max 3)
+   and ordering; `tests/measurements.spec.ts` (added to the e2e script) proves soft budget/rhythm
+   beside a warn underline with exact ranges, hover/focus/arrow keys, list order and jump
+   selection (emoji included), list invalidation on edit, rules-only refresh, a delayed stale
+   reply discarded, zen hide/restore without re-linting, and 130 sentences → 120 bars.
+
+Stops and discrepancies (none blocked a step):
+
+1. Task 1 asks for the rule fixtures first, but they exercise Task 2 rules. They were written
+   first (red run: 94 failed, 54 passed of 148) and committed with Task 2; the Task 1 commit
+   carried an intermediate `rules.ts` where only `sentence.length` reads the shared sentences,
+   verified on its own (lint 16/16, core 109, web 3).
+2. Files beyond the plan list: `packages/core/tests/rulesets.test.ts` (plan 13's fixture used
+   `paragraph.length: {max, note}`, now rejected by option validation) and
+   `apps/web/tests/lint.test.ts` (its reply literal needed `sentences`). Listed but unchanged:
+   `core/src/kinds/builtins.ts` (post `rules.json` is `DEFAULT_RULES`, so the defaults land
+   without an edit; previously copied `{}` entries mean defaults), `core/src/ops/lint.ts` (the op
+   still returns diagnostics), `lint/src/worker.ts` (passes the result through).
+3. Decisions within the plan's latitude: headings are structure, not sentences, so they count
+   in neither sentences, budget nor section words (budget total = sparkline total). Budget is
+   anchored at the first prose character (one code point, heading text included). Visuals are
+   anchored at the heading text, or at the first sentence for content before the first heading.
+   `paragraph.length` counts per markdown paragraph and ignores list items. Preamble openers
+   start a paragraph or a list item, and need `?` or ask/asks/asking/request/requests/requesting/please
+   after the phrase, so "I was wondering if you could review this." is not flagged. Visuals are
+   markdown images, `img`/`picture`/`figure`/`video`/`svg`/`iframe` tags anywhere, capitalized flow JSX
+   (a tag that starts a line with only syntax after it on that line), fenced or indented code,
+   `ComposedBlock` and composed fallback. Rhythm runs over the whole document's sentences.
+   `bold.inline` looks only inside sentences (headings skipped). Sentences without words are
+   dropped. Sentence `text` collapses masked syntax, with no space before punctuation. Words are
+   letter/mark/number runs joined by `'`, `’`, `-` or a digit separator, so `e.g.` is two
+   words, as in the zen word count.
+4. Overlap: `style:adverb` no longer lists "really"/"very". `filler` owns them, per plan 13's
+   rule that legacy codes must not duplicate measurements. `bullets.long` counts sentences, not
+   30 words.
+5. Tokenizer fixes: decimals/versions, a fixed abbreviation list (mr, mrs, ms, dr, prof, sr, jr,
+   st, vs, cf, approx, fig, eq), single capital initials, dotted abbreviations (`e.g.`, `U.S.`,
+   `a.m.`), closing quotes/brackets, and paragraph/item/heading ends. Known limits: other
+   abbreviations end a sentence, and `a.m.` at a sentence end does not. Also fixed: a fence
+   marker inside frontmatter no longer opens a fence.
+6. Known limits of the existing masking, not changed: any 4-space-indented line (nested list
+   items, loose list continuations) is masked as indented code and counts as a code visual;
+   `*`/`_` are masked everywhere (`snake_case` is two words); setext headings are not headings;
+   table rows are prose.
+7. Observed behaviour from earlier plans, not changed: after every `doc.read` inspection,
+   `setBlocks` reschedules lint and clears diagnostics until the re-lint returns (about the 120 ms
+   debounce plus lint time), even when blocks are unchanged. The sparkline stays because the
+   result's base is unchanged. The spec waits for settled diagnostics before its screenshot.
+
+Verification (composedink root, logs in gitignored `test-results/`):
+
+- `mise exec -- vp check --fix`, `vp fmt`, `vp check`: "All 239 files are correctly formatted";
+  "Found no warnings, lint errors, or type errors in 177 files".
+- `mise exec -- vp run -r test`: EXIT 0, "vp run: 9/9 successful" (lint 6 files/149 tests, core
+  29/110, cli 4/6, web 4/8) — plan-14-final-tests.log.
+- `mise exec -- vp run composed-web#e2e`: EXIT 0, all seven specs PASS, including "Severity,
+  sparkline hover/list/jump, rules-only refresh, stale reply and zen PASS" —
+  plan-14-web-e2e.log, plan-14-web.json, plan-14-measurements.png.
+- `mise exec -- vp run composed-web#build`: EXIT 0, "✓ built in 960ms" (existing chunk advisory).
+- `mise exec -- vp run host-tanstack#e2e` (after the recursive tests, not concurrently): EXIT 0,
+  `{"1":true,…,"6":true,…,"prose-refresh":true,"last-good-restart":true}` — plan-14-host-e2e.log.

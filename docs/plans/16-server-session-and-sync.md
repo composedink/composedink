@@ -50,13 +50,13 @@
 
 ### Task 2 — Accounts, devices and pairing (`/auth`)
 
-- [ ] Tokens are 32 random bytes, base64url, sent as `Authorization: Bearer`. The database stores only `sha256` of each token or pairing code. A device whose `revoked_at` is set gets 401 on every route. `last_seen_at` is written at most once a minute (decision in this plan). Routes:
+- [x] Tokens are 32 random bytes, base64url, sent as `Authorization: Bearer`. The database stores only `sha256` of each token or pairing code. A device whose `revoked_at` is set gets 401 on every route. `last_seen_at` is written at most once a minute (decision in this plan). Routes:
   - `POST /auth/login` takes `{deviceName: string(1..64), code?: string, bootstrap?: string}`, exactly one of `code` or `bootstrap`, and answers `201 {accountId, deviceId, deviceName, token}`. `bootstrap` works only while `accounts` is empty: it compares with `timingSafeEqual` and creates the account `{name: "owner"}` (decision in this plan). Every other case answers 401.
   - `POST /auth/pair` (device) answers `201 {code, expiresAt}`. The code is 8 Crockford base32 characters shown as `ABCD-EFGH`, normalized to upper case without hyphens before hashing, single use, valid for 10 minutes.
   - `GET /auth/devices` (device) answers `200 {current: deviceId, devices: {deviceId, name, createdAt, lastSeenAt, revokedAt}[]}` for the account.
   - `DELETE /auth/devices/:deviceId` (device, same account; revoking yourself is allowed) answers `200 {deviceId, revokedAt}` and closes that device's event streams.
-- [ ] Failed logins are limited to 10 a minute per server process, then 429. A guessable 40-bit code needs a limit, and the design names 429 (decision in this plan).
-- [ ] `apps/server/tests/auth.test.ts` covers:
+- [x] Failed logins are limited to 10 a minute per server process, then 429. A guessable 40-bit code needs a limit, and the design names 429 (decision in this plan).
+- [x] `apps/server/tests/auth.test.ts` covers:
   - first bootstrap, then a second bootstrap gets 401;
   - pair, then log in, then reuse of the code gets 401;
   - an expired code (the test sets `expires_at` in the past) gets 401;

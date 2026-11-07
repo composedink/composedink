@@ -3,7 +3,10 @@ import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { artifactHandler } from "./artifacts.ts";
 import { openDatabase } from "./db.ts";
-import { segments, sendError } from "./http.ts";
+import { HttpError, segments, sendError } from "./http.ts";
+import { auth } from "./auth.ts";
+import { eventHub } from "./events.ts";
+import { sync } from "./sync.ts";
 
 export interface ServerOptions {
   /** `$COMPOSED_STORAGE`: artifacts and `server.db`. */
@@ -25,6 +28,9 @@ export function composedServer(options: ServerOptions) {
     throw Error("COMPOSED_BOOTSTRAP_TOKEN is required until the first device signs in");
   }
   const artifacts = artifactHandler({ root: options.storage, token: options.token });
+  const events = eventHub();
+  const devices = auth(db, events, options.bootstrap);
+  const relay = sync(db, devices, events);
   const server = createServer(async (req, res) => {
     try {
       const parts = segments(req.url);
@@ -37,7 +43,10 @@ export function composedServer(options: ServerOptions) {
         }
         return;
       }
-      artifacts(req, res, parts);
+      if (parts[1] === "c") return artifacts(req, res, parts);
+      if (parts[1] === "auth") return await devices.handle(req, res, parts);
+      if (parts[1] === "sync") return await relay.handle(req, res, parts);
+      throw new HttpError(404, "NotFound", "no such route");
     } catch (error) {
       sendError(res, error);
     }
@@ -46,6 +55,7 @@ export function composedServer(options: ServerOptions) {
     server,
     db,
     close() {
+      events.closeAll();
       server.closeAllConnections();
       server.close();
       if (db.isOpen) db.close();

@@ -12,6 +12,7 @@ import { EditorView } from "@codemirror/view";
 import { LoroDoc } from "loro-crdt";
 import { sourceEditor } from "./editor/editor";
 import { EditorTransport } from "./editor/transport";
+import { SessionStatus, type Session } from "./SessionStatus";
 import {
   readRequests,
   readThreads,
@@ -46,6 +47,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   const [alts, setAlts] = useState<Alt[]>([]);
   const liveAlts = useRef<Alt[]>([]);
   const [status, setStatus] = useState("Connecting");
+  const [session, setSession] = useState<Session>();
   const [context, setContext] = useState("No selection");
   const [inspection, setInspection] = useState<Inspection>();
   const [error, setError] = useState("");
@@ -114,188 +116,194 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     };
     const relayout = () => setLayout((n) => n + 1);
     window.addEventListener("resize", relayout);
-    const connection = new EditorTransport(doc, id, setStatus, () => {
-      if (!view && parent.current)
-        view = sourceEditor(parent.current, doc, [
-          lint.extension,
-          zenKeys(toggleZen),
-          rewriteKeys((v) => {
-            if (rewriteAbort.current) return;
-            const controller = new AbortController();
-            rewriteAbort.current = controller;
-            setRewriting(true);
-            setError("");
-            const at = rewriteSelection(v, doc);
-            void connection
-              .operation(
-                "alt.rewrite",
-                { doc: id, at, count: 3, request: crypto.randomUUID() },
-                controller.signal,
-              )
-              .catch((e) => {
-                if (!controller.signal.aborted) setError(String(e));
-              })
-              .finally(() => {
-                rewriteAbort.current = null;
-                setRewriting(false);
-              });
-          }),
-          dimControls(doc, (v) => {
-            void captureSelection(v, connection)
-              .then((at) =>
-                connection.operation("ghost.set", {
-                  doc: id,
-                  at,
-                  dim: !(() => {
-                    let offset = 0,
-                      marked = 0;
-                    for (const p of doc.getText("mdx").toDelta()) {
-                      const end = offset + (p.insert?.length ?? 0);
-                      if (p.attributes?.dim)
-                        marked += Math.max(0, Math.min(end, at.to) - Math.max(offset, at.from));
-                      offset = end;
-                    }
-                    return marked === at.to - at.from;
-                  })(),
-                }),
-              )
-              .catch((e) => setError(String(e)));
-          }),
-          alternativeGutter(() => liveAlts.current),
-          threadHighlights(() => ({
-            shown: zenNow.current ? [] : shownThreads(liveThreads.current, filterNow.current),
-            active: activeNow.current,
-          })),
-          EditorView.domEventHandlers({
-            click: (event) => {
-              const id = (event.target as HTMLElement)
-                .closest("[data-thread]")
-                ?.getAttribute("data-thread");
-              if (id) setActive(id);
-              return false;
-            },
-            scroll: relayout,
-          }),
-          alternativeKeys(
-            () => liveAlts.current,
-            (alt, action) => {
+    const connection = new EditorTransport(
+      doc,
+      id,
+      setStatus,
+      () => {
+        if (!view && parent.current)
+          view = sourceEditor(parent.current, doc, [
+            lint.extension,
+            zenKeys(toggleZen),
+            rewriteKeys((v) => {
+              if (rewriteAbort.current) return;
+              const controller = new AbortController();
+              rewriteAbort.current = controller;
+              setRewriting(true);
+              setError("");
+              const at = rewriteSelection(v, doc);
               void connection
                 .operation(
-                  action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
-                  action === "keep" || action === "ghost"
-                    ? { doc: id, alt, rest: action === "ghost" ? "ghost" : "stash" }
-                    : { doc: id, alt, to: action },
+                  "alt.rewrite",
+                  { doc: id, at, count: 3, request: crypto.randomUUID() },
+                  controller.signal,
+                )
+                .catch((e) => {
+                  if (!controller.signal.aborted) setError(String(e));
+                })
+                .finally(() => {
+                  rewriteAbort.current = null;
+                  setRewriting(false);
+                });
+            }),
+            dimControls(doc, (v) => {
+              void captureSelection(v, connection)
+                .then((at) =>
+                  connection.operation("ghost.set", {
+                    doc: id,
+                    at,
+                    dim: !(() => {
+                      let offset = 0,
+                        marked = 0;
+                      for (const p of doc.getText("mdx").toDelta()) {
+                        const end = offset + (p.insert?.length ?? 0);
+                        if (p.attributes?.dim)
+                          marked += Math.max(0, Math.min(end, at.to) - Math.max(offset, at.from));
+                        offset = end;
+                      }
+                      return marked === at.to - at.from;
+                    })(),
+                  }),
                 )
                 .catch((e) => setError(String(e)));
-            },
-          ),
-          EditorView.updateListener.of((update) => {
-            // Anchors resolve on this replica, so comments follow typing before acknowledgement.
-            if (update.docChanged) refreshThreads();
-            if (update.docChanged || update.geometryChanged || update.viewportChanged) relayout();
-            const { from, to } = update.state.selection.main;
-            setHasSelection(from !== to);
-            setContext(
-              from === to
-                ? `Cursor ${from}`
-                : `${to - from} UTF-16 units selected: ${update.state.sliceDoc(from, to)}`,
-            );
-          }),
-        ]);
-      refreshThreads();
-      relayout();
-      setStash(
-        doc
-          .getMovableList("stash")
-          .toArray()
-          .filter(
-            (v): v is { id: string; text: string } =>
-              !!v &&
-              typeof v === "object" &&
-              "id" in v &&
-              "text" in v &&
-              typeof v.id === "string" &&
-              typeof v.text === "string",
-          ),
-      );
-      editorView.current = view ?? null;
-      setWords(wordCount(doc.getText("mdx").toString()));
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        // Effective rules come from the authority on every inspection, so kind and rule
-        // changes reach the worker inside its immutable snapshot.
-        void connection
-          .operation("rules.effective", { id })
-          .then((result) => {
-            if (!result || typeof result !== "object" || !("rules" in result)) return;
-            const { warnings, ...settings } = result as LintSettings & { warnings: string[] };
-            lint.setSettings(settings);
-            const recorded = doc.getMap("meta").get("kind");
-            setKind({ kind: typeof recorded === "string" ? recorded : "post", warnings });
-          })
-          .catch((e) => setError(String(e)));
-        void connection
-          .operation("doc.read", { doc: id })
-          .then((result) => {
-            if (
-              !result ||
-              typeof result !== "object" ||
-              !("blocks" in result) ||
-              !("deps" in result) ||
-              !("diagnostic" in result) ||
-              !Array.isArray(result.blocks) ||
-              typeof result.diagnostic !== "string"
-            )
-              return;
-            if ("alts" in result && Array.isArray(result.alts)) {
-              const valid = result.alts.filter(
-                (a): a is Alt =>
-                  !!a &&
-                  typeof a === "object" &&
-                  typeof a.id === "string" &&
-                  typeof a.from === "number" &&
-                  typeof a.to === "number" &&
-                  typeof a.active === "number" &&
-                  typeof a.count === "number",
+            }),
+            alternativeGutter(() => liveAlts.current),
+            threadHighlights(() => ({
+              shown: zenNow.current ? [] : shownThreads(liveThreads.current, filterNow.current),
+              active: activeNow.current,
+            })),
+            EditorView.domEventHandlers({
+              click: (event) => {
+                const id = (event.target as HTMLElement)
+                  .closest("[data-thread]")
+                  ?.getAttribute("data-thread");
+                if (id) setActive(id);
+                return false;
+              },
+              scroll: relayout,
+            }),
+            alternativeKeys(
+              () => liveAlts.current,
+              (alt, action) => {
+                void connection
+                  .operation(
+                    action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
+                    action === "keep" || action === "ghost"
+                      ? { doc: id, alt, rest: action === "ghost" ? "ghost" : "stash" }
+                      : { doc: id, alt, to: action },
+                  )
+                  .catch((e) => setError(String(e)));
+              },
+            ),
+            EditorView.updateListener.of((update) => {
+              // Anchors resolve on this replica, so comments follow typing before acknowledgement.
+              if (update.docChanged) refreshThreads();
+              if (update.docChanged || update.geometryChanged || update.viewportChanged) relayout();
+              const { from, to } = update.state.selection.main;
+              setHasSelection(from !== to);
+              setContext(
+                from === to
+                  ? `Cursor ${from}`
+                  : `${to - from} UTF-16 units selected: ${update.state.sliceDoc(from, to)}`,
               );
-              liveAlts.current = valid;
-              setAlts(valid);
-              view?.dispatch({});
-            }
-            const lintBlocks: NonNullable<LintSnapshot["blocks"]>[number][] = [];
-            const blocks: Inspection["blocks"] = [];
-            for (const block of result.blocks) {
+            }),
+          ]);
+        refreshThreads();
+        relayout();
+        setStash(
+          doc
+            .getMovableList("stash")
+            .toArray()
+            .filter(
+              (v): v is { id: string; text: string } =>
+                !!v &&
+                typeof v === "object" &&
+                "id" in v &&
+                "text" in v &&
+                typeof v.id === "string" &&
+                typeof v.text === "string",
+            ),
+        );
+        editorView.current = view ?? null;
+        setWords(wordCount(doc.getText("mdx").toString()));
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          // Effective rules come from the authority on every inspection, so kind and rule
+          // changes reach the worker inside its immutable snapshot.
+          void connection
+            .operation("rules.effective", { id })
+            .then((result) => {
+              if (!result || typeof result !== "object" || !("rules" in result)) return;
+              const { warnings, ...settings } = result as LintSettings & { warnings: string[] };
+              lint.setSettings(settings);
+              const recorded = doc.getMap("meta").get("kind");
+              setKind({ kind: typeof recorded === "string" ? recorded : "post", warnings });
+            })
+            .catch((e) => setError(String(e)));
+          void connection
+            .operation("doc.read", { doc: id })
+            .then((result) => {
               if (
-                !block ||
-                typeof block !== "object" ||
-                typeof block.tag !== "string" ||
-                typeof block.version !== "string" ||
-                typeof block.validation !== "string"
+                !result ||
+                typeof result !== "object" ||
+                !("blocks" in result) ||
+                !("deps" in result) ||
+                !("diagnostic" in result) ||
+                !Array.isArray(result.blocks) ||
+                typeof result.diagnostic !== "string"
               )
                 return;
-              if (
-                "schema" in block &&
-                typeof block.from === "number" &&
-                typeof block.to === "number"
-              ) {
-                const schema = parseSchema(block.schema);
-                if (schema.type === "object")
-                  lintBlocks.push({ from: block.from, to: block.to, props: block.props, schema });
+              if ("alts" in result && Array.isArray(result.alts)) {
+                const valid = result.alts.filter(
+                  (a): a is Alt =>
+                    !!a &&
+                    typeof a === "object" &&
+                    typeof a.id === "string" &&
+                    typeof a.from === "number" &&
+                    typeof a.to === "number" &&
+                    typeof a.active === "number" &&
+                    typeof a.count === "number",
+                );
+                liveAlts.current = valid;
+                setAlts(valid);
+                view?.dispatch({});
               }
-              blocks.push({
-                tag: block.tag,
-                version: block.version,
-                props: block.props,
-                validation: block.validation,
-              });
-            }
-            if ("base" in result && typeof result.base === "string")
-              lint.setBlocks(result.base, lintBlocks);
-            setInspection({ blocks, deps: result.deps, diagnostic: result.diagnostic });
-          })
-          .catch((e) => setError(String(e)));
-      }, 150);
-    });
+              const lintBlocks: NonNullable<LintSnapshot["blocks"]>[number][] = [];
+              const blocks: Inspection["blocks"] = [];
+              for (const block of result.blocks) {
+                if (
+                  !block ||
+                  typeof block !== "object" ||
+                  typeof block.tag !== "string" ||
+                  typeof block.version !== "string" ||
+                  typeof block.validation !== "string"
+                )
+                  return;
+                if (
+                  "schema" in block &&
+                  typeof block.from === "number" &&
+                  typeof block.to === "number"
+                ) {
+                  const schema = parseSchema(block.schema);
+                  if (schema.type === "object")
+                    lintBlocks.push({ from: block.from, to: block.to, props: block.props, schema });
+                }
+                blocks.push({
+                  tag: block.tag,
+                  version: block.version,
+                  props: block.props,
+                  validation: block.validation,
+                });
+              }
+              if ("base" in result && typeof result.base === "string")
+                lint.setBlocks(result.base, lintBlocks);
+              setInspection({ blocks, deps: result.deps, diagnostic: result.diagnostic });
+            })
+            .catch((e) => setError(String(e)));
+        }, 150);
+      },
+      (value) => setSession(value as Session),
+    );
     transport.current = connection;
     return () => {
       window.removeEventListener("resize", relayout);
@@ -551,6 +559,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
       <footer className="statusbar" aria-label="Status bar">
         <span data-testid="word-count">{words} words</span>
         <p role="status">{status}</p>
+        <SessionStatus session={session} />
         {kind && <span data-testid="kind">{kind.kind}</span>}
         {kind?.warnings.map((warning) => (
           <span className="warning" data-testid="kind-warning" key={warning}>

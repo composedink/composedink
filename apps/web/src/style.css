@@ -142,6 +142,16 @@ button {
   background: #25332e;
   color: #faf9f5;
 }
+.statusbar .session code {
+  font-size: 13px;
+}
+.statusbar .session .synced {
+  margin-left: 0.5rem;
+  color: #5b6b61;
+}
+.statusbar .session.signed-out {
+  color: #952f20;
+}
 .statusbar .warning {
   color: #952f20;
 }

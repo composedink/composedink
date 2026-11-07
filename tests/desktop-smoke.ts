@@ -117,6 +117,9 @@ try {
   const sentence = "Desktop packaged persistence " + Date.now() + ".";
   await editor.fill("# Packaged desktop\n\n" + sentence + "\n\nA spare sentence.");
   await expect(page.getByRole("status")).toHaveText("Saved");
+  // The packaged studio page shows the server session; this home never signed in.
+  await expect(page.getByTestId("session")).toContainText("Signed out");
+  proof.signedOutStatus = true;
   const read = () => run("cat", "tracer", "--json").then((s) => JSON.parse(s));
   assert.match((await read()).text, new RegExp(sentence));
   assert.equal((await owner()).pid, initial.pid);

@@ -153,8 +153,8 @@
 
 ### Task 6 — Status bar, two-home proof, container and runbook
 
-- [ ] Add `SessionStatus.tsx` to the status bar. Signed out, it shows `Signed out` with the visible fix `composed login <server>`. Signed in, it shows `Signed in as <deviceName>` and `synced <relative time>` (or `not yet synced`). It reads `session.status` on connect and updates on `{session}` frames from `transport.ts`. It stays visible in zen mode, like the save state. The desktop shows the same web assets. `apps/web/tests/session-status.spec.ts` (added to the e2e list) checks the signed-out text on a temporary home. `tests/desktop-smoke.ts` asserts `Signed out` in the packaged studio page.
-- [ ] Add `tests/sync.ts` and the root script `"sync-e2e": "node --experimental-strip-types tests/sync.ts"`. The script starts `node apps/server/dist/main.mjs` on a random port with temporary storage, and two studios on homes A and B with distinct `COMPOSED_PORT` and `COMPOSED_ARTIFACT_PORT`. Home A goes through a drop-first-ack proxy. Steps:
+- [x] Add `SessionStatus.tsx` to the status bar. Signed out, it shows `Signed out` with the visible fix `composed login <server>`. Signed in, it shows `Signed in as <deviceName>` and `synced <relative time>` (or `not yet synced`). It reads `session.status` on connect and updates on `{session}` frames from `transport.ts`. It stays visible in zen mode, like the save state. The desktop shows the same web assets. `apps/web/tests/session-status.spec.ts` (added to the e2e list) checks the signed-out text on a temporary home. `tests/desktop-smoke.ts` asserts `Signed out` in the packaged studio page.
+- [x] Add `tests/sync.ts` and the root script `"sync-e2e": "node --experimental-strip-types tests/sync.ts"`. The script starts `node apps/server/dist/main.mjs` on a random port with temporary storage, and two studios on homes A and B with distinct `COMPOSED_PORT` and `COMPOSED_ARTIFACT_PORT`. Home A goes through a drop-first-ack proxy. Steps:
   1. A logs in with the bootstrap token; B logs in with A's pairing code.
   2. Playwright types into A's editor while B runs `alt.propose`, `alt.flip` and `thread open` through its CLI.
   3. The same again in reverse: typing on B; flip and thread on A.
@@ -165,13 +165,13 @@
 
   Evidence goes to `test-results/plan-16-sync-proof.json`.
 
-- [ ] Container proof:
+- [x] Container proof:
   1. `docker build -f apps/server/Dockerfile -t composed-server:plan16 .`
   2. `docker run --rm --entrypoint sh composed-server:plan16 -c 'ls /app/node_modules; find / -xdev \( -name "@rsbuild" -o -name "@mdx-js" -o -name "vite-plus" \) -print'` lists `loro-crdt` (plus pnpm's `.pnpm`) and finds nothing.
   3. `docker run -d --name composed-plan16 -e COMPOSED_TOKEN=t -e COMPOSED_BOOTSTRAP_TOKEN=b -v composed-plan16-data:/data -p 127.0.0.1::4849 composed-server:plan16`, then `curl -fsS http://$(docker port composed-plan16 4849)/healthz` prints `ok`.
   4. `docker exec composed-plan16 ls -l /data/server.db` shows the DB.
   5. `docker rm -f composed-plan16 && docker volume rm composed-plan16-data`.
-- [ ] Update `deploy/README.md` and `apps/server/README.md`: `COMPOSED_BOOTSTRAP_TOKEN` (required until the first login), `server.db` on the same volume, the multi-stage image, the `/auth` and `/sync` routes and limits. Staging and production must have the variable set before their next deploy of `main`, or the container refuses to start. Deploying is a separate authorized action.
+- [x] Update `deploy/README.md` and `apps/server/README.md`: `COMPOSED_BOOTSTRAP_TOKEN` (required until the first login), `server.db` on the same volume, the multi-stage image, the `/auth` and `/sync` routes and limits. Staging and production must have the variable set before their next deploy of `main`, or the container refuses to start. Deploying is a separate authorized action.
 
 **Verification:** the design's Units evidence for plan 16 is: **two homes against one server converge a post (typing, flip, thread) both ways; a revoked device drops to signed-out; signed-out refuses with the fix.** Plan 17 proves the `share.create` refusal, because the index forbids placeholder `share.*` operations here (decision in this plan). This plan proves the same refusal through `sync.now` and a `link:` feedback recipient. Run:
 

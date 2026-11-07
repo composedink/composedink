@@ -34,17 +34,49 @@ Cloudflare proxies and caches the immutable artifacts (`cf-cache-status: HIT`); 
 ## Container contract
 
 - Image: `apps/server/Dockerfile`, built from the repo root (`docker build -f apps/server/Dockerfile .`).
-  No build args; the image carries only `apps/server/src` on `node:22-alpine`.
-- Port `4849`; health `GET /healthz` → `200 ok`. The server binds IPv4 (`0.0.0.0`), so a probe
-  must use `127.0.0.1`, not `localhost` (Alpine resolves it to `::1` first and gets refused).
+  No build args. Multi-stage since plan 16: `node:22.22.3-bookworm-slim` installs the workspace,
+  bundles the server (`dist/main.mjs`, with `@composedink/core/model`) and deploys production
+  dependencies; the `node:22.22.3-alpine` runtime holds only `dist/`, `node_modules/loro-crdt` and
+  `package.json` (no `@rsbuild`, `@mdx-js` or `vite-plus`). `.dockerignore` keeps `node_modules`,
+  `dist`, `.git`, `test-results` and the Tauri build output out of the context.
+- Port `4849`; health `GET /healthz` → `200 ok` once the database answers (`503` otherwise). The
+  server binds IPv4 (`0.0.0.0`), so a probe must use `127.0.0.1`, not `localhost` (Alpine resolves
+  it to `::1` first and gets refused).
 - Storage: `COMPOSED_STORAGE=/data`, a named volume owned by UID 1000 (`node`). The image creates
-  and chowns `/data` so a fresh named volume inherits the ownership. Staging's volume is
+  and chowns `/data` so a fresh named volume inherits the ownership. Artifacts and `server.db`
+  (accounts, devices, pairing codes, the sync update log and snapshots; SQLite in WAL mode, so
+  `server.db-wal` and `server.db-shm` sit beside it) share that volume. Staging's volume is
   `8oitzjt2m9ihdsvk364lmb4e-composed-cdn-staging-data`.
-- Secret: `COMPOSED_TOKEN`, the bearer for `PUT`. Injected as a Coolify environment variable
-  (runtime, literal). `GET` and `OPTIONS` need no token.
+- Secrets, injected as Coolify environment variables (runtime, literal):
+  - `COMPOSED_TOKEN`, the bearer for artifact `PUT`. `GET` and `OPTIONS` need no token.
+  - `COMPOSED_BOOTSTRAP_TOKEN`, which signs in the first device (`composed login <server>
+    --bootstrap <token>`). **Required until the first login**: with no account in `server.db` and
+    no variable the container exits at start with `COMPOSED_BOOTSTRAP_TOKEN is required until the
+    first device signs in`, and Coolify keeps the old container. Once an account exists it is
+    ignored. Staging and production must have it set before their next deploy of `main` (both
+    have it as of plan 16; deploying is a separate authorized action).
+- Routes beside `/c/`: `/auth` (pairing, device list and revocation) and `/sync` (update log,
+  pulls, `text/event-stream` changes). Limits: 8 MiB per update, 64 MiB per snapshot, 10 failed
+  sign-ins per minute (429). The event stream sends a `: ping` every 25 s, so a proxy idle timeout
+  above 30 s keeps it open; clients reconnect and also poll every 30 s. Details in
+  `apps/server/README.md`.
 - Restart policy and rollback are Coolify's: a deploy starts the new container, waits for the
   health check, then removes the old one; an unhealthy new container is removed and the old one
-  kept. Redeploying any earlier commit is the rollback. The volume survives replacement.
+  kept. Redeploying any earlier commit is the rollback: a pre-plan-16 image serves artifacts and
+  ignores `server.db`; plan 16's migrations only add tables. The volume survives replacement.
+
+## Verify the image locally
+
+```sh
+docker build -f apps/server/Dockerfile -t composed-server:plan16 .
+docker run --rm --user root --entrypoint sh composed-server:plan16 -c \
+  'ls -a /app/node_modules; find / -xdev \( -name "@rsbuild" -o -name "@mdx-js" -o -name "vite-plus" \) -print'
+docker run -d --name composed-plan16 -e COMPOSED_TOKEN=t -e COMPOSED_BOOTSTRAP_TOKEN=b \
+  -v composed-plan16-data:/data -p 127.0.0.1::4849 composed-server:plan16
+curl -fsS http://$(docker port composed-plan16 4849)/healthz   # ok
+docker exec composed-plan16 ls -l /data/server.db
+docker rm -f composed-plan16 && docker volume rm composed-plan16-data
+```
 
 ## Coolify recipe (what created staging, via the API with the `devbox` token from `~/.config/coolify/config.json`)
 
@@ -61,6 +93,7 @@ curl -X POST $H/applications/public -d '{
   "instant_deploy":false}'                                                     # → app uuid
 curl -X PATCH $H/applications/<app> -d '{"health_check_host":"127.0.0.1","health_check_start_period":10}'
 curl -X POST $H/applications/<app>/envs -d '{"key":"COMPOSED_TOKEN","value":"<openssl rand -hex 32>","is_literal":true}'
+curl -X POST $H/applications/<app>/envs -d '{"key":"COMPOSED_BOOTSTRAP_TOKEN","value":"<openssl rand -base64 32>","is_literal":true}'
 curl -X POST $H/applications/<app>/storages -d '{"type":"persistent","name":"composed-cdn-staging-data","mount_path":"/data"}'
 curl -X POST $H/deploy -d '{"uuid":"<app>","force":true}'                      # GET /deployments/<uuid> until finished
 ```

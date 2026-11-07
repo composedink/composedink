@@ -6,7 +6,8 @@
     "test": "vp test run",
     "tracer": "node --experimental-strip-types tests/tracer.ts",
     "tracer:inspect": "node --experimental-strip-types tests/tracer.ts --inspect-hosts",
-    "tarball-consumer": "node --experimental-strip-types tests/tarball-consumer.ts"
+    "tarball-consumer": "node --experimental-strip-types tests/tarball-consumer.ts",
+    "sync-e2e": "node --experimental-strip-types tests/sync.ts"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",

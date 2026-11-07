@@ -21,6 +21,8 @@ export class EditorTransport {
     readonly id: string,
     private status: (status: string) => void,
     private changed: () => void,
+    /** The server session: read on every connect, then pushed by studio as `{session}` frames. */
+    private serverSession?: (status: unknown) => void,
   ) {
     this.unsubscribe = doc.subscribeLocalUpdates((bytes) => {
       const seq = ++this.sequence;
@@ -57,6 +59,10 @@ export class EditorTransport {
           this.changed();
           return;
         }
+        if (frame.session) {
+          this.serverSession?.(frame.session);
+          return;
+        }
         if (frame.preview) {
           this.status(`Preview — ${JSON.stringify(frame.preview.diagnostics)}`);
           return;
@@ -74,6 +80,8 @@ export class EditorTransport {
         if (frame.snapshot) {
           this.ready = true;
           for (const retained of this.pending.values()) socket.send(retained);
+          if (this.serverSession)
+            void this.operation("session.status", {}).then(this.serverSession, () => {});
         }
         if (typeof frame.seq === "number") this.pending.acknowledge(frame.seq);
         if (typeof frame.request === "number") {

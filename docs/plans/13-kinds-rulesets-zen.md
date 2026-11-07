@@ -69,3 +69,78 @@ Verification (boss, 2026-11-06): `vp check --fix` clean (171 files), `vp run -r 
 (core 29 files / 109 tests), `composed-web#e2e` 6/6 ("Kinds, effective rules, soft notes, zen
 toggle/key/reload and missing kind PASS"), `composed-web#build` ok, `host-tanstack#e2e` all
 checks true. Diff: 31 files changed, 712 insertions, 201 deletions, 11 new files.
+
+### 2026-11-06 — implementer notes: decisions, discrepancies, evidence
+
+Order: the core kinds module and the lint ruleset parser were written before the Task 1
+tests, which were then added and passed on first run; Task 1–3 code was developed together
+because `kinds.ts` depends on the lint ruleset parser. The boss's commits split it by
+package (3373d18 core, 730a853 lint, 7dc0f2c cli, ff3de11 web). As a result the core commit
+includes the registry ops and `ops/lint.ts`, and the lint and core commits depend on each other.
+
+Discrepancies and resolutions (none blocked a step):
+
+1. Retry-safe kind writes needed the receipt journal, and `store/receipts.ts` and
+   `store/store.ts` were not in the plan's file list. The envelope gained `devices: {path,text}[]`;
+   `authority.deviceWrite` stages within the transaction, and the store writes them atomically
+   when it applies or replays. Same request + payload replays the receipt; a stale `base` fails
+   UnknownBase before staging.
+2. The slug-bearing post check broke `tests/loro-authorship.test.mjs`, whose fixture had only
+   `meta.kind`. The fixture now also sets `slug`, the real post shape.
+3. `export.strip` entries are restricted to reader/medium/budget. A free key list would let
+   meta retention overwrite `id`/`slug`/`kind`. The design describes the list as host-key
+   stripping for these three.
+4. Import of a stripped export recomputes the strip with the kind's _current_ list and rebases
+   the outside edit onto the full source (`restoreStripped`), so removed lines stay in place and
+   values are also copied to meta. If the strip list changes between export and import, import
+   fails RecoveryRequired; the list is not recorded in the lock (a public blocks type) or the
+   export history.
+5. `doc.create`/`doc.kind` reject a kind that does not exist on the device (UnknownKind). The
+   post fallback applies to documents whose recorded kind is absent, e.g. created elsewhere.
+6. Public codes run only when their setting is an options object; legacy `style:*` codes run
+   unless `false`. A `rules` key that is neither built-in, Harper nor a defined custom code fails
+   InvalidKind (catches typos), so disabling a custom rule keeps its definition.
+7. Behaviour change: `composed new post <slug>` without `--kind` now applies the post template
+   and reader/medium/budget frontmatter, not an empty document. `--from` still replaces it.
+   Existing specs and the tracer pass unchanged.
+8. There was no status bar or word count. A footer status bar now holds word count, the save
+   state (`role=status`, moved from the header), kind id, missing-kind warning, soft-note count
+   and the Zen toggle. Zen hides the writing-feedback, alternatives and stash panels,
+   underlines and soft gutter notes; preview, block usages and deps stay.
+9. Editor refresh after `kind.write`: studio broadcasts `{config:true}` and the transport
+   re-inspects; `doc.kind` arrives as document bytes. Edits made directly to files on disk reach
+   the editor at its next inspection (any document change).
+10. CLI warning: `composed lint` prints `warning: …` to stderr; `rules effective` returns
+    `warnings` in JSON.
+11. The hellotimber template has `title`, `summary` and `draft: true` but no `date`: there is no
+    interpolation language, and hellotimber requires a real date the author must set.
+12. The plan listed `model/read.ts`, `editor/dim.ts`, `apps/cli/src/mcp.ts`, `lint/src/worker.ts`,
+    `index.ts`, `node.ts`, `inspect.ts`, `tests/export.test.ts`. None needed changes: MCP derives
+    from the registry, the worker passes the snapshot through, and export strip/reimport tests are
+    in `tests/kinds.test.ts`. Also touched beyond the list: `editor/transport.ts`,
+    `tests/lint-benchmark.ts` and the lint `tests/settings.ts` fixture (snapshots now require
+    `settings`).
+13. One `vp run -r test` run timed out three `tests/crash.test.ts` cases at the 5 s default under
+    load average ~5 (including `compact:pruned`, which never touches kinds). Alone, each takes about
+    1 s and all 9 pass; the next full run passed. No timeout was changed.
+
+Not done: no plan-14 measurement (codes are accepted and enabled but `paragraph.length`,
+`budget`, `preamble`, `filler`, `visuals` and `rhythm` emit nothing yet); the sparkline and comment
+column do not exist yet, so their zen hiding is not exercised.
+
+Commands (composedink root, logs in gitignored `test-results/`):
+
+- `mise exec -- vp check --fix`, then `vp fmt` and `vp check`: "All 233 files are correctly
+  formatted"; "Found no warnings, lint errors, or type errors in 171 files".
+- `mise exec -- vp run -r test`: "vp run: 9/9 successful" (core 29 files / 109 tests; lint
+  4/10; cli 4/6; web 3/3) — plan-13-final-tests.log.
+- `mise exec -- vp run @composedink/core#test` 29/109, `@composedink/lint#test` 4/10,
+  `composed-cli#test` 4/6, `composed-web#test` 3/3, all EXIT 0.
+- `mise exec -- vp run composed-web#e2e`: EXIT 0; editor, alternatives, dim (with the
+  Mod-./Mod-Shift-. coexistence assertion), lint, rewrite and "Kinds, effective rules, soft
+  notes, zen toggle/key/reload and missing kind PASS" — plan-13-web-e2e.log, plan-13-web.json,
+  plan-13-kinds-zen.png.
+- `mise exec -- vp run composed-web#build`: EXIT 0, "✓ built in 1.03s" (existing large-chunk
+  advisory).
+- `mise exec -- vp run host-tanstack#e2e`: EXIT 0, `{"1":true,…,"6":true,"6-ms":910.4,…}`, run
+  after the recursive tests (not concurrently).

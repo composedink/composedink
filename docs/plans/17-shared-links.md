@@ -340,3 +340,24 @@ also appears in plan 16's `sync-e2e`, so it is not new. Nothing was left running
 `studio --headless`, server or desktop processes from this checkout, and no containers.
 
 Follow-up: the core `sync.test.ts` lost-ack and restart race above (plan 16's test).
+
+### 2026-11-07 — boss verification (independent rerun on the final tree, foreground, sequential)
+
+- The core flake above was a race in plan 16's lost-ack restart case: the restarted loop's `doc`
+  event could pull before the proxy log was cleared. The log is now cleared before B's change
+  (`830b52f`); `tests/sync.test.ts` passed 3 of 3 consecutive runs.
+- `vp check --fix`: pass, 228 files. `vp run -r test`: 9/9 (core 34 files / 160, lint 149,
+  server 40, web 11, cli 9, root 3).
+- `vp run composed-server#bundle`: 1.23 MB, `grep -c "@rsbuild\|@mdx-js"` → 0.
+- `vp run share-e2e`: PASS (`test-results/plan-17-share-proof.json`: pinned old/not new, live
+  new/not old, fallback and placeholder rendered, guest thread on B in 707 ms with name and quote,
+  3 same-origin requests, 1 script, no remoteEntry, 61st request 429, identical 404s, signed-out
+  exit 1 with the fix and the disabled Share button).
+- `vp run sync-e2e`: PASS, both alternatives `active: 1, count: 2`.
+- `vp run composed-web#e2e`: 10/10 specs PASS. `vp run composed-web#build`: built.
+- Docker `composed-server:plan17`: `/app/node_modules` holds only `loro-crdt` and `.pnpm`; the
+  `find` prints nothing; `/healthz` → `ok`; `/s/nope` → 404; `/data/server.db` present.
+- `vp run host-tanstack#e2e`: all assertions true (`6-ms` 881, `code-save-ms` 846).
+- `vp run composed-desktop#package` then `#smoke`: `signedOutStatus`, `signedOutShareDisabled`,
+  `persistenceAcrossSidecarRelaunch` all true (`test-results/plan-11-smoke-1794072040303`); the
+  GUI typing check was skipped because the screen was locked (predates plan 17).

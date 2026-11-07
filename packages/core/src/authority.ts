@@ -4,7 +4,8 @@ import type { Envelope } from "./store/receipts.ts";
 import { LoroDoc, decodeFrontiers } from "loro-crdt";
 import type { Store } from "./store/store.ts";
 import { read, head } from "./model/read.ts";
-import { importTyping } from "./model/text.ts";
+import { importTyping, isPost } from "./model/text.ts";
+import { normalizeThreads } from "./model/threads.ts";
 export async function authority(store: Store) {
   const documents = new Map<string, LoroDoc>();
   for (const { id, bytes } of await store.load()) {
@@ -171,6 +172,8 @@ export async function authority(store: Store) {
       if (staged) documents.set(id, doc);
       const from = doc.version();
       const result = run(doc);
+      // Threads normalize in their own commit after any text change: imported typing stays unchanged.
+      if (isPost(doc)) normalizeThreads(doc);
       const bytes = doc.export({ mode: "update", from });
       if (staged) staged.push({ id, create: false, bytes: Buffer.from(bytes).toString("base64") });
       else await store.append(id, bytes);

@@ -4,4 +4,6 @@ export const KEYS = {
   mdx: "mdx",
   deps: "deps",
   files: "files",
+  threads: "threads",
+  requests: "requests",
 } as const;

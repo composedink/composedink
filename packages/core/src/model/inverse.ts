@@ -5,6 +5,13 @@ import { head } from "./read.ts";
 import { KEYS } from "./keys.ts";
 import { isPost } from "./text.ts";
 
+/** Key-order independent: undone list items come back through applyDiff with keys reordered. */
+const stable = (value: unknown): string =>
+  JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
 export type Inverse =
   | { id: string; kind: "create"; base: string }
   | {
@@ -33,7 +40,7 @@ export function inverse(id: string, before: LoroDoc | undefined, after: LoroDoc)
     return Object.keys(diff.updated).map((key) => ({
       target,
       key,
-      expected: JSON.stringify(values[key]),
+      expected: stable(values[key]),
     }));
   });
   branch.applyDiff(changes, { fullState: true });
@@ -67,7 +74,7 @@ export function applyInverse(doc: LoroDoc, action: Inverse) {
       const container = doc.getContainerById(guard.target);
       if (
         !(container instanceof LoroMap) ||
-        JSON.stringify(container.toJSON()[guard.key]) !== guard.expected
+        stable(container.toJSON()[guard.key]) !== guard.expected
       )
         throw Error(`DetachedTarget: operation field changed: ${guard.key}`);
     }

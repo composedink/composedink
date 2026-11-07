@@ -32,7 +32,7 @@ it("keeps CodeMirror equal to mdx after both mixed-container imports (R2)", asyn
       Array<{ kind: string; batches: string[][]; editor: string; loro: string }>
     >(`(async () => {
       const fixture = await import("/tests/binding-fixture.ts");
-      return [await fixture.runSpike("map"), await fixture.runSpike("text")];
+      return [await fixture.runSpike("map"), await fixture.runSpike("text"), await fixture.runSpike("threads")];
     })()`);
     const editing = await page.evaluate(`(async () => {
       const fixture = await import("/tests/binding-fixture.ts");
@@ -47,6 +47,7 @@ it("keeps CodeMirror equal to mdx after both mixed-container imports (R2)", asyn
     const artifacts = resolve(import.meta.dirname, "../../../test-results");
     await mkdir(artifacts, { recursive: true });
     await writeFile(resolve(artifacts, "r2.json"), JSON.stringify(results, null, 2));
+    expect(results.map((r) => r.kind)).toEqual(["map", "text", "threads"]);
     for (const result of results) expect(result.editor, JSON.stringify(result)).toBe(result.loro);
   } finally {
     await browser.close();

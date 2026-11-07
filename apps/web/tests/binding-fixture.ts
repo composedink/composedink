@@ -1,13 +1,16 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { LoroSyncPlugin } from "../src/editor/sync";
-import { LoroDoc } from "loro-crdt";
+import { LoroDoc, LoroMap, LoroMovableList } from "loro-crdt";
 
-export async function runSpike(kind: "map" | "text") {
+export async function runSpike(kind: "map" | "text" | "threads") {
   const authority = new LoroDoc();
   authority.setPeerId("1");
   // Create and populate the other container BEFORE mdx so its event precedes mdx's in a batch.
-  const other = kind === "map" ? authority.getMap("alts") : authority.getText("aaa");
+  const other =
+    kind === "text"
+      ? authority.getText("aaa")
+      : authority.getMap(kind === "map" ? "alts" : "threads");
   if ("set" in other) other.set("seed", "value");
   else other.insert(0, "seed");
   authority.commit();
@@ -29,7 +32,12 @@ export async function runSpike(kind: "map" | "text") {
     batches.push(batch.events.map((event) => `${event.diff.type}:${event.target}`)),
   );
   const base = authority.version();
-  if ("set" in other) other.set("key", "value");
+  if (kind === "threads" && "setContainer" in other) {
+    // A thread and its nested MovableList reply arrive in the same import as the typing.
+    const thread = other.setContainer("t", new LoroMap());
+    thread.set("state", "open");
+    thread.setContainer("messages", new LoroMovableList()).push({ text: "reply" });
+  } else if ("set" in other) other.set("key", "value");
   else other.insert(0, "other");
   text.insert(6, " after");
   authority.commit();

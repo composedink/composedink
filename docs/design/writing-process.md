@@ -87,7 +87,7 @@ underlines (gutter and status only). The model reviewer receives the document's 
 ruleset in its brief so a disabled rule is not nagged about by the model either.
 
 Zen mode: a `web` client preference (per device, `localStorage`), toggled from the status bar
-and `⌘.`; hides diagnostics decorations, the alternatives/stash/lint panels and the sparkline;
+and `⌘⇧.` (`⌘.` stays with dim); hides diagnostics decorations, the alternatives/stash/lint panels and the sparkline;
 word count and save state remain. Lint keeps running so turning zen off is instant.
 
 ## Sparkline

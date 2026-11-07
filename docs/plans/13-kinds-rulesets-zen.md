@@ -34,7 +34,7 @@
 
 ### Task 4 — Add zen preference and browser proof
 
-- [ ] Add per-device localStorage boolean `composed.zen` default false, status-bar toggle and Mod-. binding. That key currently belongs to dim: remove its binding in `editor/dim.ts`, retain dim through a labelled selection action in PostEditor and update `tests/dim.spec.ts` (decision in this plan). Do not let both actions run on one shortcut.
+- [ ] Add per-device localStorage boolean `composed.zen` default false, status-bar toggle and `Mod-Shift-.` binding. `Mod-.` stays with dim in `editor/dim.ts` (boss decision: dim is the frequent Write_On action, zen is rare); do not move or remove the dim binding, and assert in `tests/dim.spec.ts` that both shortcuts coexist.
 - [ ] Keep word count and save state visible in the status bar; hide diagnostic decorations/gutter, alternatives/stash/lint panels and the plan-14 sparkline in zen. Keep the worker alive and accepting newest results while hidden. Hide the plan-15 comment column through this same preference when it arrives. Turning zen off restores current results and panel contents without editing source or document state.
 - [ ] Add `tests/kinds-zen.spec.ts` to the existing web e2e script. Browser proof covers template/defaults, warning on missing kind, effective-rule disable, zen toggle/key/reload, ongoing lint while zen is on and restored latest feedback. Verify soft diagnostics never produce underlines. Run `mise exec -- vp run composed-web#test`, `mise exec -- vp run composed-web#e2e`, `mise exec -- vp run composed-web#build`.
 

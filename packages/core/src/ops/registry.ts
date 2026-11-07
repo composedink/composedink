@@ -42,6 +42,7 @@ import {
 import { createComponent, readFiles, writeFiles, safePath } from "../model/files.ts";
 import { pinDependency, addDependency } from "../model/deps.ts";
 import { componentTemplate } from "../model/component-template.ts";
+import { login, requireSession, serverJson, sessionStatus, signOut } from "../session.ts";
 const slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 const id = z.string().regex(/^composed:[a-z0-9-]+\/[a-z0-9-]+$/);
 /**
@@ -343,6 +344,70 @@ export const registry = [
     },
   ),
   operation(
+    "session.login",
+    z
+      .object({
+        server: z.url({ protocol: /^https?$/ }),
+        code: z.string().min(1).optional(),
+        bootstrap: z.string().min(1).optional(),
+        deviceName: z.string().min(1).max(64).optional(),
+      })
+      .refine((i) => (i.code === undefined) !== (i.bootstrap === undefined), {
+        message: "pass exactly one of code or bootstrap",
+      }),
+    false,
+    ["login"],
+    async (a, i) => {
+      const status = await login(a.store.home, i);
+      await a.sync?.start();
+      return status;
+    },
+  ),
+  operation("session.logout", z.object({}), false, ["logout"], async (a) => {
+    a.sync?.stop();
+    await signOut(a.store.home);
+    return sessionStatus(a.store.home);
+  }),
+  operation("session.status", z.object({}), false, ["status"], (a) => sessionStatus(a.store.home)),
+  operation("devices.pair", z.object({}), false, ["devices", "pair"], (a) =>
+    serverJson(a.store.home, "/auth/pair", { method: "POST" }),
+  ),
+  operation("devices.list", z.object({}), false, ["devices", "list"], (a) =>
+    serverJson(a.store.home, "/auth/devices"),
+  ),
+  operation(
+    "devices.revoke",
+    z.object({ device: z.string().min(1) }),
+    false,
+    ["devices", "revoke"],
+    async (a, i) => {
+      const session = await requireSession(a.store.home);
+      const result = await serverJson(
+        a.store.home,
+        `/auth/devices/${encodeURIComponent(i.device)}`,
+        { method: "DELETE" },
+      );
+      // Revoking this device signs out here at once.
+      if (i.device === session.deviceId) {
+        a.sync?.stop();
+        await signOut(a.store.home);
+      }
+      return result;
+    },
+  ),
+  operation(
+    "sync.now",
+    z.object({ id: z.string().min(1).optional() }),
+    false,
+    ["sync"],
+    async (a, i) => {
+      await requireSession(a.store.home);
+      if (!a.sync)
+        throw Error("StudioRequired: sync runs inside composed studio; fix: composed studio");
+      return a.sync.now(i.id);
+    },
+  ),
+  operation(
     "deps.add",
     z.object({
       doc: z.string(),
@@ -388,6 +453,15 @@ async function performRewrite(
     );
   });
 }
+const unqueued = new Set([
+  "session.login",
+  "session.logout",
+  "session.status",
+  "devices.pair",
+  "devices.list",
+  "devices.revoke",
+  "sync.now",
+]);
 export function bind(a: Authority) {
   return async (
     name: string,
@@ -414,6 +488,9 @@ export function bind(a: Authority) {
           ? a.sessionOperation(session, execute)
           : execute();
       });
+    // Session, device and sync operations change no document; sync pulls serialize their own
+    // transactions.
+    if (unqueued.has(name)) return op.run(a, parsed, { by });
     // Model review awaits the provider outside the queue; it is not a session-undo item.
     if (name === "feedback.request")
       return requestFeedback(a, feedbackInput.parse(parsed), { by, signal, request, hash });

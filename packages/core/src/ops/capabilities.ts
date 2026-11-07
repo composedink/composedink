@@ -4,8 +4,14 @@ export function humanDirect(stdinTTY: boolean, explicit: boolean) {
   if (!stdinTTY && !explicit)
     throw Error("UnauthorizedDirect: direct acceptance requires a TTY or --i-am-human");
 }
+/** Human-only operations: importing outside files, signing in or out, pairing and revoking devices. */
+const humanOnly = (name: string) =>
+  name === "doc.import" ||
+  name === "session.login" ||
+  name === "session.logout" ||
+  name.startsWith("devices.");
 export const mcpRegistry = registry
-  .filter((op) => op.name !== "doc.import")
+  .filter((op) => !humanOnly(op.name))
   .map((op) => {
     const schema = z.toJSONSchema(op.input);
     // Mutation schemas add request using an intersection; flatten the object projection for tools.

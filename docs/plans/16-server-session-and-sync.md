@@ -90,14 +90,14 @@
 
 ### Task 4 — Session operations, CLI and MCP
 
-- [ ] `packages/core/src/session.ts` owns three files:
+- [x] `packages/core/src/session.ts` owns three files:
   - `$COMPOSED_HOME/session.json`: `{server, accountId, deviceId, deviceName}` while signed in, and `{server}` after logout or revocation, so that the fix can name the server (decision in this plan).
   - `$COMPOSED_HOME/session.secret`: the token, written with mode `0600`. `atomicWrite` gains an optional `mode` passed to `open(temporary, "wx", mode)`.
   - Sync cursors in `state.db`: `recovery.ts` widens `indexState` kinds with `"sync"` and adds `readState(home, kind, key)`. Rows are key `docId` → `{seq, vv}` and key `""` → `{lastSyncAt}`. Login clears every `sync` row (decision in this plan).
 
   You are signed in exactly when `session.secret` exists and `session.json` has a `deviceId`. `requireSession(home)` throws `SignInRequired: not signed in to a composed server; fix: composed login <server>`, naming the stored server when known. Exactly one session per home: `session.login` while signed in throws `SignedIn: already signed in to <server>; fix: composed logout`.
 
-- [ ] Register these operations, none of them with mutation receipts. `bind` runs `session.*`, `devices.*` and `sync.now` without `a.serialize`, because they change no document; the sync pulls serialize their own transactions (decision in this plan).
+- [x] Register these operations, none of them with mutation receipts. `bind` runs `session.*`, `devices.*` and `sync.now` without `a.serialize`, because they change no document; the sync pulls serialize their own transactions (decision in this plan).
 
   | Operation        | Input                                                                     | CLI mapping                                                                        | Result                                                      |
   | ---------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -111,8 +111,8 @@
 
   `devices.*` and `sync.now` call `requireSession` first. Revoking the current device signs out locally at once. Feedback `link:` recipients keep refusing until plan 17, but `feedback.ts` changes their message to the `requireSession` text.
 
-- [ ] `mcpRegistry` excludes `session.login`, `session.logout` and `devices.*` alongside `doc.import`, so MCP gains only `session_status` and `sync_now`. In `client.ts`, `call()` routes `sync.now` through `ensureStudio`, as it does for `export`, because sync runs only inside studio. `sync.now` on an inline authority throws `StudioRequired: sync runs inside composed studio; fix: composed studio`.
-- [ ] `apps/cli/tests/session.test.ts` spawns `apps/server/src/main.ts` on a random port with temporary storage, then checks:
+- [x] `mcpRegistry` excludes `session.login`, `session.logout` and `devices.*` alongside `doc.import`, so MCP gains only `session_status` and `sync_now`. In `client.ts`, `call()` routes `sync.now` through `ensureStudio`, as it does for `export`, because sync runs only inside studio. `sync.now` on an inline authority throws `StudioRequired: sync runs inside composed studio; fix: composed studio`.
+- [x] `apps/cli/tests/session.test.ts` spawns `apps/server/src/main.ts` on a random port with temporary storage, then checks:
   - bootstrap login, then `status`;
   - `session.secret` has mode `0600`;
   - `devices pair` on home A, then `login --code` on home B;

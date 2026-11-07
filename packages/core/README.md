@@ -105,14 +105,14 @@ acknowledgement; duplicate in-flight calls share one provider call.
 
 ### Sharing (P2 contract)
 
-Shared preview links need a server session (accounts, device token, relay), which does
-not exist yet. No `share.*` operation is registered. When P2 adds them, the authority
-must reject every `share.*` request made without a server session with
-`sign in to share`, and a signed-out desktop must show its share control disabled with
-that reason. Guest attribution (`{kind:"guest",name,linkId}`) and `link:<id>`
-recipients are typed and stored, but no adapter writes as a guest, and
-`feedback.request` rejects link recipients with `sign in to share` until then. P2 must
-test the signed-out refusal and a guest comment arriving on a second signed-in device.
+Plan 16 adds the server session (`session.*`, `devices.*`, `sync.now`; see "Server session
+and sync" in `apps/server/README.md`). Shared preview links arrive with plan 17; no `share.*`
+operation is registered yet. Signed out, `sync.now` and `link:<id>` feedback recipients fail
+with `SignInRequired: not signed in to a composed server; fix: composed login <server>`
+(naming the stored server when known); `share.*` must refuse the same way, and a signed-out
+desktop must show its share control disabled with that fix. Signed in, `link:` recipients
+still fail (`UnsupportedRecipient`) until plan 17. Guest attribution
+(`{kind:"guest",name,linkId}`) is typed and stored, but no adapter writes as a guest yet.
 
 ## Document kinds and rulesets
 

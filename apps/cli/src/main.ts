@@ -222,6 +222,26 @@ try {
       case "feedback.answers":
         input = { id: positional[0], request: positional[1] };
         break;
+      case "session.login":
+        input = {
+          server: positional[0],
+          ...(values.includes("--code") ? { code: option("--code") } : {}),
+          ...(values.includes("--bootstrap") ? { bootstrap: option("--bootstrap") } : {}),
+          ...(values.includes("--name") ? { deviceName: option("--name") } : {}),
+        };
+        break;
+      case "session.logout":
+      case "session.status":
+      case "devices.pair":
+      case "devices.list":
+        input = {};
+        break;
+      case "devices.revoke":
+        input = { device: positional[0] };
+        break;
+      case "sync.now":
+        input = positional[0] ? { id: positional[0] } : {};
+        break;
       case "deps.add": {
         const [id, version] = positional[2].split("@");
         input = { doc: positional[0], tag: positional[1], component: id, version };

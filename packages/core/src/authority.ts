@@ -7,6 +7,21 @@ import { read, head } from "./model/read.ts";
 import { importTyping, isPost } from "./model/text.ts";
 import { normalizeThreads } from "./model/threads.ts";
 import { failOrphaned, pendingRequests } from "./model/feedback.ts";
+/** Sync results: document ids pushed and pulled in one cycle. */
+export interface SyncResult {
+  pushed: string[];
+  pulled: string[];
+  lastSyncAt: number;
+}
+/**
+ * The studio's sync loop. Only studio sets it; inline authorities never sync. `start` begins the
+ * loop when the home is signed in; `session.login` and `session.logout` go through it.
+ */
+export interface SyncSlot {
+  start(): Promise<void>;
+  stop(): void;
+  now(id?: string): Promise<SyncResult>;
+}
 export async function authority(store: Store) {
   const documents = new Map<string, LoroDoc>();
   for (const { id, bytes } of await store.load()) {
@@ -27,6 +42,7 @@ export async function authority(store: Store) {
   let queue = Promise.resolve();
   const self = {
     store,
+    sync: undefined as SyncSlot | undefined,
     claimTarget(target: string) {
       if (!claimedTargets.has(target)) {
         const release = targetLease(target);

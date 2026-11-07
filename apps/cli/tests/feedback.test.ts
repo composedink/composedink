@@ -107,7 +107,7 @@ it("CLI and MCP share offline threads on one home with adapter attribution", asy
       w.mcp("thread_open", { id: "post", base, quote: "beta", text: "x", by: { kind: "human" } }),
     ).rejects.toThrow();
     await expect(w.cli("feedback", "request", "post", "--to", "link:abc")).rejects.toThrow(
-      "sign in to share",
+      "SignInRequired: not signed in to a composed server; fix: composed login <server>",
     );
     expect((await w.cli("cat", "post", "--json")).text).toBe(
       "Alpha beta gamma.\n\nSecond paragraph.",

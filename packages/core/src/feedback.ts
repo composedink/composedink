@@ -1,3 +1,4 @@
+import { requireSession } from "./session.ts";
 import { z } from "zod";
 import type { Authority } from "./authority.ts";
 import { documentSettings, resolveKind } from "./kinds.ts";
@@ -33,8 +34,11 @@ const retry = "ask again with a new feedback request";
 export async function createFeedback(a: Authority, i: FeedbackInput, by: Author): Promise<Result> {
   const doc = a.get(i.id);
   if (!isPost(doc)) throw Error(`InvalidInvariant: ${i.id} is not a post`);
-  if (i.to.some((to) => to !== "model"))
-    throw Error("SignInRequired: sign in to share; link recipients need a server session (P2)");
+  if (i.to.some((to) => to !== "model")) {
+    // Link recipients need a server session, then a shared link (plan 17).
+    await requireSession(a.store.home);
+    throw Error("UnsupportedRecipient: link recipients need shared links, not available yet");
+  }
   const questions =
     i.questions ??
     (await resolveKind(a.store.home, String(doc.getMap("meta").get("kind")))).kind.config.questions;

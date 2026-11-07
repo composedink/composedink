@@ -31,7 +31,8 @@ export async function call(
   studioRequired = false,
   by: Attribution = { kind: "agent", name: "cli" },
 ) {
-  if (name === "export" || studioRequired) {
+  // Export and sync run only inside studio.
+  if (name === "export" || name === "sync.now" || studioRequired) {
     await ensureStudio(home);
   } else {
     const lock = await acquire(home, "inline");

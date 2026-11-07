@@ -184,7 +184,7 @@ it("rejects empty questions, no recipients and link recipients before any provid
       f.run("feedback.request", { id: "p", to: ["model"], questions: [""] }),
     ).rejects.toThrow();
     await expect(f.run("feedback.request", { id: "p", to: ["model", "link:abc"] })).rejects.toThrow(
-      "sign in to share",
+      "SignInRequired: not signed in to a composed server; fix: composed login <server>",
     );
     await expect(f.run("feedback.request", { id: "p", to: ["somebody"] })).rejects.toThrow();
     await expect(f.run("feedback.answers", { id: "p", request: "missing" })).rejects.toThrow(

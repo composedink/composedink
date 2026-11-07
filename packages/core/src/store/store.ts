@@ -6,9 +6,9 @@ import { fault } from "./compact.ts";
 import { mkdir, open, rename, unlink, readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { randomUUID, hash } from "node:crypto";
-export async function atomicWrite(path: string, bytes: Uint8Array | string) {
+export async function atomicWrite(path: string, bytes: Uint8Array | string, mode?: number) {
   const temporary = `${path}.${randomUUID()}.tmp`;
-  const file = await open(temporary, "wx");
+  const file = await open(temporary, "wx", mode);
   try {
     await file.writeFile(bytes);
     await file.sync();

@@ -168,7 +168,10 @@ Done on the author Mac on 2026-11-06: scope `lachieh` → `https://cdn.composed.
 `COMPOSED_CDN_TOKEN` (`~/.composed/scopes.json`). The studio process needs that variable set,
 e.g. `COMPOSED_CDN_TOKEN=$(cat ~/.config/composed/production-cdn-token) composed studio`.
 Tokens stay in `$COMPOSED_HOME` and `~/.config/composed/{staging,production}-cdn-token`;
-documents and locks only carry the public URLs.
+documents and locks only carry the public URLs. In this checkout, mise loads a gitignored root
+`.env` (`.config/mise.toml`, `_.file`) holding `COMPOSED_CDN_TOKEN` and the production
+`COMPOSED_BOOTSTRAP_TOKEN`, so `mise exec -- composed studio` has the author scope token. The first
+production device (`macmini`, account created 2026-11-07) lives on `~/.composed`.
 
 ## Repeat the end-to-end deployment proofs
 

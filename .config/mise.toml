@@ -7,4 +7,6 @@ pnpm = "11"
 
 [env]
 _.path = ["node_modules/.bin"]
+# Local secrets (gitignored): COMPOSED_CDN_TOKEN for the author scope, production bootstrap token.
+_.file = ".env"
 PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/node_modules/.cache/ms-playwright"

@@ -6,6 +6,11 @@ import { expect, it } from "vite-plus/test";
 import { composedServer } from "../src/main.ts";
 import { startServer } from "./support/server.ts";
 
+const without = (env: NodeJS.ProcessEnv, key: string) => {
+  const { [key]: _, ...rest } = env;
+  return rest;
+};
+
 it("refuses to start without a bootstrap token while no account exists", async () => {
   const storage = await mkdtemp(join(tmpdir(), "composed-health-"));
   try {
@@ -15,7 +20,16 @@ it("refuses to start without a bootstrap token while no account exists", async (
     const run = spawnSync(
       process.execPath,
       ["--experimental-strip-types", "--no-warnings", join(import.meta.dirname, "../src/main.ts")],
-      { env: { ...process.env, COMPOSED_STORAGE: storage, COMPOSED_TOKEN: "t", PORT: "0" } },
+      {
+        // The ambient environment may carry a real bootstrap token (mise loads `.env`).
+        env: {
+          ...without(process.env, "COMPOSED_BOOTSTRAP_TOKEN"),
+          COMPOSED_STORAGE: storage,
+          COMPOSED_TOKEN: "t",
+          PORT: "0",
+        },
+        timeout: 20_000,
+      },
     );
     expect(run.status).toBe(1);
     expect(run.stderr.toString()).toContain("COMPOSED_BOOTSTRAP_TOKEN is required");

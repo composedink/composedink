@@ -17,7 +17,19 @@ import { payloadHash } from "../store/receipts.ts";
 import { preview, refreshPreviews } from "../export.ts";
 import { z } from "zod";
 import type { Authority } from "../authority.ts";
-import { createPost } from "../model/text.ts";
+import { createPost, isPost, setKind } from "../model/text.ts";
+import {
+  creation,
+  documentSettings,
+  effectiveRules,
+  kindExists,
+  kindFiles,
+  kindId,
+  KIND_FILES,
+  listKinds,
+  loadKind,
+  writeKindFile,
+} from "../kinds.ts";
 import { createComponent, readFiles, writeFiles, safePath } from "../model/files.ts";
 import { pinDependency, addDependency } from "../model/deps.ts";
 import { componentTemplate } from "../model/component-template.ts";
@@ -170,8 +182,47 @@ export const registry = [
     async (a, i) =>
       preview(a, i.doc, i.to ?? (await rememberedDestination(a.store.home, i.doc)), i.view, i.mode),
   ),
-  operation("doc.create", z.object({ slug }), true, ["new", "post"], (a, i) =>
-    a.create(i.slug, createPost(i.slug)),
+  operation(
+    "doc.create",
+    z.object({ slug, kind: kindId.default("post") }),
+    true,
+    ["new", "post"],
+    async (a, i) => a.create(i.slug, createPost(i.slug, await creation(a.store.home, i.kind))),
+  ),
+  operation(
+    "doc.kind",
+    z.object({ id: z.string(), kind: kindId }),
+    true,
+    ["doc", "kind"],
+    async (a, i) => {
+      if (!(await kindExists(a.store.home, i.kind)))
+        throw Error(`UnknownKind: ${i.kind}; fix: composed kind list`);
+      await loadKind(a.store.home, i.kind);
+      await effectiveRules(a.store.home, i.kind);
+      await a.change(i.id, (d) => setKind(d, i.kind));
+      return { kind: i.kind };
+    },
+  ),
+  operation("kind.list", z.object({}), false, ["kind", "list"], (a) => listKinds(a.store.home)),
+  operation("kind.read", z.object({ kind: kindId }), false, ["kind", "read"], (a, i) =>
+    kindFiles(a.store.home, i.kind),
+  ),
+  operation(
+    "kind.write",
+    z.object({ kind: kindId, file: z.enum(KIND_FILES), text: z.string(), base: z.string() }),
+    true,
+    ["kind", "write"],
+    (a, i) => writeKindFile(a, i.kind, i.file, i.text, i.base),
+  ),
+  operation(
+    "rules.effective",
+    z.object({ id: z.string() }),
+    false,
+    ["rules", "effective"],
+    (a, i) => {
+      if (!isPost(a.get(i.id))) throw Error(`InvalidInvariant: ${i.id} is not a post`);
+      return documentSettings(a.store.home, a.get(i.id));
+    },
   ),
   operation(
     "doc.read",

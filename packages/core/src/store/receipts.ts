@@ -19,6 +19,8 @@ const schema = z.object({
   writes: z.array(z.object({ id: z.string(), create: z.boolean(), bytes: z.string() })),
   applied: z.boolean(),
   effects: z.array(effectSchema).default([]),
+  /** Device configuration files (kinds) replaced atomically when the envelope applies. */
+  devices: z.array(z.object({ path: z.string(), text: z.string() })).default([]),
   reconciliations: z.array(z.string()).default([]),
   reconciliationResults: z.record(z.string(), z.unknown()).default({}),
 });

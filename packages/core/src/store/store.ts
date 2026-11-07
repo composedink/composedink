@@ -4,7 +4,7 @@ import { receipts } from "./receipts.ts";
 import { basename } from "node:path";
 import { fault } from "./compact.ts";
 import { mkdir, open, rename, unlink, readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { randomUUID, hash } from "node:crypto";
 export async function atomicWrite(path: string, bytes: Uint8Array | string) {
   const temporary = `${path}.${randomUUID()}.tmp`;
@@ -99,6 +99,10 @@ export async function openStore(home: string) {
       const bytes = Buffer.from(write.bytes, "base64");
       if (write.create) await store.create(write.id, bytes);
       else await store.append(write.id, bytes);
+    }
+    for (const { path, text } of envelope.devices) {
+      await mkdir(dirname(path), { recursive: true });
+      await atomicWrite(path, text);
     }
     for (const effect of envelope.effects) {
       const release = recovering ? targetLease(effect.target) : undefined;

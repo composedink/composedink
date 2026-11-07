@@ -7,6 +7,15 @@ import { exportHistory } from "./store/export-history.ts";
 import { projection } from "./model/projection.ts";
 import { baseFork } from "./model/selection.ts";
 import { apply } from "./model/apply.ts";
+import { retainMeta } from "./model/text.ts";
+import {
+  exportStrip,
+  frontmatterValues,
+  readingValues,
+  removeRanges,
+  restoreStripped,
+  stripRanges,
+} from "./kinds.ts";
 export async function importFile(a: Authority, docId: string, directory: string) {
   const target = await realpath(resolve(directory)),
     path = join(target, "index.mdx");
@@ -30,14 +39,20 @@ export async function importFile(a: Authority, docId: string, directory: string)
       );
   }
   const base = baseFork(a.get(docId), lock.base);
-  if (sha256(projection(base, lock.view).text) !== lock.sha256)
+  const strip = await exportStrip(a.store.home, a.get(docId));
+  const full = projection(base, lock.view).text;
+  const stripped = stripRanges(full, strip);
+  if (sha256(removeRanges(full, stripped)) !== lock.sha256)
     throw Error("RecoveryRequired: lock does not match retained base projection");
+  // The outside file lacks stripped keys; rebase its edit so the source keeps them.
+  const text = restoreStripped(full, stripped, outside);
   const key = canonical([target, lock.base, outsideHash]);
   return a.reconcile(key, docId, (doc) => {
+    retainMeta(doc, readingValues(frontmatterValues(text), strip));
     const result = apply(doc, {
       base: lock.base,
       view: lock.view,
-      text: outside,
+      text,
       mode: "direct",
       by: { kind: "human" },
     });

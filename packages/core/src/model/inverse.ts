@@ -3,6 +3,7 @@ import { interval, anchors } from "./selection.ts";
 import { LoroDoc, LoroMap, type ContainerID } from "loro-crdt";
 import { head } from "./read.ts";
 import { KEYS } from "./keys.ts";
+import { isPost } from "./text.ts";
 
 export type Inverse =
   | { id: string; kind: "create"; base: string }
@@ -36,7 +37,7 @@ export function inverse(id: string, before: LoroDoc | undefined, after: LoroDoc)
     }));
   });
   branch.applyDiff(changes, { fullState: true });
-  if (before.getMap("meta").get("kind") === "post")
+  if (isPost(before))
     for (const alt of alternatives(before)) {
       if (
         !changes.some(([target]) => target === before.getText("mdx").id) &&

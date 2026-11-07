@@ -15,6 +15,7 @@ export async function authority(store: Store) {
   const undo = new Map<string, Inverse[][]>();
   const listeners = new Set<(id: string, bytes: Uint8Array) => void>();
   let effects: Envelope["effects"] = [];
+  let devices: Envelope["devices"] = [];
   let reconciliations: string[] = [];
   let reconciliationResults: Record<string, unknown> = {};
   let poisoned = false;
@@ -93,6 +94,7 @@ export async function authority(store: Store) {
       staged = [];
       finalizers = [];
       effects = [];
+      devices = [];
       reconciliations = [];
       reconciliationResults = {};
       let committing = false;
@@ -101,6 +103,7 @@ export async function authority(store: Store) {
         committing = true;
         await store.journal.commit({
           effects,
+          devices,
           reconciliations,
           reconciliationResults,
           request,
@@ -126,6 +129,11 @@ export async function authority(store: Store) {
         for (const finish of finalizers) finish();
         finalizers = [];
       }
+    },
+    /** Stages a device configuration file; written with the transaction's durable receipt. */
+    deviceWrite(path: string, text: string) {
+      if (!staged) throw Error("Device writes require a transaction");
+      devices.push({ path, text });
     },
     async exportPair(
       target: string,

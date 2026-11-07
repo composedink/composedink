@@ -57,3 +57,31 @@ commit; a completed receipt wins a cancellation race. The original remains versi
 1/4. Alt-↑/↓ flips; Mod-Enter keeps. Edits continue while the provider waits; deleted
 targets go to detached stash. Core embedders may pass an AbortSignal as the fourth
 argument to the bound operation function.
+
+## Document kinds and rulesets
+
+A kind is device configuration in `$COMPOSED_HOME/kinds/<id>/`: `kind.json`
+(`reader`, `medium` phone|screen|web, positive integer `budget`, `frontmatter` and `meta`
+placement lists that each name reader/medium/budget exactly once, `export.strip`,
+feedback `questions`), `template.mdx` (ordinary MDX, no interpolation) and `rules.json`.
+Built-ins `post`, `weekly-update`, `proposal`, `design-doc` and `hellotimber` are copied
+there on first use and never overwritten. A document stores only `meta.kind` plus the
+kind's meta-placed defaults; creation applies the template and frontmatter defaults once.
+
+```sh
+composed kind list
+composed kind read proposal                       # {kind, base, files}
+composed kind write essay --file rules.json --base <base> < rules.json
+composed new post launch --kind proposal
+composed doc kind launch design-doc                # changes rules only, never the body
+composed rules effective launch                    # {rules, custom, reader, medium, budget, warnings}
+```
+
+`base` hashes all three files; a stale base fails with UnknownBase before writing, and
+writes commit with the request receipt. A kind this device lacks lints with built-in post
+rules and a warning; malformed files fail with InvalidKind naming the file. `rules.json` is
+`{extends, rules, custom}`: parents resolve recursively, a child's code replaces the
+inherited setting (`false` disables, `{}` enables with defaults) and custom pattern rules
+replace by code. Reader, medium and budget read kind defaults, then meta, then frontmatter.
+`export.strip` keys leave exported MDX (hellotimber strips all three); import rebases the
+outside edit so the source and meta keep them.

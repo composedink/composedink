@@ -32,3 +32,49 @@ it("registered lint returns positioned diagnostics without advancing the documen
     await rm(home, { recursive: true, force: true });
   }
 }, 30000);
+it("a kind-created document runs its custom rule and kind.write disabling it silences lint", async () => {
+  const home = await mkdtemp(join(tmpdir(), "lint-kind-"));
+  const a = await authority(await openStore(home));
+  const run = bind(a);
+  try {
+    const post = (await run("kind.read", { kind: "post" })) as { files: Record<string, string> };
+    let { base } = (await run("kind.read", { kind: "memo" })) as { base: string };
+    for (const [file, text] of [
+      ["kind.json", post.files["kind.json"]],
+      ["template.mdx", "Synergy first.\n"],
+      [
+        "rules.json",
+        JSON.stringify({
+          extends: "post",
+          rules: {},
+          custom: [
+            { code: "jargon", message: "Plain words.", severity: "warn", phrases: ["synergy"] },
+          ],
+        }),
+      ],
+    ])
+      ({ base } = (await run("kind.write", { kind: "memo", file, text, base })) as {
+        base: string;
+      });
+    await run("doc.create", { slug: "memo-1", kind: "memo" });
+    expect(await run("lint", { doc: "memo-1" })).toContainEqual(
+      expect.objectContaining({
+        code: "jargon",
+        severity: "warn",
+        from: a.read("memo-1").text.indexOf("Synergy"),
+        to: a.read("memo-1").text.indexOf("Synergy") + 7,
+      }),
+    );
+    const memo = (await run("kind.read", { kind: "memo" })) as { files: Record<string, string> };
+    const rules = JSON.stringify({
+      ...JSON.parse(memo.files["rules.json"]),
+      rules: { jargon: false },
+    });
+    await run("kind.write", { kind: "memo", file: "rules.json", text: rules, base });
+    expect(
+      ((await run("lint", { doc: "memo-1" })) as { code: string }[]).map((d) => d.code),
+    ).not.toContain("jargon");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+}, 30000);

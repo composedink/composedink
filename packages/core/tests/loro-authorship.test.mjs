@@ -11,6 +11,7 @@ const run = (kind, humanPeer, agentPeer) => {
   const base = new LoroDoc();
   base.setPeerId("1");
   base.getMap("meta").set("kind", "post");
+  base.getMap("meta").set("slug", "post");
   base.getText("mdx").insert(0, original);
   base.commit();
   const liveStart = base.getText("mdx").getCursor(from, -1),

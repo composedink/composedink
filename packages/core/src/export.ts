@@ -14,6 +14,7 @@ import { bundle, sha256 } from "./bundle.ts";
 import { evaluateFallback } from "./fallback/evaluator.ts";
 import { fileHash, previewTargets } from "./store/intents.ts";
 import { exportHistory } from "./store/export-history.ts";
+import { exportStrip, removeRanges, stripRanges } from "./kinds.ts";
 export async function preview(
   a: Authority,
   docId: string,
@@ -53,7 +54,9 @@ export async function preview(
     }
   }
   const projected = project(a.get(docId), view);
-  const text = projected.text;
+  // The kind's export.strip keys leave the file before validation, hashing and writing.
+  const strip = await exportStrip(a.store.home, a.get(docId));
+  const text = removeRanges(projected.text, stripRanges(projected.text, strip));
   const ast = validateProjection(
     text,
     snippet(a.get(docId), 0, a.get(docId).getText("mdx").length).dim,

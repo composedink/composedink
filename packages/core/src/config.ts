@@ -22,3 +22,5 @@ export async function configureScope(home: string, name: string, server: string,
   await mkdir(home, { recursive: true });
   await atomicWrite(join(home, "scopes.json"), JSON.stringify(config, null, 2) + "\n");
 }
+/** Device-owned kinds: $COMPOSED_HOME/kinds/<id>/{kind.json,template.mdx,rules.json}. */
+export const kindsDirectory = (home: string) => join(home, "kinds");

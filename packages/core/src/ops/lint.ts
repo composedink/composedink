@@ -6,7 +6,13 @@ import type { Authority } from "../authority.ts";
 import { validateProjection } from "../model/validate.ts";
 import { manifest } from "../bundle.ts";
 import { readFiles } from "../model/files.ts";
-export function lintSnapshot(a: Authority, id: string): LintSnapshot {
+import { documentSettings } from "../kinds.ts";
+/** The document's effective rules and reading values exactly as rules.effective reports them. */
+export async function lintSettings(a: Authority, id: string) {
+  const { warnings, ...settings } = await documentSettings(a.store.home, a.get(id));
+  return { settings, warnings };
+}
+export async function lintSnapshot(a: Authority, id: string): Promise<LintSnapshot> {
   const { text, base } = a.read(id);
   const deps = a.get(id).getMap("deps").toJSON();
   const blocks: NonNullable<LintSnapshot["blocks"]>[number][] = [];
@@ -37,7 +43,7 @@ export function lintSnapshot(a: Authority, id: string): LintSnapshot {
     if (Array.isArray(node.children)) node.children.forEach(walk);
   }
   walk(validateProjection(text, []));
-  return { base, text, blocks };
+  return { base, text, blocks, settings: (await lintSettings(a, id)).settings };
 }
 let worker: Worker | undefined;
 let sequence = 0;
@@ -46,7 +52,7 @@ const pending = new Map<
   { resolve: (value: LintReply) => void; reject: (error: Error) => void }
 >();
 export async function lint(a: Authority, id: string) {
-  const snapshot = lintSnapshot(a, id);
+  const snapshot = await lintSnapshot(a, id);
   if (!worker) {
     worker = new Worker(new URL(import.meta.resolve("@composedink/lint/node-worker")));
     worker.on("message", (reply: LintReply) => {

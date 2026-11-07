@@ -250,9 +250,11 @@ it("stores a push once when its acknowledgement is lost, and resumes after a res
   await A.stop();
   const restarted = await device(A.home);
   await restarted.a.sync!.start();
+  // Only A goes through the proxy. The log is cleared before B's change so that the pull counts
+  // whether the restarted loop's `doc` event or the explicit sync performs it.
+  proxy.log.length = 0;
   await type(B, "lost", " Twice.");
   await B.sync();
-  proxy.log.length = 0;
   await restarted.sync();
   const pulls = proxy.log.filter((l) => l.method === "GET" && l.path.includes("/lost/"));
   expect(pulls.map((p) => p.path)).toEqual([`/sync/docs/lost/updates?since=${before}`]);

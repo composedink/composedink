@@ -221,7 +221,7 @@ catalogs:
       version: 2.9.3
     '@playwright/test':
       specifier: latest
-      version: 1.64.1
+      version: 1.65.0
     '@rsbuild/core':
       specifier: ^2.3.1
       version: 2.3.1
@@ -298,7 +298,7 @@ importers:
     devDependencies:
       '@playwright/test':
         specifier: 'catalog:'
-        version: 1.64.1
+        version: 1.65.0
       '@tauri-apps/cli':
         specifier: ^2.12.4
         version: 2.12.4
@@ -316,7 +316,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
       ws:
         specifier: 'catalog:'
         version: 8.22.1
@@ -356,12 +356,22 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   apps/desktop: {}
 
   apps/server:
+    dependencies:
+      loro-crdt:
+        specifier: 'catalog:'
+        version: 1.17.1
     devDependencies:
+      '@composedink/blocks':
+        specifier: workspace:*
+        version: link:../../packages/blocks
+      '@composedink/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.5
@@ -370,7 +380,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   apps/web:
     dependencies:
@@ -413,7 +423,7 @@ importers:
     devDependencies:
       '@playwright/test':
         specifier: 'catalog:'
-        version: 1.64.1
+        version: 1.65.0
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.5
@@ -434,7 +444,7 @@ importers:
         version: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   examples/host-tanstack:
     dependencies:
@@ -462,7 +472,7 @@ importers:
         version: 3.1.1
       '@playwright/test':
         specifier: 'catalog:'
-        version: 1.64.1
+        version: 1.65.0
       '@rsbuild/core':
         specifier: 'catalog:'
         version: 2.3.1(@module-federation/runtime-tools@2.9.3)
@@ -486,7 +496,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/blocks:
     devDependencies:
@@ -510,7 +520,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/core:
     dependencies:
@@ -562,7 +572,7 @@ importers:
         version: 22.20.5
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/host-runtime:
     dependencies:
@@ -581,7 +591,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/host-tanstack:
     dependencies:
@@ -618,7 +628,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   packages/lint:
     dependencies:
@@ -637,7 +647,7 @@ importers:
         version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+        version: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
 packages:
 
@@ -1227,8 +1237,8 @@ packages:
     resolution: {integrity: sha512-Fh+SOBxMu7/pbSk84WG4BN6npcxxlF4jWNQJ+S4IUNyvSVeQwOVTFQMD/Dx2EqBQ1lVeCADcJ+0rzT1BKQ9cUA==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
-  '@playwright/test@1.64.1':
-    resolution: {integrity: sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==}
+  '@playwright/test@1.65.0':
+    resolution: {integrity: sha512-iGURLGuKDLakSEl7Pgfv8h7f+XLT+V861Wfhz0zlEl5nyFuKUopdkFBPKqTllTUp06aOwPuH8iuUEb3yp3MpbQ==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -2950,13 +2960,13 @@ packages:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
     engines: {node: '>=16.20.0'}
 
-  playwright-core@1.64.1:
-    resolution: {integrity: sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==}
+  playwright-core@1.65.0:
+    resolution: {integrity: sha512-vNSKgH6YqtN7cdT/L334zo0a+YwkrpicyrHJlWWPIm/Q+Nn2SWInil01oT0mbu96U4GgoRtCYQD9CzJQgju+lA==}
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.64.1:
-    resolution: {integrity: sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==}
+  playwright@1.65.0:
+    resolution: {integrity: sha512-F3AMWcR44qMBt4kq+6Kb6mX7bjGXshktKFOPULd7reED6ZJWevjbNRqysP7q+AATE9kdPEZBibex1BYsvpVoeA==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -4089,9 +4099,9 @@ snapshots:
 
   '@oxlint/plugins@1.91.0': {}
 
-  '@playwright/test@1.64.1':
+  '@playwright/test@1.65.0':
     dependencies:
-      playwright: 1.64.1
+      playwright: 1.65.0
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -5862,7 +5872,7 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  oxfmt@0.76.0(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)):
+  oxfmt@0.76.0(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)):
     dependencies:
       tinypool: 2.2.0
     optionalDependencies:
@@ -5885,7 +5895,7 @@ snapshots:
       '@oxfmt/binding-win32-arm64-msvc': 0.76.0
       '@oxfmt/binding-win32-ia32-msvc': 0.76.0
       '@oxfmt/binding-win32-x64-msvc': 0.76.0
-      vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+      vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   oxlint-tsgolint@7.0.2005:
     optionalDependencies:
@@ -5896,7 +5906,7 @@ snapshots:
       '@oxlint-tsgolint/win32-arm64': 7.0.2005
       '@oxlint-tsgolint/win32-x64': 7.0.2005
 
-  oxlint@1.91.0(oxlint-tsgolint@7.0.2005)(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)):
+  oxlint@1.91.0(oxlint-tsgolint@7.0.2005)(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)):
     optionalDependencies:
       '@oxlint/binding-android-arm-eabi': 1.91.0
       '@oxlint/binding-android-arm64': 1.91.0
@@ -5918,7 +5928,7 @@ snapshots:
       '@oxlint/binding-win32-ia32-msvc': 1.91.0
       '@oxlint/binding-win32-x64-msvc': 1.91.0
       oxlint-tsgolint: 7.0.2005
-      vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1)
+      vite-plus: 1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1)
 
   parse-entities@4.0.2:
     dependencies:
@@ -5944,11 +5954,11 @@ snapshots:
 
   pkce-challenge@5.0.1: {}
 
-  playwright-core@1.64.1: {}
+  playwright-core@1.65.0: {}
 
-  playwright@1.64.1:
+  playwright@1.65.0:
     dependencies:
-      playwright-core: 1.64.1
+      playwright-core: 1.65.0
 
   pngjs@7.0.0: {}
 
@@ -6386,7 +6396,7 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1):
+  vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1):
     dependencies:
       '@oxc-project/runtime': 0.157.0
       '@oxc-project/types': 0.157.0
@@ -6398,8 +6408,8 @@ snapshots:
       '@vitest/snapshot': 5.1.0
       '@vitest/spy': 5.1.0
       '@vitest/utils': 5.1.0
-      oxfmt: 0.76.0(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1))
-      oxlint: 1.91.0(oxlint-tsgolint@7.0.2005)(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.64.1)(typescript@5.9.3)(yaml@2.9.1))
+      oxfmt: 0.76.0(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1))
+      oxlint: 1.91.0(oxlint-tsgolint@7.0.2005)(vite-plus@1.5.0(@types/node@22.20.5)(@vitest/ui@5.1.0)(jiti@2.7.0)(playwright@1.65.0)(typescript@5.9.3)(yaml@2.9.1))
       oxlint-tsgolint: 7.0.2005
       vite: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)'
       vitest: 5.1.0(@types/node@22.20.5)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@22.20.5)(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1))(jiti@2.7.0)(typescript@5.9.3)(yaml@2.9.1)
@@ -6412,7 +6422,7 @@ snapshots:
       '@voidzero-dev/vite-plus-linux-x64-musl': 1.5.0
       '@voidzero-dev/vite-plus-win32-arm64-msvc': 1.5.0
       '@voidzero-dev/vite-plus-win32-x64-msvc': 1.5.0
-      playwright: 1.64.1
+      playwright: 1.65.0
     transitivePeerDependencies:
       - '@arethetypeswrong/core'
       - '@astrojs/compiler-rs'

@@ -1,4 +1,5 @@
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { segments } from "./http.ts";
 import { mkdir, readFile, writeFile, rename, access } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash, timingSafeEqual, randomUUID } from "node:crypto";
@@ -9,21 +10,20 @@ const exists = async (path: string) =>
     () => false,
   );
 const filename = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
-export function artifactServer({ root, token }: { root: string; token: string }) {
+/**
+ * Serves `/c/<scope>/<name>/<version>/<file>` from `parts` (decoded path segments). Requests run on
+ * one serial queue, so a release commit never interleaves with a read of the same version.
+ */
+export function artifactHandler({ root, token }: { root: string; token: string }) {
   if (!token) throw Error("Artifact server requires a token");
   let queue = Promise.resolve();
-  return createServer((req, res) => {
+  return (req: IncomingMessage, res: ServerResponse, parts: string[]) => {
     const run = async () => {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
       res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
       if (req.method === "OPTIONS") {
         res.writeHead(204).end();
-        return;
-      }
-      const parts = decodeURIComponent((req.url ?? "").split("?")[0]).split("/");
-      if (req.method === "GET" && parts.join("/") === "/healthz") {
-        res.writeHead(200, { "Content-Type": "text/plain" }).end("ok");
         return;
       }
       const [, prefix, scope, name, version, ...files] = parts;
@@ -161,5 +161,23 @@ export function artifactServer({ root, token }: { root: string; token: string })
       if (!res.headersSent) res.writeHead(400);
       res.end();
     });
+  };
+}
+/** The artifact routes alone, plus a plain `/healthz`; the full server is `main.ts`. */
+export function artifactServer(options: { root: string; token: string }) {
+  const handle = artifactHandler(options);
+  return createServer((req, res) => {
+    let parts: string[];
+    try {
+      parts = segments(req.url);
+    } catch {
+      res.writeHead(400).end();
+      return;
+    }
+    if (req.method === "GET" && parts.join("/") === "/healthz") {
+      res.writeHead(200, { "Content-Type": "text/plain" }).end("ok");
+      return;
+    }
+    handle(req, res, parts);
   });
 }

@@ -18,7 +18,7 @@ const owners = new Map([
 const allowed = new Map([
   ["@composedink/lint", ["@composedink/blocks"]],
   ["@composedink/blocks", []],
-  ["composed-server", ["@composedink/blocks"]],
+  ["composed-server", ["@composedink/blocks", "@composedink/core"]],
   ["@composedink/core", ["@composedink/blocks", "@composedink/lint"]],
   ["@composedink/host-runtime", ["@composedink/blocks"]],
   ["@composedink/host-tanstack", ["@composedink/blocks", "@composedink/host-runtime"]],
@@ -62,6 +62,13 @@ async function violations(path: string, source: string, ownerDirectory: string) 
     if (value.includes("/src/")) issues.push(`deep source import: ${value}`);
     if (owner === "composed-web" && value === "@composedink/core/node")
       issues.push(`browser node import: ${value}`);
+    // The server image carries no build toolchain: only the model entry of core.
+    if (
+      owner === "composed-server" &&
+      target === "@composedink/core" &&
+      value !== "@composedink/core/model"
+    )
+      issues.push(`server core import other than @composedink/core/model: ${value}`);
   }
   function walk(node: ts.Node) {
     if (

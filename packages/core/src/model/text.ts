@@ -45,6 +45,14 @@ export function importTyping(doc: LoroDoc, bytes: Uint8Array) {
   dissolveCrossed(doc, before);
   normalize(doc);
 }
+/**
+ * Imports updates relayed by the sync server. Posts take the editor-typing path (import unchanged,
+ * then normalize); components import plainly, because normalization applies to posts only.
+ */
+export function importSynced(doc: LoroDoc, bytes: Uint8Array) {
+  if (isPost(doc)) importTyping(doc, bytes);
+  else doc.import(bytes);
+}
 export function normalize(doc: LoroDoc) {
   if (!isPost(doc)) throw new Error("InvalidInvariant: typing requires a post");
   for (const value of Object.values(doc.getMap(KEYS.deps).toJSON())) {

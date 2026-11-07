@@ -4,9 +4,15 @@
   "type": "module",
   "scripts": {
     "test": "vp test run",
-    "start": "node --experimental-strip-types src/main.ts"
+    "start": "node --experimental-strip-types src/main.ts",
+    "bundle": "vp pack"
+  },
+  "dependencies": {
+    "loro-crdt": "catalog:"
   },
   "devDependencies": {
+    "@composedink/blocks": "workspace:*",
+    "@composedink/core": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"

@@ -77,6 +77,27 @@ Cloudflare proxies and caches the immutable artifacts (`cf-cache-status: HIT`); 
   and `render_snapshots`), and an older image leaves a newer `user_version` alone. The volume
   survives replacement.
 
+## Reset the first account (lost first device)
+
+The bootstrap token works only while `accounts` is empty. If the first device's `session.secret`
+is lost before a second device is paired (it happened on staging on 2026-11-07: a stray
+`composed logout`), nobody can sign in again. The host is not reachable by SSH, but Coolify runs
+an application's post-deployment command inside the new container, so a one-off reset is:
+
+```sh
+# post_deployment_command (JSON-encode it in the PATCH body):
+#   node -e 'const {DatabaseSync}=require("node:sqlite");const d=new DatabaseSync("/data/server.db");
+#     d.exec("DELETE FROM render_snapshots;DELETE FROM links;DELETE FROM updates;DELETE FROM docs;
+#     DELETE FROM pairing_codes;DELETE FROM devices;DELETE FROM accounts")'
+curl -X PATCH $H/applications/<app> -d "$(jq -n --arg c "$CMD" '{post_deployment_command:$c}')"
+curl -X POST $H/deploy -d '{"uuid":"<app>","force":true}'      # the deployment log shows the output
+curl -X PATCH $H/applications/<app> -d '{"post_deployment_command":""}'
+```
+
+This deletes every synced document and link on that server, so it is only for a server with no
+data worth keeping (staging). Then `composed login <server> --bootstrap <token>` again, on a home
+that stays (`COMPOSED_HOME=~/.config/composed/staging-home` holds the staging proof device).
+
 ## Verify the image locally
 
 ```sh

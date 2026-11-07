@@ -1,10 +1,10 @@
 import { targetLease } from "./store/target-lease.ts";
 import { inverse, applyInverse, type Inverse } from "./model/inverse.ts";
 import type { Envelope } from "./store/receipts.ts";
-import { LoroDoc, decodeFrontiers } from "loro-crdt";
+import { LoroDoc, decodeFrontiers, decodeImportBlobMeta } from "loro-crdt";
 import type { Store } from "./store/store.ts";
 import { read, head } from "./model/read.ts";
-import { importTyping, isPost } from "./model/text.ts";
+import { importSynced, importTyping, isPost } from "./model/text.ts";
 import { normalizeThreads } from "./model/threads.ts";
 import { failOrphaned, pendingRequests } from "./model/feedback.ts";
 /** Sync results: document ids pushed and pulled in one cycle. */
@@ -19,7 +19,8 @@ export interface SyncResult {
  */
 export interface SyncSlot {
   start(): Promise<void>;
-  stop(): void;
+  /** Stops the loop; resolves once its in-flight cycle has settled. */
+  stop(): Promise<void>;
   now(id?: string): Promise<SyncResult>;
 }
 export async function authority(store: Store) {
@@ -40,6 +41,26 @@ export async function authority(store: Store) {
   let finalizers: Array<() => void> = [];
   let staged: Envelope["writes"] | undefined;
   let queue = Promise.resolve();
+  /** Runs `run` on `current` (a fork while staged) and records the resulting update. */
+  const modify = async <T>(id: string, current: LoroDoc, run: (doc: LoroDoc) => T) => {
+    const doc = staged ? current.fork() : current;
+    if (staged) documents.set(id, doc);
+    const from = doc.version();
+    const result = run(doc);
+    // Threads normalize in their own commit after any text change: imported typing stays unchanged.
+    if (isPost(doc)) normalizeThreads(doc);
+    const bytes = doc.export({ mode: "update", from });
+    if (staged) staged.push({ id, create: false, bytes: Buffer.from(bytes).toString("base64") });
+    else await store.append(id, bytes);
+    return result;
+  };
+  /** The local oplog already contains everything in this blob. */
+  const covered = (doc: LoroDoc, blob: Uint8Array) => {
+    const order = decodeImportBlobMeta(blob, true).partialEndVersionVector.compare(
+      doc.oplogVersion(),
+    );
+    return order === -1 || order === 0;
+  };
   const self = {
     store,
     sync: undefined as SyncSlot | undefined,
@@ -185,16 +206,31 @@ export async function authority(store: Store) {
       return { doc: id };
     },
     async change<T>(id: string, run: (doc: LoroDoc) => T) {
-      const doc = staged ? this.get(id).fork() : this.get(id);
-      if (staged) documents.set(id, doc);
-      const from = doc.version();
-      const result = run(doc);
-      // Threads normalize in their own commit after any text change: imported typing stays unchanged.
-      if (isPost(doc)) normalizeThreads(doc);
-      const bytes = doc.export({ mode: "update", from });
-      if (staged) staged.push({ id, create: false, bytes: Buffer.from(bytes).toString("base64") });
-      else await store.append(id, bytes);
-      return result;
+      return modify(id, this.get(id), run);
+    },
+    /**
+     * Imports blobs relayed by the sync server (inside a `sync-pull` transaction). Blobs the local
+     * oplog already covers are skipped; an unknown document is created from the first blob. Deleted
+     * documents still import, so `meta.deleted` and later edits converge. Returns whether anything
+     * was imported.
+     */
+    async receive(id: string, blobs: Uint8Array[]) {
+      let imported = false;
+      let rest = blobs;
+      if (!documents.has(id)) {
+        if (!rest.length) return false;
+        const created = new LoroDoc();
+        created.import(rest[0]);
+        await this.create(id, created);
+        imported = true;
+        rest = rest.slice(1);
+      }
+      const fresh = rest.filter((blob) => !covered(documents.get(id)!, blob));
+      if (!fresh.length) return imported;
+      await modify(id, documents.get(id)!, (doc) => {
+        for (const blob of fresh) if (!covered(doc, blob)) importSynced(doc, blob);
+      });
+      return true;
     },
     async compact(id: string) {
       await this.serialize(() => store.compact(id, this.get(id).export({ mode: "snapshot" })));

@@ -127,8 +127,8 @@
 
 ### Task 5 — Authority sync loop inside studio
 
-- [ ] `packages/core/src/sync.ts` exports `startSync(a, home, onStatus)` → `{now(id?), stop(), status()}`. Studio starts it at startup when signed in and sets `a.sync`, a new optional slot on the authority. `session.login` and `session.logout` start and stop it through `a.sync`. Inline authorities never start it.
-- [ ] One cycle at a time; triggers coalesce. The triggers are:
+- [x] `packages/core/src/sync.ts` exports `startSync(a, home, onStatus)` → `{now(id?), stop(), status()}`. Studio starts it at startup when signed in and sets `a.sync`, a new optional slot on the authority. `session.login` and `session.logout` start and stop it through `a.sync`. Inline authorities never start it.
+- [x] One cycle at a time; triggers coalesce. The triggers are:
   - an `a.subscribe` change, debounced by 500 ms;
   - a `doc` event;
   - stream (re)connection;
@@ -136,14 +136,14 @@
 
   The stream is read from `fetch` with a hand-written `text/event-stream` parser, adding no dependency (decision in this plan). `sync.now` without a live stream opens `/sync/events`, reads `heads` and closes it.
 
-- [ ] Each cycle, over the union of local documents and server heads:
+- [x] Each cycle, over the union of local documents and server heads:
   - **Pull** while `head > seq`. Inside `a.serialize(() => a.transaction(undefined, "sync-pull", …))`, a new authority method `receive(id, blobs)` skips any blob whose `decodeImportBlobMeta` end version the local oplog already covers. It creates unknown documents with `a.create` and applies the rest through `a.change(id, d => importSynced(d, bytes))`, reading `a.documents` directly so that `meta.deleted` still imports. After commit, store `{seq, vv}` from the response. A crash before that write only re-pulls, and Loro imports idempotently.
   - **Push** when `oplogVersion().compare(vv)` is 1 or undefined. Export `doc.export({mode:"update", from: VersionVector.decode(vv)})` and send it with `Composed-Since: vv`. On 200, store the returned `vv`. On 409, adopt the server's `vv` and retry once.
 
   These are the author's own and normalization ops: pulled ops are already inside `vv`, so they are never echoed back. Kinds, rulesets, receipts and cursors never sync.
 
-- [ ] Any 401 means: delete `session.secret`, rewrite `session.json` to `{server}`, stop the loop and publish signed-out status. Network errors keep the session and retry on the next trigger. After each completed cycle, write `lastSyncAt`. Studio broadcasts `{session: status}` to every socket on each status change.
-- [ ] `packages/core/tests/sync.test.ts` uses two authorities on temporary homes against a spawned server and checks:
+- [x] Any 401 means: delete `session.secret`, rewrite `session.json` to `{server}`, stop the loop and publish signed-out status. Network errors keep the session and retry on the next trigger. After each completed cycle, write `lastSyncAt`. Studio broadcasts `{session: status}` to every socket on each status change.
+- [ ] (all checks pass except alternatives surviving a synced flip; see Implementation log, discrepancy 1) `packages/core/tests/sync.test.ts` uses two authorities on temporary homes against a spawned server and checks:
   - a post typed on A appears on B, and a component created on B appears on A;
   - a flip on A and concurrent typing on B converge to the same text, alternatives and threads;
   - lost acknowledgement: an HTTP proxy in the test forwards the first push and then destroys the client socket, the retry answers `duplicate: true`, and the server row count grows by exactly 1;
@@ -198,3 +198,26 @@ The evidence must show:
 **Out of scope:** shared links, `links` and `render_snapshots` (plan 17), `share.*` operations, multiple accounts and their flows, live co-editing cursors, end-to-end encryption, update pruning, deploying staging or production, and syncing kinds, rulesets, receipts or cursors.
 
 **Common completion gate:** `mise exec -- vp check --fix` and `mise exec -- vp run -r test`. Tests import from `vite-plus/test`; use package `vite.config.ts`, never `vitest.config.ts`. Add any named script in this plan before invoking it. Repeat formatting until stable, stage only this unit's files, commit the completed task, and update this index's status. Commands are planned implementation gates, not results from this documentation task.
+
+## Implementation log
+
+### 2026-11-07 — discrepancy 1 (recorded during Task 5)
+
+**A synced flip dissolves the alternative.** Task 1 routes synced post updates through
+`importTyping` (import unchanged, then normalize), and the design expects "a flip on one device
+and typing on another" to converge "the same way they do for editor and agent today". They do
+not: `importTyping` runs `dissolveCrossed`, which reads the flip's whole-range delete/insert in
+the imported diff as typing across the range, stashes the alternative's versions and deletes the
+alternative on the receiving device; that deletion then syncs back. Before sync nothing imported a
+flip through `importTyping` (flips run on the authority; the editor only types). Evidence, from a
+scratch test that was not committed: after one `alt.flip`, a plain `doc.import` of the authority's
+snapshot keeps 1 alternative, while `importSynced` of the flip update leaves 0 alternatives and 1
+stash item. Both devices still converge to the same text, the flipped version's text and the same
+threads, so the convergence checks pass with `alts: []` on both sides.
+
+Not changed, per the stop rule: `importSynced` follows the plan. `packages/core/tests/sync.test.ts`
+keeps an `it.fails("keeps the alternative after a synced flip")` marker that fails once the import
+keeps the alternative. A fix for Lachlan to decide: `dissolveCrossed` skips alternatives whose own
+map entry changed in the same import (an operation such as a flip, not typing), or synced imports
+skip `dissolveCrossed` and rely on `normalizeAlternatives`. The Task 5 test box and Task 6's
+"the flipped version is active" (alternatives identical) stay qualified by this.

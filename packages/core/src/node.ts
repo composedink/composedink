@@ -11,3 +11,5 @@ export { refreshPreviews } from "./export.ts";
 export { configureScope } from "./config.ts";
 
 export { previewTargets } from "./store/intents.ts";
+
+export { syncSlot } from "./sync.ts";

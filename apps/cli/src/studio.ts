@@ -13,6 +13,7 @@ import {
   undoSession,
   refreshPreviews,
   previewTargets,
+  syncSlot,
 } from "@composedink/core/node";
 /** Socket clients other than the editor label themselves; only agent names are accepted. */
 const agent = (by: unknown) =>
@@ -115,6 +116,12 @@ export async function studio(home: string) {
     });
   });
   const sockets = new WebSocketServer({ noServer: true });
+  // Sync runs only here: signed in, studio pushes and pulls; every socket hears status changes.
+  a.sync = syncSlot(a, home, (status) => {
+    for (const peer of sockets.clients)
+      if (peer.readyState === WebSocket.OPEN) peer.send(JSON.stringify({ session: status }));
+  });
+  await a.sync.start();
   const unsubscribePreviews = a.subscribe((id) => {
     // Component operations refresh inside their transaction; typing and post operations refresh here.
     // Posts carry a slug whatever their kind; components never do.
@@ -280,6 +287,7 @@ export async function studio(home: string) {
     closing = true;
     clearTimeout(idleTimer);
     unsubscribePreviews();
+    await a.sync?.stop();
     sockets.close();
     for (const socket of sockets.clients) socket.terminate();
     server.close();

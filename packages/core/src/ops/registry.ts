@@ -364,8 +364,8 @@ export const registry = [
     },
   ),
   operation("session.logout", z.object({}), false, ["logout"], async (a) => {
-    a.sync?.stop();
     await signOut(a.store.home);
+    await a.sync?.stop();
     return sessionStatus(a.store.home);
   }),
   operation("session.status", z.object({}), false, ["status"], (a) => sessionStatus(a.store.home)),
@@ -389,8 +389,8 @@ export const registry = [
       );
       // Revoking this device signs out here at once.
       if (i.device === session.deviceId) {
-        a.sync?.stop();
         await signOut(a.store.home);
+        await a.sync?.stop();
       }
       return result;
     },

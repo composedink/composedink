@@ -30,3 +30,46 @@ export async function startServer(options: Partial<ServerOptions> = {}) {
   };
 }
 export type TestServer = Awaited<ReturnType<typeof startServer>>;
+
+/** Bootstraps the account and returns the first device's token. */
+export async function bootstrapDevice(s: TestServer, deviceName = "A") {
+  const response = await s.fetch("/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ deviceName, bootstrap: BOOTSTRAP }),
+  });
+  return ((await response.json()) as { token: string; deviceId: string; accountId: string }).token;
+}
+
+/** A device-authenticated JSON request. */
+export async function deviceJson(s: TestServer, token: string, path: string, body?: unknown) {
+  const response = await s.fetch(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  return { status: response.status, body: (await response.json()) as Record<string, any> };
+}
+
+/** Pushes an update for `docId` from the device, starting at `since` (base64url vv). */
+export async function pushDoc(
+  s: TestServer,
+  token: string,
+  docId: string,
+  bytes: Uint8Array,
+  since = "",
+) {
+  const response = await s.fetch(`/sync/docs/${encodeURIComponent(docId)}/updates`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/octet-stream",
+      "composed-since": since,
+    },
+    body: Buffer.from(bytes),
+  });
+  return { status: response.status, body: (await response.json()) as Record<string, any> };
+}

@@ -7,6 +7,8 @@ import { HttpError, segments, sendError } from "./http.ts";
 import { auth } from "./auth.ts";
 import { eventHub } from "./events.ts";
 import { sync } from "./sync.ts";
+import { replicas } from "./replicas.ts";
+import { links } from "./links.ts";
 
 export interface ServerOptions {
   /** `$COMPOSED_STORAGE`: artifacts and `server.db`. */
@@ -30,7 +32,9 @@ export function composedServer(options: ServerOptions) {
   const artifacts = artifactHandler({ root: options.storage, token: options.token });
   const events = eventHub();
   const devices = auth(db, events, options.bootstrap);
-  const relay = sync(db, devices, events);
+  const replica = replicas(db);
+  const shared = links(db, replica);
+  const relay = sync(db, devices, events, replica, shared);
   const server = createServer(async (req, res) => {
     try {
       const parts = segments(req.url);

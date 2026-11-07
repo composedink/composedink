@@ -24,10 +24,18 @@ const tables = (db: DatabaseSync) =>
     }[]
   ).map((t) => t.name);
 
-it("brings a fresh database to user_version 2 with WAL and foreign keys", async () => {
+it("brings a fresh database to the latest user_version with WAL and foreign keys", async () => {
   const db = openDatabase(await storage());
-  expect(version(db)).toBe(2);
-  expect(tables(db)).toEqual(["accounts", "devices", "docs", "pairing_codes", "updates"]);
+  expect(version(db)).toBe(MIGRATIONS.length);
+  expect(tables(db)).toEqual([
+    "accounts",
+    "devices",
+    "docs",
+    "links",
+    "pairing_codes",
+    "render_snapshots",
+    "updates",
+  ]);
   expect(db.prepare("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
   expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
   db.close();
@@ -37,7 +45,7 @@ it("treats a rerun as a no-op", async () => {
   const home = await storage();
   openDatabase(home).close();
   const db = openDatabase(home);
-  expect(version(db)).toBe(2);
+  expect(version(db)).toBe(MIGRATIONS.length);
   db.close();
 });
 
@@ -47,7 +55,7 @@ it("rolls back a failing migration without a partial table", async () => {
   const broken = [...MIGRATIONS, "CREATE TABLE partial (x INTEGER); SELECT nope FROM missing;"];
   expect(() => openDatabase(home, broken)).toThrow(/missing/);
   const db = new DatabaseSync(join(home, "server.db"));
-  expect(version(db)).toBe(2);
+  expect(version(db)).toBe(MIGRATIONS.length);
   expect(tables(db)).not.toContain("partial");
   db.close();
 });

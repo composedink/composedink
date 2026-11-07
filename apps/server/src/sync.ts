@@ -6,7 +6,8 @@ import { transaction } from "./db.ts";
 import { HttpError, query, readBody, sendJson } from "./http.ts";
 import type { Auth, Device } from "./auth.ts";
 import type { EventHub } from "./events.ts";
-import { replicas } from "./replicas.ts";
+import type { Replicas } from "./replicas.ts";
+import type { Links } from "./links.ts";
 
 const MiB = 1024 * 1024;
 export const LIMITS = {
@@ -32,9 +33,17 @@ const covered = (a: VersionVector, b: VersionVector) => {
 };
 const EMPTY = encode(new VersionVector(null).encode());
 
-/** `/sync`: per-document update log, pulls and the change stream, all scoped to the device's account. */
-export function sync(db: DatabaseSync, auth: Auth, events: EventHub) {
-  const replica = replicas(db);
+/**
+ * `/sync`: per-document update log, pulls, the change stream and link management, all scoped to the
+ * device's account.
+ */
+export function sync(
+  db: DatabaseSync,
+  auth: Auth,
+  events: EventHub,
+  replica: Replicas,
+  links: Links,
+) {
   const docRow = (docId: string, device: Device) => {
     const row = db.prepare("SELECT * FROM docs WHERE doc_id = ?").get(docId) as DocRow | undefined;
     // A document of another account does not exist for this device.
@@ -177,6 +186,7 @@ export function sync(db: DatabaseSync, auth: Auth, events: EventHub) {
 
   async function handle(req: IncomingMessage, res: ServerResponse, parts: string[]) {
     const device = auth.authenticate(req);
+    if (parts[2] === "links") return links.handle(req, res, parts, device);
     if (req.method === "GET" && parts[2] === "events" && parts.length === 3)
       return events.open(device, res, heads(device.accountId));
     if (parts[2] === "docs" && parts[3] && parts[4] === "updates" && parts.length === 5) {

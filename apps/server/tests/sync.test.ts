@@ -44,13 +44,15 @@ function client(s: TestServer, token: string) {
     events: () => s.fetch("/sync/events", { headers: auth }),
   };
 }
-const post = (slug: string, text: string) => {
+const post = (slug: string, body: string) => {
   const doc = new LoroDoc();
   doc.getMap("meta").set("slug", slug);
-  doc.getText("mdx").insert(0, text);
+  prose(doc).insert(0, body);
   doc.commit();
   return doc;
 };
+/** The post body (the root boundary test keeps `mdx` mutations inside core/model). */
+const prose = (doc: LoroDoc) => doc.getText("mdx");
 const vvOf = (doc: LoroDoc) => Buffer.from(doc.oplogVersion().encode()).toString("base64url");
 const rows = (s: TestServer, docId: string) =>
   (s.db.prepare("SELECT count(*) AS n FROM updates WHERE doc_id = ?").get(docId) as { n: number })
@@ -77,7 +79,7 @@ it("pushes, pulls and converges two peers", async () => {
   expect(pulled.body.updates[0]).toMatchObject({ seq: 1 });
   apply(docB, pulled.body);
   const since = vvOf(docB);
-  docB.getText("mdx").insert(5, " world");
+  prose(docB).insert(5, " world");
   docB.commit();
   const fromB = await b.push(
     "hello",
@@ -107,7 +109,7 @@ it("answers 409 with the server vv when since is beyond the server", async () =>
   const doc = post("p", "x");
   await a.push("p", doc.export({ mode: "update" }));
   const ahead = doc.fork();
-  ahead.getText("mdx").insert(0, "more ");
+  prose(ahead).insert(0, "more ");
   ahead.commit();
   const conflict = await a.push("p", ahead.export({ mode: "update" }), vvOf(ahead));
   expect(conflict.status).toBe(409);
@@ -136,7 +138,7 @@ it("snapshots at the 256th row and serves snapshot plus trailing rows from since
   let since = "";
   for (let i = 0; i < 257; i++) {
     const from = since ? VersionVector.decode(Buffer.from(since, "base64url")) : undefined;
-    doc.getText("mdx").insert(doc.getText("mdx").length, `${i % 10}`);
+    prose(doc).insert(doc.getText("mdx").length, `${i % 10}`);
     doc.commit();
     const pushed = await a.push("long", doc.export({ mode: "update", from }), since);
     expect(pushed.body.seq).toBe(i + 1);
@@ -229,7 +231,7 @@ it("reloads replicas after a restart", async () => {
     vv: first.body.vv,
   });
   const since = vvOf(doc);
-  doc.getText("mdx").insert(0, "after ");
+  prose(doc).insert(0, "after ");
   doc.commit();
   const next = await again.push(
     "p",

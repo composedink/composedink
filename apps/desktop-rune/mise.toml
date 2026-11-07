@@ -1,0 +1,3 @@
+# rune needs a newer Rust than the Tauri app; this pin applies only inside this folder.
+[tools]
+rust = "1.99.1"

@@ -77,6 +77,8 @@ or plan document being written does not mark its implementation done.
 **Consumer authorization:** hellotimber adoption is hellotimber's plan 33, executed there under
 its own conventions when Lachlan is ready. Nothing in this repo changes consumer code.
 
+**Phase 1.5 (writing process):** `docs/design/writing-process.md`, plans 13–15 (kinds and rulesets, edit measurements, threads and feedback). Shared preview links follow in P2 after accounts.
+
 **Later phases:** P2 sync/accounts/device tokens/ideas/remote MCP/server bundling;
 P3 sharing/comments/component.render and sandboxed usercontent in editor/preview/share
 hosts; P4 mobile after a webview spike plus on-device AI; P5 listing/npm export of

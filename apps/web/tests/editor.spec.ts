@@ -94,7 +94,7 @@ try {
   await expect(page.getByRole("status")).toHaveText("Saved");
   results.keystrokeUndo = true;
   await page.getByText("Workspace actions", { exact: true }).click();
-  await page.getByRole("combobox").selectOption("deps.add");
+  await page.getByRole("combobox", { name: "Action" }).selectOption("deps.add");
   await page.getByLabel("Input (JSON)").fill(
     JSON.stringify({
       doc: "editor",

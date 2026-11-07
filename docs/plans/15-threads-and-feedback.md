@@ -36,13 +36,144 @@
 
 ### Task 4 — Show anchored conversations in the editor
 
-- [ ] Add a right-hand ThreadColumn aligned to live anchor coordinates via CodeMirror measurement, sorted by position with collision stacking (decision in this plan). Recompute on edits, scrolling, wrapping and resize. Detached threads appear in a separate bottom group with no source highlight; resolved threads use a list filter (decision in this plan). Keep thread identity stable when layout changes.
-- [ ] Opening from selection captures quote/base before flushing typing, then uses thread.open; replies and resolve use ops. Request form starts with the kind's questions, permits editing them, and asks the model. Show pending/cancel/failure and answers grouped by question, linking notes to threads and rewrites to existing alternatives controls. Cancellation uses the existing socket abort mechanism. Acceptance remains alt.flip/resolve.
-- [ ] Read threads from replicated containers/ops and update through the existing binding; no extra syncing listener. Preserve newest anchor positions and scroll-to-thread behavior. Honor plan 13 zen by hiding this column without stopping sync or reviews. Add `tests/threads-feedback.spec.ts` to web e2e; verify offline open/reply/resolve, scroll alignment, edit movement, bottom detachment, reload, model question association and explicit alternative acceptance. Run `mise exec -- vp run composed-web#test`, `mise exec -- vp run composed-web#e2e`, `mise exec -- vp run composed-web#build`.
-- [ ] Document the P2 refusal contract: authority rejects every share.* request without a server session with "sign in to share"; a signed-out desktop share affordance must be disabled with that reason. Do not register placeholder share ops or implement links here. Keep guest attribution and link-recipient types ready, but reject link recipients in feedback.request until accounts/session/relay exist. P2 must test signed-out refusal and a guest comment arriving on a second signed-in device.
+- [x] Add a right-hand ThreadColumn aligned to live anchor coordinates via CodeMirror measurement, sorted by position with collision stacking (decision in this plan). Recompute on edits, scrolling, wrapping and resize. Detached threads appear in a separate bottom group with no source highlight; resolved threads use a list filter (decision in this plan). Keep thread identity stable when layout changes.
+- [x] Opening from selection captures quote/base before flushing typing, then uses thread.open; replies and resolve use ops. Request form starts with the kind's questions, permits editing them, and asks the model. Show pending/cancel/failure and answers grouped by question, linking notes to threads and rewrites to existing alternatives controls. Cancellation uses the existing socket abort mechanism. Acceptance remains alt.flip/resolve.
+- [x] Read threads from replicated containers/ops and update through the existing binding; no extra syncing listener. Preserve newest anchor positions and scroll-to-thread behavior. Honor plan 13 zen by hiding this column without stopping sync or reviews. Add `tests/threads-feedback.spec.ts` to web e2e; verify offline open/reply/resolve, scroll alignment, edit movement, bottom detachment, reload, model question association and explicit alternative acceptance. Run `mise exec -- vp run composed-web#test`, `mise exec -- vp run composed-web#e2e`, `mise exec -- vp run composed-web#build`.
+- [x] Document the P2 refusal contract: authority rejects every share.* request without a server session with "sign in to share"; a signed-out desktop share affordance must be disabled with that reason. Do not register placeholder share ops or implement links here. Keep guest attribution and link-recipient types ready, but reject link recipients in feedback.request until accounts/session/relay exist. P2 must test signed-out refusal and a guest comment arriving on a second signed-in device.
 
 **Verification:** design Units evidence: **offline thread survives edits and detaches on deletion; model answers land as threads + alternatives**. Run `mise exec -- vp run @composedink/core#test`, `mise exec -- vp run composed-cli#test`, `mise exec -- vp run composed-web#test`, `mise exec -- vp run composed-web#e2e`, `mise exec -- vp run composed-web#build`. Temporary-home/restart and two-replica tests prove durable MovableList replies, edge anchors, partial deletion and permanent detachment without relocating. HTTP double proves question-linked threads and proposed alternatives with unchanged visible prose, concurrent edits preserved and no partial results on failure. Browser proves aligned comments, detached bottom list, offline ops, answer navigation and zen hiding. Export tests prove no comment/request data enters MDX. No server or model download is needed.
 
 **Out of scope:** shared preview links (P2 after accounts/session/relay), named-guest write transport, live multi-user editing, share.* implementation/placeholders, autonomous acceptance, new ops/containers beyond the design, plan-14 measurements, link rendering/sandbox work.
 
 **Common completion gate:** `mise exec -- vp check --fix` and `mise exec -- vp run -r test`. Tests import from `vite-plus/test`; use package `vite.config.ts`, never `vitest.config.ts`. Add any named script in this plan before invoking it. Repeat formatting until stable, stage only this unit's files, commit the completed task, and update this index's status. Commands are planned implementation gates, not results from this documentation task.
+
+## Implementation log
+
+### 2026-11-06 — implemented (Claude Opus 5.5 implementer)
+
+Commits: fd6a6d9 `feat(core): anchored comment threads with live cursors`, 20033f6
+`feat(core): thread and feedback request operations for CLI and MCP`, 304ecb8
+`feat(core): model review answers questions as threads and alternatives`, and the Task 4
+commit `feat(web): comment column aligned to anchors with model feedback`.
+
+Built per task:
+
+1. `model/threads.ts`: `openThread` (unique quote in a retained base, cursors from `anchors()`
+   in the base fork, resolved with `interval()` in current history; a quote deleted since the
+   base opens `detached`), `replyThread` (push to the nested MovableList), `resolveThread`,
+   `threadViews`, `normalizeThreads` (open/resolved → detached on an empty, reversed or
+   unresolvable interval; never back). `KEYS` gains exactly `threads` and `requests`.
+   `authority.change` runs `normalizeThreads` as its own commit after any post change, so
+   imported typing stays unchanged and every op (typing, apply, flip, cut, restore, undo) is
+   covered. Guest is a thread-author data variant only (`threadAuthorSchema`). Pure types in
+   `index.ts`. `tests/threads.test.ts` (10) covers open/reply/resolve, durable reply order across
+   reload, duplicate/missing/empty quotes, stale-base quotes, edge and concurrent typing,
+   partial and complete deletion, permanent detachment, cut/flip detachment and undo, a
+   two-replica MovableList merge, session undo and read projections; `tests/export.test.ts`
+   checks exported MDX and lock. The web binding test gains a `threads` mixed import (map event
+   first, then text, then the nested list) and stays equal to `mdx`.
+2. Ops `thread.open/reply/resolve/list`, `feedback.request`, `feedback.answers` in the
+   registry with receipts. Attribution is context: `bind(a)(name, input, session, signal, by)`;
+   studio passes `{kind:"human"}` for editor frames and accepts only `agent cli|mcp` from other
+   socket clients; `call()` sends `cli`, the MCP adapter `mcp`. MCP derives all six tools; the
+   `by` key is rejected by the strict MCP input. `model/feedback.ts` stores
+   `requests[id] = {at,by,questions:{id,text}[],to,state}` with answers inside `state`.
+   CLI mappings exactly as planned. `apps/cli/tests/feedback.test.ts` drives spawned CLI and
+   MCP clients on one temporary home.
+3. `rewrite.ts` now has one transport (`complete`: config, tokenRef, timeout, cancellation,
+   1 MiB budget) used by `rewriteProvider` and the new `reviewProvider` (system brief plus the
+   JSON brief as data; strict answer validation). `src/feedback.ts` runs `feedback.request`:
+   under the queue it captures `{base,text,reader,medium,budget,ruleset,questions}` (clean
+   projection; `documentSettings` for meta/frontmatter values and effective rules with
+   `false` entries) and commits the pending request under the caller's receipt; the provider
+   call runs outside the queue; back in the queue every quote is resolved in the captured clean
+   base before anything is written, then notes (`openThread`, `{kind:"agent",name:"model"}`,
+   `question` set), rewrites (`propose`, `{kind:"model",model}`) and the answered state commit in
+   one transaction under the internal identity `feedback:<id>:answer`. Any failure rolls that
+   back and commits `failed` under the same identity, then rejects with ProviderFailed. Studio
+   runs `feedback.request` beside the ordered frames with the existing cancel frame. Authority
+   startup fails pending requests with a retry instruction. Tests (core 25 in
+   `tests/feedback.test.ts`, CLI 2) cover the exact brief (hellotimber meta-only values, dim
+   excluded, disabled rule), landing, unchanged prose, concurrent typing/deletion, malformed or
+   incomplete answers, bad/ambiguous quotes, 401/500, timeout, cancel, late cancel, in-flight
+   duplicates, replay, restart and kills at both commits (`transaction:committed`,
+   `transaction:before-ack`; the answer phase arms the fault when the provider is called).
+4. `editor/threads.ts` reads `threads`/`requests` from the replica and resolves cursors
+   locally (newest positions while typing); `stack()` does collision stacking; highlights are a
+   decoration plugin. `ThreadColumn.tsx`: the column beside the editor, cards positioned at
+   `coordsAtPos` (height-map fallback outside the viewport) and re-measured after every render;
+   PostEditor re-renders on edits, geometry/viewport changes, editor scroll and window resize. A
+   filter (Open/Resolved/All), a bottom Detached group without highlights, reply/resolve/go-to,
+   a selection composer that captures quote and base before flushing (`selectionNow` in
+   `editor/selection.ts`), and the model feedback panel (kind questions via `kind.read`,
+   editable, pending/cancel/failure, answers grouped by question, note → thread, rewrite →
+   existing alternative). Zen hides the column, toolbar and highlights; sync and reviews
+   continue. `tests/threads-feedback.spec.ts` is in the e2e script; `tests/threads.test.ts`
+   (web) checks stacking and the replica reader. The P2 refusal contract is in the core README.
+
+Stops and discrepancies (none blocked a step):
+
+1. **RequestId name collision.** The plan asks to add `RequestId` for feedback requests, but
+   `packages/core/src/index.ts` already brands `RequestId` as the mutation receipt id (design
+   composed.md), and the plan says the two stay distinct. The feedback id is exported as
+   `FeedbackRequestId`; `RequestId` is unchanged.
+2. **Undo guards were key-order sensitive.** `inverse.ts` compared `JSON.stringify` output;
+   undoing a reply re-inserts list items through `applyDiff` with keys reordered, so undoing a
+   later `thread.open` failed DetachedTarget. Guards now compare key-sorted JSON.
+3. The Task 1 attribution test needs the Task 2 ops; it lives in `tests/capabilities.test.ts`
+   and the Task 1 box was ticked with Task 2.
+4. The Task 1 commit (fd6a6d9) contained a test line the root boundary rule rejects
+   (`branch.getText(KEYS.mdx).insert`); the Task 1 gate ran only the core tests. Fixed in the
+   Task 4 commit. Root tests now pass.
+5. The new filter `<select>` made `editor.spec.ts`'s unnamed `getByRole("combobox")`
+   ambiguous; it now names "Action". No other existing spec changed.
+6. Observed, not changed: a rewrite whose target is deleted while the model works is stashed
+   through the existing proposal path, which keeps only model-authored characters — "Two."
+   replacing "Second paragraph here." stashes "Two" (the shared final "." is base text).
+7. Consequence for Lachlan: a flip deletes and reinserts the alternative's range, so threads
+   inside it detach, including the model's note on the quote it also rewrote once that rewrite
+   is accepted. This follows "detachment is terminal, never relocate"; not changed.
+8. Files beyond the plan list: `core/tests/support/{review-double,feedback-crash}.ts`,
+   `apps/web/tests/{binding.test.ts,binding-fixture.ts,threads.test.ts,editor.spec.ts}`,
+   `apps/web/src/editor/selection.ts`. Listed but unchanged: `core/src/model/{selection,text}.ts`
+   (normalization hooks into `authority.change`), `src/node.ts`, `ops/capabilities.ts` (MCP
+   derives the new tools), `tests/rewrite.test.ts` (existing tests pass on the shared
+   transport), `apps/web/src/editor/transport.ts` (existing cancel frame and `changed()`
+   suffice), `apps/web/package.json` gained only the e2e entry.
+
+Decisions left to the implementer:
+
+- `thread.open` uses the full view and has no `nth` (per the interface): a selection whose text
+  occurs twice fails AmbiguousQuote in the editor too. `text` must be non-empty. A reply keeps
+  the state; replying to a detached thread is allowed; resolving a detached thread fails
+  InvalidInvariant. `thread.list` sorts by position, detached last.
+- Session undo covers thread ops; undoing an op that detached a thread restores text but not
+  the anchor. `feedback.request` is not a session-undo item.
+- Question ids are `<request>.q<n>`. `to` is deduplicated; `link:` recipients fail
+  `SignInRequired: sign in to share …` before anything is stored.
+- A failed review rejects the call with ProviderFailed after storing `failed`; replaying the
+  same receipt returns `{request, state}` with the stored state. Answers keep alternative IDs
+  even after the alternative is flipped/kept or absorbed; the panel then says "settled".
+- Alternatives from review are attributed `{kind:"model",model:<config model>}` like
+  `alt.rewrite`; note threads `{kind:"agent",name:"model"}` per the design.
+- Answers are stored in question order. One in-flight review per editor tab.
+- Socket clients other than the editor default to `{kind:"agent",name:"cli"}`.
+
+Verification (composedink root, logs in gitignored `test-results/`):
+
+- `mise exec -- vp check --fix`, then `vp fmt` twice: "Found no warnings, lint errors, or type
+  errors in 189 files"; formatting stable — plan-15-final-check.log.
+- `mise exec -- vp run -r test`: EXIT 0, "vp run: 9/9 successful" (core 31 files/146 tests,
+  lint 6/149, cli 5/8, web 5/10, root 2/3) — plan-15-final-tests.log.
+- `mise exec -- vp run @composedink/core#test` 31/146 and `composed-cli#test` 5/8 (Task 3
+  gates, plan-15-task3-*.log); `composed-web#test` 5/10 — plan-15-web-unit.log.
+- `mise exec -- vp run composed-web#e2e`: EXIT 0, all seven specs PASS including "Threads:
+  offline open/reply/resolve, stacking, scroll/resize alignment, edit movement, detachment,
+  reload, model answers, cancel and zen PASS" — plan-15-web-e2e.log, plan-15-threads.png/json.
+  The first full run failed on the ambiguous combobox (item 5) and the next on a resize step
+  that read a highlight scrolled out of CodeMirror's rendered viewport; the spec now scrolls
+  the card into view after resizing.
+- `mise exec -- vp run composed-web#build`: EXIT 0, "✓ built in 978ms" (existing chunk advisory).
+- `mise exec -- vp run host-tanstack#e2e` (after the recursive tests, not concurrently): EXIT 0,
+  `{"1":true,…,"6":true,…,"prose-refresh":true,"last-good-restart":true}` — plan-15-host-e2e.log
+  (same Vite WebSocket noise lines as plan 14's log).

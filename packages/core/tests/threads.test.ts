@@ -124,7 +124,8 @@ it("keeps edge typing outside, inside typing within, and concurrent typing merge
     const branch = f.a.get("p").fork(),
       from = branch.version();
     // A replica types inside the range before it learns about the thread.
-    branch.getText(KEYS.mdx).insert(8, "-x-");
+    const target = branch.getText(KEYS.mdx);
+    target.insert(8, "-x-");
     branch.commit();
     await f.open("beta", before);
     await f.a.typing("p", branch.export({ mode: "update", from }));

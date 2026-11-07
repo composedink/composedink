@@ -12,6 +12,20 @@ import { EditorView } from "@codemirror/view";
 import { LoroDoc } from "loro-crdt";
 import { sourceEditor } from "./editor/editor";
 import { EditorTransport } from "./editor/transport";
+import {
+  readRequests,
+  readThreads,
+  threadHighlights,
+  type FeedbackRequest,
+  type Thread,
+} from "./editor/threads";
+import {
+  CommentComposer,
+  FeedbackPanel,
+  ThreadColumn,
+  shownThreads,
+  type ThreadFilter,
+} from "./ThreadColumn";
 
 type Inspection = {
   deps: unknown;
@@ -41,6 +55,16 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   const zenNow = useRef(zen);
   const [words, setWords] = useState(0);
   const [kind, setKind] = useState<{ kind: string; warnings: string[] }>();
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const liveThreads = useRef<Thread[]>([]);
+  const [requests, setRequests] = useState<FeedbackRequest[]>([]);
+  const [filter, setFilter] = useState<ThreadFilter>("open");
+  const filterNow = useRef(filter);
+  const [active, setActive] = useState<string | null>(null);
+  const activeNow = useRef(active);
+  // Bumped on edits, scrolling, wrapping and resize so the comment column re-measures.
+  const [, setLayout] = useState(0);
+  const [hasSelection, setHasSelection] = useState(false);
   const toggleZen = () => {
     zenNow.current = !zenNow.current;
     writeZen(zenNow.current);
@@ -49,6 +73,19 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   useEffect(() => {
     feedback.current?.setZen(zen);
   }, [zen]);
+  // Highlights follow the filter, the active thread and zen; the column hides in zen while
+  // threads and reviews keep syncing underneath.
+  useEffect(() => {
+    filterNow.current = filter;
+    activeNow.current = active;
+    editorView.current?.dispatch({});
+  }, [filter, active, zen]);
+  useEffect(() => {
+    if (!active) return;
+    document
+      .querySelector(`.thread[data-thread="${CSS.escape(active)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [active]);
   const id =
     new URLSearchParams(location.search).get("doc") ??
     localStorage.getItem("composed.selectedDocument") ??
@@ -70,6 +107,13 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     lint.setZen(zenNow.current);
     let view: EditorView | undefined;
     let timer: ReturnType<typeof setTimeout>;
+    const refreshThreads = () => {
+      liveThreads.current = readThreads(doc);
+      setThreads(liveThreads.current);
+      setRequests(readRequests(doc));
+    };
+    const relayout = () => setLayout((n) => n + 1);
+    window.addEventListener("resize", relayout);
     const connection = new EditorTransport(doc, id, setStatus, () => {
       if (!view && parent.current)
         view = sourceEditor(parent.current, doc, [
@@ -118,6 +162,20 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               .catch((e) => setError(String(e)));
           }),
           alternativeGutter(() => liveAlts.current),
+          threadHighlights(() => ({
+            shown: zenNow.current ? [] : shownThreads(liveThreads.current, filterNow.current),
+            active: activeNow.current,
+          })),
+          EditorView.domEventHandlers({
+            click: (event) => {
+              const id = (event.target as HTMLElement)
+                .closest("[data-thread]")
+                ?.getAttribute("data-thread");
+              if (id) setActive(id);
+              return false;
+            },
+            scroll: relayout,
+          }),
           alternativeKeys(
             () => liveAlts.current,
             (alt, action) => {
@@ -132,7 +190,11 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
             },
           ),
           EditorView.updateListener.of((update) => {
+            // Anchors resolve on this replica, so comments follow typing before acknowledgement.
+            if (update.docChanged) refreshThreads();
+            if (update.docChanged || update.geometryChanged || update.viewportChanged) relayout();
             const { from, to } = update.state.selection.main;
+            setHasSelection(from !== to);
             setContext(
               from === to
                 ? `Cursor ${from}`
@@ -140,6 +202,8 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
             );
           }),
         ]);
+      refreshThreads();
+      relayout();
       setStash(
         doc
           .getMovableList("stash")
@@ -234,6 +298,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     });
     transport.current = connection;
     return () => {
+      window.removeEventListener("resize", relayout);
       clearTimeout(timer);
       rewriteAbort.current?.abort();
       connection.destroy();
@@ -294,7 +359,48 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
       <div className={zen ? "split zen" : "split"}>
         <section aria-label="Source">
           <h2>Source</h2>
-          <div ref={parent} />
+          <div className="thread-toolbar" hidden={zen}>
+            <CommentComposer
+              id={id}
+              view={editorView.current}
+              transport={transport.current}
+              onError={setError}
+              hasSelection={hasSelection}
+              onOpened={setActive}
+            />
+            <FeedbackPanel
+              id={id}
+              view={editorView.current}
+              transport={transport.current}
+              onError={setError}
+              kind={kind?.kind ?? "post"}
+              requests={requests}
+              threads={threads}
+              alts={alts}
+              onThread={(thread) => {
+                const target = threads.find((t) => t.thread === thread);
+                if (target?.state === "resolved" && filter === "open") setFilter("all");
+                setActive(thread);
+              }}
+            />
+          </div>
+          <div className="source-row">
+            <div className="source-editor" ref={parent} />
+            {!zen && (
+              <ThreadColumn
+                id={id}
+                view={editorView.current}
+                transport={transport.current}
+                onError={setError}
+                threads={threads}
+                requests={requests}
+                filter={filter}
+                onFilter={setFilter}
+                active={active}
+                onActive={setActive}
+              />
+            )}
+          </div>
           <p>{context}</p>
         </section>
         <aside aria-label="Preview">

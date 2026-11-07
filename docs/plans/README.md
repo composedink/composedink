@@ -26,7 +26,7 @@ the contracts and decisions; plan 01 contains the complete first slice.
 | 12  | [Deploy](./12-deploy.md)                                                                      | cdn.composed.ink container, npm integrations, author scope config                                       | 09             | done 2026-11-06 (staging, npm 0.1.0, cdn.composed.ink) |
 | 13  | [Kinds, rulesets and zen](./13-kinds-rulesets-zen.md)                                         | user-owned kinds/rulesets, custom patterns, effective rules, quiet drafting                             | 06, 11         | done 2026-11-06                                        |
 | 14  | [Edit measurements](./14-edit-measurements.md)                                                | configurable prose rule table, severities, sentence-length sparkline                                    | 13             | done 2026-11-06                                        |
-| 15  | [Threads and feedback](./15-threads-and-feedback.md)                                          | offline anchored comments, directed model review, comment column                                        | 13, 07         | in progress                                            |
+| 15  | [Threads and feedback](./15-threads-and-feedback.md)                                          | offline anchored comments, directed model review, comment column                                        | 13, 07         | done 2026-11-06                                        |
 
 Dependency order is `01 → 02 → 03 → 04 → 05`, then `06/07/08`, then `09 → 12 → 10`.
 Plan 11 follows the completed writing/component units through 09. The default execution

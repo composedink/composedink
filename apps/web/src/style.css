@@ -214,3 +214,108 @@ button {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
+
+.source-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.source-editor {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.thread-column {
+  flex: 0 0 15rem;
+  border-left: 0;
+  padding-left: 0;
+  font-size: 14px;
+}
+.thread-anchored {
+  position: relative;
+}
+.thread {
+  border: 1px solid #b6c4ba;
+  border-left: 3px solid #d0a93a;
+  border-radius: 6px;
+  background: white;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.thread-anchored > .thread {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0;
+}
+.thread.active {
+  border-color: #25332e;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
+}
+.thread[data-state="resolved"] {
+  opacity: 0.7;
+}
+.thread blockquote {
+  margin: 0 0 0.25rem;
+  color: #5f6b64;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread .message {
+  margin: 0.25rem 0;
+}
+.thread input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.thread-question {
+  margin: 0 0 0.25rem;
+  font-size: 12px;
+  color: #5c4f8a;
+}
+.thread-detached {
+  margin-top: 1rem;
+  border-top: 1px solid #b6c4ba;
+}
+.cm-thread {
+  background: rgb(240 205 90 / 35%);
+}
+.cm-thread-active {
+  background: rgb(240 190 40 / 60%);
+}
+.thread-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.comment-composer form,
+.feedback-panel form {
+  margin-top: 0.5rem;
+}
+.feedback-panel {
+  flex: 1 1 20rem;
+}
+.question-field {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.request {
+  border-left: 3px solid #8872d5;
+  padding-left: 0.75rem;
+  margin-block: 0.75rem;
+}
+.request .failure {
+  color: #952f20;
+}
+.answer h4 {
+  margin: 0.5rem 0 0.25rem;
+}
+.answer button {
+  display: block;
+  margin-block: 0.25rem;
+  text-align: left;
+}

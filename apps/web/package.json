@@ -6,7 +6,7 @@
   "scripts": {
     "test": "vp test run",
     "build": "vp build",
-    "e2e": "mise exec -- node --experimental-strip-types tests/editor.spec.ts && mise exec -- node --experimental-strip-types tests/alternatives.spec.ts && mise exec -- node --experimental-strip-types tests/dim.spec.ts && mise exec -- node --experimental-strip-types tests/lint.spec.ts && mise exec -- node --experimental-strip-types tests/rewrite.spec.ts && mise exec -- node --experimental-strip-types tests/kinds-zen.spec.ts && mise exec -- node --experimental-strip-types tests/measurements.spec.ts"
+    "e2e": "mise exec -- node --experimental-strip-types tests/editor.spec.ts && mise exec -- node --experimental-strip-types tests/alternatives.spec.ts && mise exec -- node --experimental-strip-types tests/dim.spec.ts && mise exec -- node --experimental-strip-types tests/lint.spec.ts && mise exec -- node --experimental-strip-types tests/rewrite.spec.ts && mise exec -- node --experimental-strip-types tests/kinds-zen.spec.ts && mise exec -- node --experimental-strip-types tests/measurements.spec.ts && mise exec -- node --experimental-strip-types tests/threads-feedback.spec.ts"
   },
   "dependencies": {
     "@codemirror/commands": "catalog:",

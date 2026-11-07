@@ -2,7 +2,7 @@ import { LocalLinter, SuggestionKind } from "harper.js";
 import { binaryInlined } from "harper.js/binaryInlined";
 import { validateProps, type PropsSchema } from "@composedink/blocks";
 import { analyze, blockSentences, type Sentence } from "./prose.ts";
-import { style } from "./rules.ts";
+import { documentRules, paragraphRules } from "./rules.ts";
 import {
   configIdentity,
   customDiagnostics,
@@ -71,9 +71,10 @@ export function createLinter() {
         if (!entry) {
           changedParagraphs++;
           const own = blockSentences(p);
-          const local = [...style(p, own.flat()), ...customDiagnostics(p, settings)].filter((d) =>
-            enabled(settings.rules, d.code),
-          );
+          const local = [
+            ...paragraphRules(p, own, settings),
+            ...customDiagnostics(p, settings),
+          ].filter((d) => enabled(settings.rules, d.code));
           entry = { diagnostics: local, sentences: own };
           for (const lint of harperOn
             ? await harper.lint(p.prose, { language: "plaintext" })
@@ -109,6 +110,24 @@ export function createLinter() {
         for (const own of entry.sentences) sentences.push(...own.map((s) => shift(s, p.from)));
       }
       cache = next;
+      const first = prose.paragraphs[0];
+      const firstProse = first && first.from + first.prose.search(/\S/);
+      diagnostics.push(
+        ...documentRules(
+          {
+            sentences,
+            sections: prose.sections,
+            firstProse,
+            firstProseLength:
+              firstProse === undefined
+                ? 0
+                : snapshot.text.codePointAt(firstProse)! > 0xffff
+                  ? 2
+                  : 1,
+          },
+          settings,
+        ).filter((d) => enabled(settings.rules, d.code)),
+      );
       for (const block of snapshot.blocks ?? [])
         for (const issue of validateProps(block.schema, block.props))
           diagnostics.push({

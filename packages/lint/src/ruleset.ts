@@ -41,12 +41,72 @@ export interface LintSettings extends EffectiveRules {
   readonly medium: Medium;
   readonly budget: number;
 }
-/** The built-in post ruleset: every public code on with defaults, no custom rules. */
-export const DEFAULT_RULES: Ruleset = {
-  extends: null,
-  rules: Object.fromEntries(RULE_CODES.map((code) => [code, {}])),
-  custom: [],
+export type RuleCode = (typeof RULE_CODES)[number];
+/** Each public rule's option object with its defaults; an author's object overrides by key. */
+export const RULE_DEFAULTS = {
+  "paragraph.length": { limits: { phone: 3, screen: 5, web: 6 } },
+  budget: {},
+  preamble: { phrases: ["sorry to bother you", "just wanted to ask", "I was wondering if"] },
+  filler: { phrases: ["very", "really", "perhaps", "sort of"] },
+  "sentence.length": { maxWords: 25 },
+  harper: {},
+  "bullets.long": { maxSentences: 2 },
+  "bold.inline": {},
+  visuals: { maxWords: 400 },
+  rhythm: { minSentences: 4, toleranceWords: 3 },
+} as const satisfies Record<RuleCode, Record<string, unknown>>;
+export type RuleOptions<C extends RuleCode> = {
+  -readonly [
+    K in keyof (typeof RULE_DEFAULTS)[C]
+  ]: (typeof RULE_DEFAULTS)[C][K] extends readonly string[]
+    ? readonly string[]
+    : (typeof RULE_DEFAULTS)[C][K] extends number
+      ? number
+      : { [M in Medium]: number };
 };
+/** The built-in post ruleset: every public code on with its default options, no custom rules. */
+export const DEFAULT_RULES: Ruleset = { extends: null, rules: RULE_DEFAULTS, custom: [] };
+const count = (v: unknown, min = 1) => typeof v === "number" && Number.isInteger(v) && v >= min;
+/** Checks one public rule's options object; throws naming the rule and option. */
+function checkOptions(code: RuleCode, options: Readonly<Record<string, unknown>>) {
+  const defaults: Readonly<Record<string, unknown>> = RULE_DEFAULTS[code];
+  for (const [key, value] of Object.entries(options)) {
+    const at = `rule "${code}" option "${key}"`;
+    const fallback = defaults[key];
+    if (fallback === undefined) throw Error(`rule "${code}" has no option "${key}"`);
+    if (Array.isArray(fallback)) {
+      if (!Array.isArray(value) || value.some((p) => typeof p !== "string" || !p.trim()))
+        throw Error(`${at} must be a list of non-empty phrases`);
+    } else if (typeof fallback === "number") {
+      if (!count(value, key === "toleranceWords" ? 0 : 1))
+        throw Error(
+          `${at} must be a ${key === "toleranceWords" ? "whole" : "positive whole"} number`,
+        );
+    } else {
+      if (!plain(value)) throw Error(`${at} must be an object of phone, screen and web limits`);
+      for (const [medium, limit] of Object.entries(value))
+        if (!["phone", "screen", "web"].includes(medium) || !count(limit))
+          throw Error(
+            `${at}: "${medium}" must be phone, screen or web with a positive whole limit`,
+          );
+    }
+  }
+}
+/** A public rule's options merged over its defaults (limits merge per medium). */
+export function ruleOptions<C extends RuleCode>(
+  rules: EffectiveRules["rules"],
+  code: C,
+): RuleOptions<C> {
+  const set = rules[code];
+  const own: Record<string, unknown> = plain(set) ? set : {};
+  const defaults: Record<string, unknown> = RULE_DEFAULTS[code];
+  const merged: Record<string, unknown> = { ...defaults, ...own };
+  if (plain(defaults.limits) && plain(own.limits))
+    merged.limits = { ...defaults.limits, ...own.limits };
+  return merged as RuleOptions<C>;
+}
+const isRuleCode = (code: string): code is RuleCode =>
+  (RULE_CODES as readonly string[]).includes(code);
 const CODE = /^[a-z0-9]+(?:[.:_-][a-z0-9]+)*$/;
 const HARPER = /^harper:[A-Za-z]+$/;
 const builtin = (code: string) =>
@@ -72,6 +132,7 @@ export function parseRuleset(value: unknown): Ruleset {
     if (!CODE.test(code) && !HARPER.test(code)) throw Error(`invalid rule code "${code}"`);
     if (setting !== false && !plain(setting))
       throw Error(`rule "${code}" must be false or an options object`);
+    if (setting !== false && isRuleCode(code)) checkOptions(code, setting);
     rules[code] = setting;
   }
   if (!Array.isArray(value.custom)) throw Error('"custom" must be an array');
@@ -147,6 +208,12 @@ export function severity(code: string): Severity {
 /** A stable identity for a settings value; changes whenever any rule, option or reader does. */
 export const configIdentity = (settings: LintSettings) => JSON.stringify(settings);
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Literal phrases as one case-insensitive whole-word pattern. */
+export const phrasePattern = (phrases: readonly string[], flags = "giu") =>
+  new RegExp(
+    `(?<![\\p{L}\\p{N}_])(?:${phrases.map((p) => escape(p.trim())).join("|")})(?![\\p{L}\\p{N}_])`,
+    flags,
+  );
 /**
  * Pattern rules on one masked paragraph, offsets relative to the paragraph. Phrases are literal,
  * case-insensitive whole-word matches; regexes run with Unicode/global flags and skip empty
@@ -156,13 +223,7 @@ export function customDiagnostics(p: Paragraph, rules: EffectiveRules): Diagnost
   const result: Diagnostic[] = [];
   for (const rule of rules.custom) {
     if (rules.rules[rule.code] === false) continue;
-    const pattern =
-      "phrases" in rule
-        ? new RegExp(
-            `(?<![\\p{L}\\p{N}_])(?:${rule.phrases.map((p) => escape(p.trim())).join("|")})(?![\\p{L}\\p{N}_])`,
-            "giu",
-          )
-        : new RegExp(rule.regex, "gu");
+    const pattern = "phrases" in rule ? phrasePattern(rule.phrases) : new RegExp(rule.regex, "gu");
     for (const m of p.prose.matchAll(pattern)) {
       if (!m[0]) continue;
       const to = m.index + m[0].length;

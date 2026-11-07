@@ -32,19 +32,19 @@ it("resolves multi-level rulesets, keeps disabled entries and reads config witho
   try {
     await kind(home, "team", {
       extends: "post",
-      rules: { "sentence.length": false, "paragraph.length": { max: 3, note: "x" } },
+      rules: { "sentence.length": false, "paragraph.length": { limits: { phone: 3, web: 4 } } },
       custom: [jargon, { ...jargon, code: "hedge", phrases: ["kind of"] }],
     });
     await kind(home, "mine", {
       extends: "team",
-      rules: { "sentence.length": {}, "paragraph.length": { max: 2 }, hedge: false },
+      rules: { "sentence.length": {}, "paragraph.length": { limits: { phone: 2 } }, hedge: false },
       custom: [{ ...jargon, severity: "soft", phrases: ["synergy", "leverage"] }],
     });
     const effective = await effectiveRules(home, "mine");
     expect(effective).not.toHaveProperty("extends");
     expect(effective.rules).toMatchObject({
       "sentence.length": {},
-      "paragraph.length": { max: 2 },
+      "paragraph.length": { limits: { phone: 2 } },
       hedge: false,
       harper: {},
     });

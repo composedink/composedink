@@ -6,8 +6,7 @@ it("positions prose/style and schema diagnostics without linting syntax", async 
   const text =
     "---\ntitle: quickly utilize\n---\n\n😀 This is an test. It was written quickly to utilize **tools**.\n\n" +
     Array(27).fill("word").join(" ") +
-    ".\n\n- " +
-    Array(32).fill("item").join(" ") +
+    ".\n\n- One item. Two items. Three items." +
     '\n\n```js\nquickly utilize\n```\n\n<Chart value={"quickly"} />\n\n[Link](https://quickly.utilize.test) and `quickly`.';
   const result = await engine.lint({
     base: "one",
@@ -29,7 +28,7 @@ it("positions prose/style and schema diagnostics without linting syntax", async 
     ["style:simpler", "utilize"],
     ["bold.inline", "tools"],
     ["sentence.length", Array(27).fill("word").join(" ") + "."],
-    ["bullets.long", "- " + Array(32).fill("item").join(" ")],
+    ["bullets.long", "- One item. Two items. Three items."],
     ["block:props", '<Chart value={"quickly"} />'],
   ]) {
     const from = text.indexOf(quote, text.indexOf("😀"));

@@ -8,7 +8,7 @@ it("newest base and request are authoritative, including cancellation at the sam
   const newest = gate.request({ base: "b", text: "new", settings });
   const reply = (id: number, base: string, config = "rules-1") => ({
     id,
-    result: { base, config, diagnostics: [], changedParagraphs: 1, elapsedMs: 1 },
+    result: { base, config, diagnostics: [], sentences: [], changedParagraphs: 1, elapsedMs: 1 },
   });
   expect(gate.accept(reply(old.id, "a"), "b", "rules-1")).toBeUndefined();
   expect(gate.accept(reply(newest.id, "b"), "b", "rules-1")).toBeDefined();

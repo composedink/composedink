@@ -1,7 +1,7 @@
 import { LocalLinter, SuggestionKind } from "harper.js";
 import { binaryInlined } from "harper.js/binaryInlined";
 import { validateProps, type PropsSchema } from "@composedink/blocks";
-import { paragraphs } from "./prose.ts";
+import { analyze, blockSentences, type Sentence } from "./prose.ts";
 import { style } from "./rules.ts";
 import {
   configIdentity,
@@ -12,6 +12,7 @@ import {
   type Severity,
 } from "./ruleset.ts";
 export * from "./ruleset.ts";
+export { countWords, splitSentences, type Sentence } from "./prose.ts";
 export interface Diagnostic {
   readonly from: number;
   readonly to: number;
@@ -37,29 +38,43 @@ export interface LintResult {
   /** configIdentity(snapshot.settings): consumers reject results for older configuration. */
   readonly config: string;
   readonly diagnostics: Diagnostic[];
+  /** Every prose sentence in source order, from the same pass as the diagnostics. */
+  readonly sentences: Sentence[];
   readonly changedParagraphs: number;
   readonly elapsedMs: number;
 }
 export function createLinter() {
   const harper = new LocalLinter({ binary: binaryInlined });
-  let cache = new Map<string, Diagnostic[]>();
+  // Per paragraph: diagnostics and each block's sentences, both relative to the paragraph.
+  type Entry = { diagnostics: Diagnostic[]; sentences: Sentence[][] };
+  let cache = new Map<string, Entry>();
   return {
     async lint(snapshot: LintSnapshot): Promise<LintResult> {
       const start = performance.now();
       const { settings } = snapshot;
       const config = configIdentity(settings);
       const harperOn = enabled(settings.rules, "harper");
-      const next = new Map<string, Diagnostic[]>();
+      const next = new Map<string, Entry>();
       const diagnostics: Diagnostic[] = [];
+      const sentences: Sentence[] = [];
+      const shift = <T extends { from: number; to: number }>(v: T, by: number): T => ({
+        ...v,
+        from: v.from + by,
+        to: v.to + by,
+      });
+      const prose = analyze(snapshot.text);
       let changedParagraphs = 0;
-      for (const p of paragraphs(snapshot.text)) {
-        const key = config + "\u0000" + p.source + "\u0000" + p.prose;
-        let local = cache.get(key) ?? next.get(key);
-        if (!local) {
+      for (const p of prose.paragraphs) {
+        const shape = p.blocks.map((b) => `${b.kind}:${b.from}-${b.to}`).join(",");
+        const key = [config, p.source, p.prose, shape].join("\u0000");
+        let entry = cache.get(key) ?? next.get(key);
+        if (!entry) {
           changedParagraphs++;
-          local = [...style(p), ...customDiagnostics(p, settings)].filter((d) =>
+          const own = blockSentences(p);
+          const local = [...style(p, own.flat()), ...customDiagnostics(p, settings)].filter((d) =>
             enabled(settings.rules, d.code),
           );
+          entry = { diagnostics: local, sentences: own };
           for (const lint of harperOn
             ? await harper.lint(p.prose, { language: "plaintext" })
             : []) {
@@ -89,8 +104,9 @@ export function createLinter() {
             lint.free();
           }
         }
-        next.set(key, local);
-        diagnostics.push(...local.map((d) => ({ ...d, from: d.from + p.from, to: d.to + p.from })));
+        next.set(key, entry);
+        diagnostics.push(...entry.diagnostics.map((d) => shift(d, p.from)));
+        for (const own of entry.sentences) sentences.push(...own.map((s) => shift(s, p.from)));
       }
       cache = next;
       for (const block of snapshot.blocks ?? [])
@@ -107,6 +123,7 @@ export function createLinter() {
         base: snapshot.base,
         config,
         diagnostics,
+        sentences,
         changedParagraphs,
         elapsedMs: performance.now() - start,
       };

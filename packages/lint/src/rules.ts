@@ -1,7 +1,8 @@
 import type { Diagnostic } from "./index.ts";
-import type { Paragraph } from "./prose.ts";
+import type { Paragraph, Sentence } from "./prose.ts";
 export const thresholds = { sentenceWords: 25, bulletWords: 30 } as const;
-export function style(p: Paragraph): Diagnostic[] {
+/** Paragraph-local style checks; `sentences` come from the shared prose tokenizer. */
+export function style(p: Paragraph, sentences: readonly Sentence[]): Diagnostic[] {
   const result: Diagnostic[] = [];
   const add = (from: number, to: number, code: string, message: string, replacement?: string) =>
     result.push({
@@ -44,16 +45,9 @@ export function style(p: Paragraph): Diagnostic[] {
       words[m[0].toLowerCase()],
     );
   }
-  for (const m of p.prose.matchAll(/[^.!?]+[.!?]?/g)) {
-    const leading = m[0].length - m[0].trimStart().length;
-    if ((m[0].match(/\b[\p{L}\p{N}’']+\b/gu) ?? []).length > thresholds.sentenceWords)
-      add(
-        m.index + leading,
-        m.index + m[0].trimEnd().length,
-        "sentence.length",
-        `Sentence exceeds ${thresholds.sentenceWords} words.`,
-      );
-  }
+  for (const s of sentences)
+    if (s.words > thresholds.sentenceWords)
+      add(s.from, s.to, "sentence.length", `Sentence exceeds ${thresholds.sentenceWords} words.`);
   for (const m of p.source.matchAll(/(?:\*\*|__)(.+?)(?:\*\*|__)/g))
     if (
       p.prose.slice(m.index + 2, m.index + 2 + m[1].length).trim() &&

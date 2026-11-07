@@ -132,6 +132,14 @@ button {
   background: #faf9f5;
   font-size: 14px;
 }
+.statusbar > * {
+  /* Items never wrap or shrink; only the sparkline's hover text gives way (ellipsis). */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.statusbar .sparkline-wrap {
+  flex-shrink: 1;
+}
 .statusbar [role="status"] {
   margin: 0;
 }
@@ -165,8 +173,11 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  /* The hover text shrinks with ellipsis when the status bar is full; the bars never move. */
+  min-width: 0;
 }
 .sparkline {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: flex-end;
   gap: 1px;
@@ -190,6 +201,8 @@ button {
   background: #25332e;
 }
 .sparkline-hover {
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 28rem;
   overflow: hidden;
   text-overflow: ellipsis;

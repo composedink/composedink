@@ -107,7 +107,8 @@ export async function studio(home: string) {
   const sockets = new WebSocketServer({ noServer: true });
   const unsubscribePreviews = a.subscribe((id) => {
     // Component operations refresh inside their transaction; typing and post operations refresh here.
-    if (a.documents.get(id)?.getMap("meta").get("kind") !== "post") return;
+    // Posts carry a slug whatever their kind; components never do.
+    if (typeof a.documents.get(id)?.getMap("meta").get("slug") !== "string") return;
     void a
       .serialize(() =>
         a.transaction(undefined, "preview-refresh", async () => {
@@ -220,6 +221,10 @@ export async function studio(home: string) {
                   if (peer.readyState === WebSocket.OPEN)
                     peer.send(JSON.stringify({ preview: { diagnostics: result.diagnostics } }));
               socket.send(JSON.stringify({ request: frame.request, result }));
+              if (frame.name === "kind.write")
+                for (const peer of sockets.clients)
+                  if (peer.readyState === WebSocket.OPEN)
+                    peer.send(JSON.stringify({ config: true }));
             }
           } catch (error) {
             socket.send(JSON.stringify({ request: frame.request, error: String(error) }));

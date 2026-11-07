@@ -43,6 +43,11 @@ it("real binary + MCP SDK enforce propose capability and complete workflow 3", a
     expect(tools.map((t) => t.name)).toContain("doc_apply");
     expect(tools.map((t) => t.name)).toContain("lint");
     expect(tools.map((t) => t.name)).toContain("alt_rewrite");
+    for (const name of ["doc_kind", "kind_list", "kind_read", "kind_write", "rules_effective"])
+      expect(tools.map((t) => t.name)).toContain(name);
+    expect(tools.find((t) => t.name === "doc_create")?.inputSchema.properties).toHaveProperty(
+      "kind",
+    );
     const lintFile = join(home, "lint.mdx");
     await writeFile(lintFile, "😀 This is an test.");
     cli(["new", "post", "lint-post", "--from", lintFile, "--i-am-human"]);

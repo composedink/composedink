@@ -85,7 +85,28 @@ try {
         break;
       }
       case "doc.create":
-        input = { slug: positional[0] };
+        input = {
+          slug: positional[0],
+          ...(values.includes("--kind") ? { kind: option("--kind") } : {}),
+        };
+        break;
+      case "doc.kind":
+        input = { id: positional[0], kind: positional[1] };
+        break;
+      case "kind.list":
+        input = {};
+        break;
+      case "kind.read":
+        input = { kind: positional[0] };
+        break;
+      case "kind.write": {
+        let text = "";
+        for await (const chunk of process.stdin) text += chunk;
+        input = { kind: positional[0], file: option("--file"), text, base: option("--base") };
+        break;
+      }
+      case "rules.effective":
+        input = { id: positional[0] };
         break;
       case "doc.read":
         input = { doc: positional[0], view: values.includes("--view") ? option("--view") : "full" };
@@ -179,6 +200,13 @@ try {
     if (operation.mutation && input && typeof input === "object" && values.includes("--request"))
       input = { ...input, request: option("--request") };
     const result = await call(composedHome(), operation.name, input);
+    if (operation.name === "lint") {
+      // A missing kind lints with post rules; say so where the author is looking.
+      const effective = await call(composedHome(), "rules.effective", { id: positional[0] });
+      if (effective && typeof effective === "object" && "warnings" in effective)
+        for (const warning of Array.isArray(effective.warnings) ? effective.warnings : [])
+          console.error(`warning: ${String(warning)}`);
+    }
     if (operation.name === "doc.create" && values.includes("--from")) {
       const source = await readFile(option("--from"), "utf8");
       const state = await call(composedHome(), "doc.read", { doc: positional[0] });

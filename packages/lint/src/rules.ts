@@ -7,19 +7,20 @@ export function style(p: Paragraph): Diagnostic[] {
     result.push({
       from,
       to,
-      code: "style:" + code,
+      code,
+      severity: "warn",
       message,
       ...(replacement === undefined ? {} : { replacement }),
     });
   for (const [pattern, code, message] of [
     [
       /\b(?:am|is|are|was|were|be|been|being)\s+(?:\w+ly\s+)?(?:\w+ed|written|given|taken|made|seen|known|built|done|shown|found)\b/gi,
-      "passive",
+      "style:passive",
       "Consider naming who performs this action.",
     ],
     [
       /\b(?:quickly|slowly|really|very|clearly|simply|actually|basically|extremely|suddenly|carefully|easily|obviously)\b/gi,
-      "adverb",
+      "style:adverb",
       "Consider a more precise verb or removing this modifier.",
     ],
   ] as const)
@@ -38,7 +39,7 @@ export function style(p: Paragraph): Diagnostic[] {
     add(
       m.index,
       m.index + m[0].length,
-      "simpler",
+      "style:simpler",
       "Consider a simpler word.",
       words[m[0].toLowerCase()],
     );
@@ -49,7 +50,7 @@ export function style(p: Paragraph): Diagnostic[] {
       add(
         m.index + leading,
         m.index + m[0].trimEnd().length,
-        "sentence",
+        "sentence.length",
         `Sentence exceeds ${thresholds.sentenceWords} words.`,
       );
   }
@@ -62,7 +63,7 @@ export function style(p: Paragraph): Diagnostic[] {
       add(
         m.index + 2,
         m.index + 2 + m[1].length,
-        "bold",
+        "bold.inline",
         "Consider removing emphasis inside a sentence.",
       );
   for (const m of p.source.matchAll(/^\s*(?:[-+*]|\d+[.)])\s+[^\n]+/gm))
@@ -73,7 +74,7 @@ export function style(p: Paragraph): Diagnostic[] {
       add(
         m.index,
         m.index + m[0].length,
-        "bullet",
+        "bullets.long",
         `Bullet exceeds ${thresholds.bulletWords} words.`,
       );
   return result;

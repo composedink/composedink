@@ -1,5 +1,6 @@
 import { expect, it } from "vite-plus/test";
 import { createLinter } from "../src/index.ts";
+import { settings } from "./settings.ts";
 it("positions prose/style and schema diagnostics without linting syntax", async () => {
   const engine = createLinter();
   const text =
@@ -11,6 +12,7 @@ it("positions prose/style and schema diagnostics without linting syntax", async 
   const result = await engine.lint({
     base: "one",
     text,
+    settings,
     blocks: [
       {
         from: text.indexOf("<Chart"),
@@ -25,14 +27,19 @@ it("positions prose/style and schema diagnostics without linting syntax", async 
     ["style:passive", "was written"],
     ["style:adverb", "quickly"],
     ["style:simpler", "utilize"],
-    ["style:bold", "tools"],
-    ["style:sentence", Array(27).fill("word").join(" ") + "."],
-    ["style:bullet", "- " + Array(32).fill("item").join(" ")],
+    ["bold.inline", "tools"],
+    ["sentence.length", Array(27).fill("word").join(" ") + "."],
+    ["bullets.long", "- " + Array(32).fill("item").join(" ")],
     ["block:props", '<Chart value={"quickly"} />'],
   ]) {
     const from = text.indexOf(quote, text.indexOf("😀"));
     expect(result.diagnostics).toContainEqual(
-      expect.objectContaining({ code, from, to: from + quote.length }),
+      expect.objectContaining({
+        code,
+        from,
+        to: from + quote.length,
+        severity: code === "block:props" ? "error" : "warn",
+      }),
     );
   }
   expect(result.diagnostics.filter((d) => d.code === "style:adverb")).toHaveLength(1);
@@ -40,10 +47,11 @@ it("positions prose/style and schema diagnostics without linting syntax", async 
 }, 30000);
 it("reuses unchanged paragraphs and shifts positions after insertions", async () => {
   const e = createLinter();
-  await e.lint({ base: "a", text: "This is an test.\n\nIt was written quickly." });
+  await e.lint({ base: "a", text: "This is an test.\n\nIt was written quickly.", settings });
   const r = await e.lint({
     base: "b",
     text: "Hello there.\n\nThis is an test.\n\nIt was written quickly.",
+    settings,
   });
   expect(r.changedParagraphs).toBe(1);
   expect(r.diagnostics).toContainEqual(expect.objectContaining({ from: 22, to: 24 }));

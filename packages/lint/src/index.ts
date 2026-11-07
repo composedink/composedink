@@ -3,16 +3,28 @@ import { binaryInlined } from "harper.js/binaryInlined";
 import { validateProps, type PropsSchema } from "@composedink/blocks";
 import { paragraphs } from "./prose.ts";
 import { style } from "./rules.ts";
+import {
+  configIdentity,
+  customDiagnostics,
+  enabled,
+  severity,
+  type LintSettings,
+  type Severity,
+} from "./ruleset.ts";
+export * from "./ruleset.ts";
 export interface Diagnostic {
   readonly from: number;
   readonly to: number;
   readonly code: string;
+  readonly severity: Severity;
   readonly message: string;
   readonly replacement?: string;
 }
 export interface LintSnapshot {
   readonly base: string;
   readonly text: string;
+  /** The document's effective rules and reader; workers never read device configuration. */
+  readonly settings: LintSettings;
   readonly blocks?: readonly {
     readonly from: number;
     readonly to: number;
@@ -22,6 +34,8 @@ export interface LintSnapshot {
 }
 export interface LintResult {
   readonly base: string;
+  /** configIdentity(snapshot.settings): consumers reject results for older configuration. */
+  readonly config: string;
   readonly diagnostics: Diagnostic[];
   readonly changedParagraphs: number;
   readonly elapsedMs: number;
@@ -32,16 +46,23 @@ export function createLinter() {
   return {
     async lint(snapshot: LintSnapshot): Promise<LintResult> {
       const start = performance.now();
+      const { settings } = snapshot;
+      const config = configIdentity(settings);
+      const harperOn = enabled(settings.rules, "harper");
       const next = new Map<string, Diagnostic[]>();
       const diagnostics: Diagnostic[] = [];
       let changedParagraphs = 0;
       for (const p of paragraphs(snapshot.text)) {
-        const key = p.source + "\u0000" + p.prose;
+        const key = config + "\u0000" + p.source + "\u0000" + p.prose;
         let local = cache.get(key) ?? next.get(key);
         if (!local) {
           changedParagraphs++;
-          local = style(p);
-          for (const lint of await harper.lint(p.prose, { language: "plaintext" })) {
+          local = [...style(p), ...customDiagnostics(p, settings)].filter((d) =>
+            enabled(settings.rules, d.code),
+          );
+          for (const lint of harperOn
+            ? await harper.lint(p.prose, { language: "plaintext" })
+            : []) {
             const span = lint.span();
             const suggestions = lint.suggestions();
             const suggestion = suggestions[0];
@@ -50,11 +71,16 @@ export function createLinter() {
                   ? p.prose.slice(span.start, span.end)
                   : "") + suggestion.get_replacement_text()
               : undefined;
-            if (p.source.slice(span.start, span.end) === p.prose.slice(span.start, span.end))
+            const code = "harper:" + lint.lint_kind();
+            if (
+              enabled(settings.rules, code) &&
+              p.source.slice(span.start, span.end) === p.prose.slice(span.start, span.end)
+            )
               local.push({
                 from: span.start,
                 to: span.end,
-                code: "harper:" + lint.lint_kind(),
+                code,
+                severity: severity(code),
                 message: lint.message(),
                 ...(replacement === undefined ? {} : { replacement }),
               });
@@ -73,11 +99,13 @@ export function createLinter() {
             from: block.from,
             to: block.to,
             code: "block:props",
+            severity: severity("block:props"),
             message: issue.path + ": " + issue.message,
           });
       diagnostics.sort((a, b) => a.from - b.from || a.to - b.to || a.code.localeCompare(b.code));
       return {
         base: snapshot.base,
+        config,
         diagnostics,
         changedParagraphs,
         elapsedMs: performance.now() - start,

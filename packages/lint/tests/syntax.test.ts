@@ -1,5 +1,6 @@
 import { expect, it } from "vite-plus/test";
 import { createLinter } from "../src/index.ts";
+import { settings } from "./settings.ts";
 it("ignores nested JSX expressions, links in code, unclosed fences and fallback content", async () => {
   const e = createLinter();
   for (const text of [
@@ -10,10 +11,10 @@ it("ignores nested JSX expressions, links in code, unclosed fences and fallback 
     "``quickly ` utilize``",
     "<!-- composed fallback -->\nquickly\n<!-- /composed -->",
   ]) {
-    expect((await e.lint({ base: text, text })).diagnostics).toEqual([]);
+    expect((await e.lint({ base: text, text, settings })).diagnostics).toEqual([]);
   }
   const text = "<Thing x={2}>It was written quickly.</Thing>";
-  expect((await e.lint({ base: "child", text })).diagnostics).toContainEqual(
+  expect((await e.lint({ base: "child", text, settings })).diagnostics).toContainEqual(
     expect.objectContaining({ code: "style:adverb", from: 28, to: 35 }),
   );
 });

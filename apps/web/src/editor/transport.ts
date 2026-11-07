@@ -52,6 +52,11 @@ export class EditorTransport {
         );
       socket.onmessage = (event) => {
         const frame = JSON.parse(event.data);
+        if (frame.config) {
+          // Kind files changed on this device: re-inspect so lint takes the new effective rules.
+          this.changed();
+          return;
+        }
         if (frame.preview) {
           this.status(`Preview — ${JSON.stringify(frame.preview.diagnostics)}`);
           return;

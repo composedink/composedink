@@ -1,8 +1,13 @@
 import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { encodeFrontiers, type LoroDoc } from "loro-crdt";
-import type { Diagnostic, LintSnapshot } from "@composedink/lint";
+import {
+  configIdentity,
+  type Diagnostic,
+  type LintSettings,
+  type LintSnapshot,
+} from "@composedink/lint";
 import type { LintReply, LintRequest } from "@composedink/lint/worker";
-import { diagnosticKey, diagnosticMarks, setDiagnostics } from "./diagnostics";
+import { diagnosticGutter, diagnosticKey, diagnosticMarks, setDiagnostics } from "./diagnostics";
 export function lintBase(doc: LoroDoc) {
   return btoa(String.fromCharCode(...encodeFrontiers(doc.frontiers())))
     .replaceAll("+", "-")
@@ -20,8 +25,12 @@ export class LatestLint {
   current(id: number) {
     return id === this.id;
   }
-  accept(reply: LintReply, base: string) {
-    return reply.id === this.id && "result" in reply && reply.result.base === base
+  /** A reply counts only for the newest request, the current base and the current rules. */
+  accept(reply: LintReply, base: string, config: string) {
+    return reply.id === this.id &&
+      "result" in reply &&
+      reply.result.base === base &&
+      reply.result.config === config
       ? reply.result
       : undefined;
   }
@@ -40,9 +49,13 @@ export function lintFeedback(
   let current: Diagnostic[] = [];
   let blocks: LintSnapshot["blocks"] = [];
   let blocksBase = "";
+  // Effective rules come from the authority (rules.effective); lint waits until they arrive.
+  let settings: LintSettings | undefined;
+  // Zen hides decorations only; requests and newest results continue so leaving zen is instant.
+  let zen = false;
   const render = () => {
     const visible = current.filter((d) => !dismissed.has(diagnosticKey(d)));
-    view?.dispatch({ effects: setDiagnostics.of(visible) });
+    view?.dispatch({ effects: setDiagnostics.of(zen ? [] : visible) });
     show(visible, lintBase(doc));
   };
   const schedule = () => {
@@ -53,13 +66,14 @@ export function lintFeedback(
       if (stopped) return;
       render();
       timer = setTimeout(() => {
-        if (stopped) return;
+        if (stopped || !settings) return;
         const base = lintBase(doc);
         worker.postMessage(
           latest.request({
             base,
             text: doc.getText("mdx").toString(),
             blocks: base === blocksBase ? blocks : [],
+            settings,
           }),
         );
       }, 120);
@@ -67,7 +81,7 @@ export function lintFeedback(
   };
   worker.onmessage = (event: MessageEvent<LintReply>) => {
     if (stopped || !latest.current(event.data.id)) return;
-    const result = latest.accept(event.data, lintBase(doc));
+    const result = settings && latest.accept(event.data, lintBase(doc), configIdentity(settings));
     if (result) {
       current = result.diagnostics;
       render();
@@ -83,6 +97,7 @@ export function lintFeedback(
     destroy,
     extension: [
       diagnosticMarks,
+      diagnosticGutter,
       ViewPlugin.define((v) => {
         view = v;
         const unsubscribe = doc.subscribe(schedule);
@@ -101,6 +116,15 @@ export function lintFeedback(
     dismiss(d: Diagnostic) {
       dismissed.add(diagnosticKey(d));
       render();
+    },
+    setZen(on: boolean) {
+      zen = on;
+      render();
+    },
+    setSettings(value: LintSettings) {
+      if (settings && configIdentity(settings) === configIdentity(value)) return;
+      settings = value;
+      schedule();
     },
     setBlocks(base: string, value: LintSnapshot["blocks"]) {
       if (base !== lintBase(doc)) return;

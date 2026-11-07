@@ -104,3 +104,33 @@ button {
   padding-left: 0.75rem;
   margin-block: 0.75rem;
 }
+
+.statusbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #b6c4ba;
+  background: #faf9f5;
+  font-size: 14px;
+}
+.statusbar [role="status"] {
+  margin: 0;
+}
+.statusbar button {
+  margin-left: auto;
+}
+.statusbar button[aria-pressed="true"] {
+  background: #25332e;
+  color: #faf9f5;
+}
+.statusbar .warning {
+  color: #952f20;
+}
+.cm-soft-gutter {
+  min-width: 1em;
+  color: #8a8f6a;
+}

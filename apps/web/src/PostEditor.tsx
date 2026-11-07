@@ -1,8 +1,9 @@
 import { rewriteKeys, rewriteSelection } from "./editor/rewrite";
 import { lintFeedback, lintBase } from "./editor/lint";
-import type { Diagnostic, LintSnapshot } from "@composedink/lint";
+import type { Diagnostic, LintSettings, LintSnapshot } from "@composedink/lint";
 import { parseSchema } from "@composedink/blocks";
 import { dimControls } from "./editor/dim";
+import { readZen, wordCount, writeZen, zenKeys } from "./editor/zen";
 import { selection as captureSelection } from "./editor/selection";
 import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternatives";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -34,6 +35,18 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   const [error, setError] = useState("");
   const [result, setResult] = useState<unknown>();
   const [preview, setPreview] = useState("");
+  const [zen, setZen] = useState(readZen);
+  const zenNow = useRef(zen);
+  const [words, setWords] = useState(0);
+  const [kind, setKind] = useState<{ kind: string; warnings: string[] }>();
+  const toggleZen = () => {
+    zenNow.current = !zenNow.current;
+    writeZen(zenNow.current);
+    setZen(zenNow.current);
+  };
+  useEffect(() => {
+    feedback.current?.setZen(zen);
+  }, [zen]);
   const id =
     new URLSearchParams(location.search).get("doc") ??
     localStorage.getItem("composed.selectedDocument") ??
@@ -51,12 +64,14 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
       setError,
     );
     feedback.current = lint;
+    lint.setZen(zenNow.current);
     let view: EditorView | undefined;
     let timer: ReturnType<typeof setTimeout>;
     const connection = new EditorTransport(doc, id, setStatus, () => {
       if (!view && parent.current)
         view = sourceEditor(parent.current, doc, [
           lint.extension,
+          zenKeys(toggleZen),
           rewriteKeys((v) => {
             if (rewriteAbort.current) return;
             const controller = new AbortController();
@@ -137,8 +152,21 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
           ),
       );
       editorView.current = view ?? null;
+      setWords(wordCount(doc.getText("mdx").toString()));
       clearTimeout(timer);
       timer = setTimeout(() => {
+        // Effective rules come from the authority on every inspection, so kind and rule
+        // changes reach the worker inside its immutable snapshot.
+        void connection
+          .operation("rules.effective", { id })
+          .then((result) => {
+            if (!result || typeof result !== "object" || !("rules" in result)) return;
+            const { warnings, ...settings } = result as LintSettings & { warnings: string[] };
+            lint.setSettings(settings);
+            const recorded = doc.getMap("meta").get("kind");
+            setKind({ kind: typeof recorded === "string" ? recorded : "post", warnings });
+          })
+          .catch((e) => setError(String(e)));
         void connection
           .operation("doc.read", { doc: id })
           .then((result) => {
@@ -212,6 +240,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
       feedback.current = null;
     };
   }, [id]);
+  const soft = diagnostics.filter((d) => d.severity === "soft").length;
   async function action(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
@@ -230,7 +259,6 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     <main>
       <header>
         <h1>composed · {id}</h1>
-        <p role="status">{status}</p>
         <button
           onClick={() =>
             void transport.current
@@ -249,7 +277,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
         </p>
       )}
       {error && <p role="alert">{error}</p>}
-      <div className="split">
+      <div className={zen ? "split zen" : "split"}>
         <section aria-label="Source">
           <h2>Source</h2>
           <div ref={parent} />
@@ -269,116 +297,119 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
               </a>
             </p>
           )}
-          <h3>Writing feedback</h3>
-          <section aria-label="Writing feedback">
-            {diagnostics.map((d, i) => (
-              <article
-                className="diagnostic"
-                key={`${d.code}:${d.from}:${i}`}
-                data-code={d.code}
-                data-from={d.from}
-                data-to={d.to}
-              >
-                <p>{d.message}</p>
-                <button onClick={() => feedback.current?.dismiss(d)}>Dismiss</button>
-                {d.replacement !== undefined && (
+          <div className="panels" hidden={zen}>
+            <h3>Writing feedback</h3>
+            <section aria-label="Writing feedback">
+              {diagnostics.map((d, i) => (
+                <article
+                  className="diagnostic"
+                  key={`${d.code}:${d.from}:${i}`}
+                  data-code={d.code}
+                  data-severity={d.severity}
+                  data-from={d.from}
+                  data-to={d.to}
+                >
+                  <p>{d.message}</p>
+                  <button onClick={() => feedback.current?.dismiss(d)}>Dismiss</button>
+                  {d.replacement !== undefined && (
+                    <button
+                      onClick={() => {
+                        const c = transport.current;
+                        const base = diagnosticBase.current;
+                        if (c && base === lintBase(c.doc))
+                          void c
+                            .flush()
+                            .then(() => {
+                              if (base !== lintBase(c.doc)) return;
+                              return c.operation("alt.propose", {
+                                doc: id,
+                                at: {
+                                  base,
+                                  view: "full",
+                                  from: d.from,
+                                  to: d.to,
+                                },
+                                versions: [d.replacement],
+                                by: { kind: "human" },
+                              });
+                            })
+                            .catch((e) => setError(String(e)));
+                      }}
+                    >
+                      Propose “{d.replacement}”
+                    </button>
+                  )}
+                </article>
+              ))}
+            </section>
+            <h3>Alternatives</h3>
+            {alts.map((alt) => (
+              <article className="alternative" key={alt.id}>
+                <span>
+                  ● Alternative {alt.active + 1}/{alt.count}
+                </span>
+                {(["prev", "next", "keep", "ghost"] as const).map((action) => (
                   <button
-                    onClick={() => {
-                      const c = transport.current;
-                      const base = diagnosticBase.current;
-                      if (c && base === lintBase(c.doc))
-                        void c
-                          .flush()
-                          .then(() => {
-                            if (base !== lintBase(c.doc)) return;
-                            return c.operation("alt.propose", {
-                              doc: id,
-                              at: {
-                                base,
-                                view: "full",
-                                from: d.from,
-                                to: d.to,
-                              },
-                              versions: [d.replacement],
-                              by: { kind: "human" },
-                            });
-                          })
-                          .catch((e) => setError(String(e)));
-                    }}
+                    key={action}
+                    onClick={() =>
+                      void transport.current
+                        ?.operation(
+                          action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
+                          action === "keep" || action === "ghost"
+                            ? { doc: id, alt: alt.id, rest: action === "ghost" ? "ghost" : "stash" }
+                            : { doc: id, alt: alt.id, to: action },
+                        )
+                        .catch((e) => setError(String(e)))
+                    }
                   >
-                    Propose “{d.replacement}”
+                    {action === "keep"
+                      ? "Keep"
+                      : action === "ghost"
+                        ? "Keep and ghost the rest"
+                        : action === "prev"
+                          ? "↑"
+                          : "↓"}
                   </button>
-                )}
+                ))}
               </article>
             ))}
-          </section>
-          <h3>Alternatives</h3>
-          {alts.map((alt) => (
-            <article className="alternative" key={alt.id}>
-              <span>
-                ● Alternative {alt.active + 1}/{alt.count}
-              </span>
-              {(["prev", "next", "keep", "ghost"] as const).map((action) => (
+            <h3>Stash</h3>
+            <button
+              onClick={() => {
+                const v = editorView.current,
+                  c = transport.current;
+                if (v && c)
+                  void captureSelection(v, c)
+                    .then((at) => c.operation("stash.add", { doc: id, at }))
+                    .catch((e) => setError(String(e)));
+              }}
+            >
+              Stash selection
+            </button>
+            {stash.map((item) => (
+              <article className="stash-item" key={item.id}>
+                <pre>{item.text}</pre>
                 <button
-                  key={action}
-                  onClick={() =>
-                    void transport.current
-                      ?.operation(
-                        action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
-                        action === "keep" || action === "ghost"
-                          ? { doc: id, alt: alt.id, rest: action === "ghost" ? "ghost" : "stash" }
-                          : { doc: id, alt: alt.id, to: action },
-                      )
-                      .catch((e) => setError(String(e)))
-                  }
+                  onClick={() => {
+                    const v = editorView.current,
+                      c = transport.current;
+                    if (v && c)
+                      void captureSelection(v, c)
+                        .then((at) =>
+                          c.operation("stash.restore", {
+                            doc: id,
+                            item: item.id,
+                            at: { ...at, to: at.from },
+                          }),
+                        )
+                        .catch((e) => setError(String(e)));
+                  }}
                 >
-                  {action === "keep"
-                    ? "Keep"
-                    : action === "ghost"
-                      ? "Keep and ghost the rest"
-                      : action === "prev"
-                        ? "↑"
-                        : "↓"}
+                  Insert
                 </button>
-              ))}
-            </article>
-          ))}
-          <h3>Stash</h3>
-          <button
-            onClick={() => {
-              const v = editorView.current,
-                c = transport.current;
-              if (v && c)
-                void captureSelection(v, c)
-                  .then((at) => c.operation("stash.add", { doc: id, at }))
-                  .catch((e) => setError(String(e)));
-            }}
-          >
-            Stash selection
-          </button>
-          {stash.map((item) => (
-            <article className="stash-item" key={item.id}>
-              <pre>{item.text}</pre>
-              <button
-                onClick={() => {
-                  const v = editorView.current,
-                    c = transport.current;
-                  if (v && c)
-                    void captureSelection(v, c)
-                      .then((at) =>
-                        c.operation("stash.restore", {
-                          doc: id,
-                          item: item.id,
-                          at: { ...at, to: at.from },
-                        }),
-                      )
-                      .catch((e) => setError(String(e)));
-                }}
-              >
-                Insert
-              </button>
-            </article>
-          ))}
+              </article>
+            ))}
+          </div>
           <h3>Block usages</h3>
           {inspection?.blocks.map((block, i) => (
             <article className="chip" key={i}>
@@ -395,6 +426,24 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
           {panels}
         </aside>
       </div>
+      <footer className="statusbar" aria-label="Status bar">
+        <span data-testid="word-count">{words} words</span>
+        <p role="status">{status}</p>
+        {kind && <span data-testid="kind">{kind.kind}</span>}
+        {kind?.warnings.map((warning) => (
+          <span className="warning" data-testid="kind-warning" key={warning}>
+            {warning}
+          </span>
+        ))}
+        {!zen && soft > 0 && (
+          <span data-testid="soft-count">
+            {soft} {soft === 1 ? "note" : "notes"}
+          </span>
+        )}
+        <button aria-pressed={zen} onClick={toggleZen} title="Zen (⌘⇧.)">
+          Zen
+        </button>
+      </footer>
       <details>
         <summary>Workspace actions</summary>
         <p>Keystrokes: ⌘Z / Ctrl+Z. Operation undo uses the separate button above.</p>

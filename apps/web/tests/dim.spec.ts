@@ -52,6 +52,15 @@ try {
   await editor.press("ControlOrMeta+a");
   await editor.press("ControlOrMeta+.");
   await expect(page.locator(".cm-dim")).toHaveCount(1);
+  // Mod-Shift-. toggles zen and leaves dim alone; Mod-. stays with dim.
+  const zen = page.getByRole("button", { name: "Zen", exact: true });
+  await editor.press("ControlOrMeta+Shift+Period");
+  await expect(zen).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".cm-dim")).toHaveCount(1);
+  await editor.press("ControlOrMeta+Shift+Period");
+  await expect(zen).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".cm-dim")).toHaveCount(1);
+  expect(JSON.parse(cli("cat", "editor", "--json")).dim).toHaveLength(1);
   await page.getByRole("button", { name: "Undo operation", exact: true }).click();
   await expect(page.locator(".cm-dim")).toHaveCount(0);
   await editor.press("ControlOrMeta+a");

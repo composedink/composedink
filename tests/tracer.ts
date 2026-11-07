@@ -61,6 +61,9 @@ const env = {
   ...process.env,
   COMPOSED_HOME: home,
   COMPOSED_TOKEN: releaseToken ?? "local-test-token",
+  // The local artifact server (plan 16) refuses to start without a bootstrap token while it has
+  // no account; the tracer never signs in.
+  COMPOSED_BOOTSTRAP_TOKEN: "tracer-bootstrap",
   VP_NODE_VERSION: "22.22.3",
 };
 async function port() {
@@ -252,12 +255,12 @@ try {
     await expect
       .poll(async () => {
         try {
-          return (await fetch(`${serverUrl}/`)).status;
+          return (await fetch(`${serverUrl}/healthz`)).status;
         } catch {
           return 0;
         }
       })
-      .toBe(400);
+      .toBe(200);
   const sidecarPath = join(example, "content/tracer/composed.lock.json");
   const sidecarBytes = await readFile(sidecarPath, "utf8");
   await rm(sidecarPath);

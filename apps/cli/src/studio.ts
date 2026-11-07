@@ -14,6 +14,16 @@ import {
   refreshPreviews,
   previewTargets,
 } from "@composedink/core/node";
+/** Socket clients other than the editor label themselves; only agent names are accepted. */
+const agent = (by: unknown) =>
+  by &&
+  typeof by === "object" &&
+  "kind" in by &&
+  by.kind === "agent" &&
+  "name" in by &&
+  (by.name === "cli" || by.name === "mcp")
+    ? { kind: "agent" as const, name: by.name }
+    : { kind: "agent" as const, name: "cli" };
 export async function studio(home: string) {
   await mkdir(home, { recursive: true });
   const port = Number(process.env.COMPOSED_PORT ?? 4747);
@@ -208,8 +218,8 @@ export async function studio(home: string) {
               const result = frame.undo
                 ? await undoSession(a, session)
                 : frame.human
-                  ? await run(frame.name, frame.input, session)
-                  : await run(frame.name, frame.input);
+                  ? await run(frame.name, frame.input, session, undefined, { kind: "human" })
+                  : await run(frame.name, frame.input, undefined, undefined, agent(frame.by));
               if (
                 result &&
                 typeof result === "object" &&

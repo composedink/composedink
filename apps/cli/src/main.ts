@@ -189,6 +189,39 @@ try {
       case "stash.list":
         input = { doc: positional[0] };
         break;
+      case "thread.open":
+        input = {
+          id: positional[0],
+          base: option("--base"),
+          quote: option("--quote"),
+          text: option("--text"),
+          ...(values.includes("--question") ? { question: option("--question") } : {}),
+        };
+        break;
+      case "thread.reply":
+        input = { id: positional[0], thread: positional[1], text: option("--text") };
+        break;
+      case "thread.resolve":
+        input = { id: positional[0], thread: positional[1] };
+        break;
+      case "thread.list":
+        input = {
+          id: positional[0],
+          ...(values.includes("--state") ? { state: option("--state") } : {}),
+        };
+        break;
+      case "feedback.request": {
+        const questions = values.flatMap((v, i) => (v === "--question" ? [values[i + 1]] : []));
+        input = {
+          id: positional[0],
+          to: values.flatMap((v, i) => (v === "--to" ? [values[i + 1]] : [])),
+          ...(questions.length ? { questions } : {}),
+        };
+        break;
+      }
+      case "feedback.answers":
+        input = { id: positional[0], request: positional[1] };
+        break;
       case "deps.add": {
         const [id, version] = positional[2].split("@");
         input = { doc: positional[0], tag: positional[1], component: id, version };

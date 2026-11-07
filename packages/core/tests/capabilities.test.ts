@@ -80,3 +80,58 @@ it("new mutations have durable receipts and session inverses including detached 
     await rm(home, { recursive: true, force: true });
   }
 });
+it("thread and feedback ops reach MCP; attribution is context, never an input or a capability", async () => {
+  const names = mcpRegistry.map((t) => t.name);
+  expect(names).toEqual(
+    expect.arrayContaining([
+      "thread_open",
+      "thread_reply",
+      "thread_resolve",
+      "thread_list",
+      "feedback_request",
+      "feedback_answers",
+    ]),
+  );
+  expect(names.some((n) => n.startsWith("share"))).toBe(false);
+  const open = mcpRegistry.find((t) => t.name === "thread_open")!;
+  expect(Object.keys(open.inputSchema.properties)).not.toContain("by");
+  expect(() =>
+    open.parse({ id: "p", base: "b", quote: "q", text: "t", by: { kind: "human" } }),
+  ).toThrow();
+  const home = await mkdtemp(join(tmpdir(), "attribution-"));
+  try {
+    const a = await authority(await openStore(home));
+    const run = bind(a);
+    await run("doc.create", { slug: "p" });
+    const base = a.read("p").base;
+    await run(
+      "doc.apply",
+      { doc: "p", base, text: "Prose.", mode: "direct", by: { kind: "human" } },
+      undefined,
+      undefined,
+      { kind: "human" },
+    );
+    const before = a.read("p");
+    // Claiming to be human through attribution still yields only a proposal over MCP.
+    const apply = mcpRegistry.find((t) => t.name === "doc_apply")!;
+    const input = apply.parse({
+      doc: "p",
+      base: before.base,
+      text: "Agent.",
+      by: { kind: "human" },
+    });
+    await run("doc.apply", input, undefined, undefined, { kind: "human" });
+    expect(a.read("p").text).toBe("Prose.");
+    expect(a.read("p").alts).toHaveLength(1);
+    await run(
+      "thread.open",
+      open.parse({ id: "p", base: before.base, quote: "Prose", text: "Comment only." }),
+      undefined,
+      undefined,
+      { kind: "human" },
+    );
+    expect(a.read("p").text).toBe("Prose.");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});

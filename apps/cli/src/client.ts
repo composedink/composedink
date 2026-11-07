@@ -22,14 +22,28 @@ export async function connect(home: string) {
   });
   return socket;
 }
-export async function call(home: string, name: string, input: unknown, studioRequired = false) {
+/** Attribution an adapter supplies for thread messages and requests; it grants nothing. */
+export type Attribution = { kind: "agent"; name: "cli" | "mcp" };
+export async function call(
+  home: string,
+  name: string,
+  input: unknown,
+  studioRequired = false,
+  by: Attribution = { kind: "agent", name: "cli" },
+) {
   if (name === "export" || studioRequired) {
     await ensureStudio(home);
   } else {
     const lock = await acquire(home, "inline");
     if (lock.kind === "owner")
       try {
-        return await bind(await authority(await openStore(home)))(name, input);
+        return await bind(await authority(await openStore(home)))(
+          name,
+          input,
+          undefined,
+          undefined,
+          by,
+        );
       } finally {
         await lock.close();
       }
@@ -54,7 +68,7 @@ export async function call(home: string, name: string, input: unknown, studioReq
         if (result.error) reject(new Error(result.error));
         else resolve(result.result);
       });
-      socket.send(JSON.stringify({ request: 1, name, input }));
+      socket.send(JSON.stringify({ request: 1, name, input, by }));
     });
   } finally {
     socket.close();

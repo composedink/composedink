@@ -19,6 +19,8 @@ export async function mcp() {
         composedHome(),
         tool.operation,
         tool.parse(request.params.arguments ?? {}),
+        false,
+        { kind: "agent", name: "mcp" },
       );
       return { content: [{ type: "text" as const, text: JSON.stringify(result ?? null) }] };
     } catch (error) {

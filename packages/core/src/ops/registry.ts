@@ -11,7 +11,15 @@ import { apply } from "../model/apply.ts";
 import { propose, flip, resolve } from "../model/alternatives.ts";
 import { ghost } from "../model/marks.ts";
 import { cut, restore, stashList } from "../model/stash.ts";
-import { authorSchema, selectionSchema } from "../model/selection.ts";
+import { authorSchema, selectionSchema, type Author } from "../model/selection.ts";
+import {
+  openThread,
+  replyThread,
+  resolveThread,
+  threadState,
+  threadViews,
+} from "../model/threads.ts";
+import { createRequest, feedbackRequest, hasQuestion, recipientSchema } from "../model/feedback.ts";
 import { inspect } from "../inspect.ts";
 import { payloadHash } from "../store/receipts.ts";
 import { preview, refreshPreviews } from "../export.ts";
@@ -21,6 +29,7 @@ import { createPost, isPost, setKind } from "../model/text.ts";
 import {
   creation,
   documentSettings,
+  resolveKind,
   effectiveRules,
   kindExists,
   kindFiles,
@@ -35,12 +44,17 @@ import { pinDependency, addDependency } from "../model/deps.ts";
 import { componentTemplate } from "../model/component-template.ts";
 const slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 const id = z.string().regex(/^composed:[a-z0-9-]+\/[a-z0-9-]+$/);
+/**
+ * Who is acting, supplied by the adapter (studio human, CLI/MCP agent, model review). It labels
+ * thread messages and requests; it is never an input and grants no capability.
+ */
+export type Context = { by: Author };
 function operation<S extends z.ZodType>(
   name: string,
   input: S,
   mutation: boolean,
   cli: readonly string[],
-  run: (a: Authority, i: z.output<S>) => unknown,
+  run: (a: Authority, i: z.output<S>, context: Context) => unknown,
 ) {
   const schema = mutation
     ? z.intersection(input, z.object({ request: z.string().min(1).optional() }))
@@ -50,7 +64,7 @@ function operation<S extends z.ZodType>(
     input: schema,
     mutation,
     cli,
-    run: (a: Authority, i: unknown) => run(a, input.parse(i)),
+    run: (a: Authority, i: unknown, context: Context) => run(a, input.parse(i), context),
   };
 }
 export const registry = [
@@ -204,6 +218,94 @@ export const registry = [
     },
   ),
   operation("kind.list", z.object({}), false, ["kind", "list"], (a) => listKinds(a.store.home)),
+  operation(
+    "thread.open",
+    z.object({
+      id: z.string(),
+      base: z.string(),
+      quote: z.string().min(1),
+      text: z.string().min(1),
+      question: z.string().optional(),
+    }),
+    true,
+    ["thread", "open"],
+    (a, i, c) =>
+      a.change(i.id, (d) => {
+        if (!isPost(d)) throw Error(`InvalidInvariant: ${i.id} is not a post`);
+        if (i.question !== undefined && !hasQuestion(d, i.question))
+          throw Error(`UnknownQuestion: ${i.question} is not a question of a request in ${i.id}`);
+        const thread = openThread(
+          d,
+          { base: i.base, quote: i.quote },
+          { text: i.text, by: c.by, question: i.question },
+        );
+        return { thread };
+      }),
+  ),
+  operation(
+    "thread.reply",
+    z.object({ id: z.string(), thread: z.string(), text: z.string().min(1) }),
+    true,
+    ["thread", "reply"],
+    (a, i, c) =>
+      a.change(i.id, (d) => ({
+        thread: i.thread,
+        state: replyThread(d, i.thread, { by: c.by, text: i.text }),
+      })),
+  ),
+  operation(
+    "thread.resolve",
+    z.object({ id: z.string(), thread: z.string() }),
+    true,
+    ["thread", "resolve"],
+    (a, i) => a.change(i.id, (d) => ({ thread: i.thread, state: resolveThread(d, i.thread) })),
+  ),
+  operation(
+    "thread.list",
+    z.object({ id: z.string(), state: threadState.optional() }),
+    false,
+    ["thread", "list"],
+    (a, i) => threadViews(a.get(i.id), i.state),
+  ),
+  operation(
+    "feedback.request",
+    z.object({
+      id: z.string(),
+      questions: z.array(z.string().min(1)).min(1).optional(),
+      to: z.array(recipientSchema).min(1),
+    }),
+    true,
+    ["feedback", "request"],
+    async (a, i, c) => {
+      const doc = a.get(i.id);
+      if (!isPost(doc)) throw Error(`InvalidInvariant: ${i.id} is not a post`);
+      if (i.to.some((to) => to !== "model"))
+        throw Error("SignInRequired: sign in to share; link recipients need a server session (P2)");
+      const questions =
+        i.questions ??
+        (await resolveKind(a.store.home, String(doc.getMap("meta").get("kind")))).kind.config
+          .questions;
+      if (!questions.length)
+        throw Error(
+          `InvalidInvariant: kind has no feedback questions; fix: pass --question or add questions to kind.json`,
+        );
+      const request = crypto.randomUUID();
+      const created = await a.change(i.id, (d) =>
+        createRequest(d, { by: c.by, questions, to: i.to }, request),
+      );
+      return { request, state: created.state };
+    },
+  ),
+  operation(
+    "feedback.answers",
+    z.object({ id: z.string(), request: z.string() }),
+    false,
+    ["feedback", "answers"],
+    (a, i) => {
+      const { questions, state } = feedbackRequest(a.get(i.id), i.request);
+      return { request: i.request, questions, state };
+    },
+  ),
   operation("kind.read", z.object({ kind: kindId }), false, ["kind", "read"], (a, i) =>
     kindFiles(a.store.home, i.kind),
   ),
@@ -313,7 +415,13 @@ async function performRewrite(
   });
 }
 export function bind(a: Authority) {
-  return async (name: string, input: unknown, session?: string, signal?: AbortSignal) => {
+  return async (
+    name: string,
+    input: unknown,
+    session?: string,
+    signal?: AbortSignal,
+    by: Author = { kind: "agent", name: "cli" },
+  ) => {
     const op = registry.find((op) => op.name === name);
     if (!op) throw new Error(`Unknown operation: ${name}`);
     const parsed = op.input.parse(input);
@@ -332,7 +440,7 @@ export function bind(a: Authority) {
           ? a.sessionOperation(session, execute)
           : execute();
       });
-    if (name !== "alt.rewrite") return commit(async () => op.run(a, parsed));
+    if (name !== "alt.rewrite") return commit(async () => op.run(a, parsed, { by }));
     const prior = await a.serialize(async () =>
       request ? a.store.journal.lookup(request, hash) : undefined,
     );

@@ -5,6 +5,7 @@ import {
   type Diagnostic,
   type LintSettings,
   type LintSnapshot,
+  type Sentence,
 } from "@composedink/lint";
 import type { LintReply, LintRequest } from "@composedink/lint/worker";
 import { diagnosticGutter, diagnosticKey, diagnosticMarks, setDiagnostics } from "./diagnostics";
@@ -35,9 +36,14 @@ export class LatestLint {
       : undefined;
   }
 }
+/** The sentences of the newest accepted result and the document base they were measured at. */
+export interface Measured {
+  readonly base: string;
+  readonly sentences: readonly Sentence[];
+}
 export function lintFeedback(
   doc: LoroDoc,
-  show: (diagnostics: Diagnostic[], base: string) => void,
+  show: (diagnostics: Diagnostic[], base: string, measured: Measured | undefined) => void,
   fail: (message: string) => void,
 ) {
   const worker = new Worker(new URL("./lint-worker.ts", import.meta.url), { type: "module" });
@@ -47,6 +53,8 @@ export function lintFeedback(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   let current: Diagnostic[] = [];
+  // Kept across edits so the sparkline stays drawn; consumers compare its base before jumping.
+  let measured: Measured | undefined;
   let blocks: LintSnapshot["blocks"] = [];
   let blocksBase = "";
   // Effective rules come from the authority (rules.effective); lint waits until they arrive.
@@ -56,7 +64,7 @@ export function lintFeedback(
   const render = () => {
     const visible = current.filter((d) => !dismissed.has(diagnosticKey(d)));
     view?.dispatch({ effects: setDiagnostics.of(zen ? [] : visible) });
-    show(visible, lintBase(doc));
+    show(visible, lintBase(doc), measured);
   };
   const schedule = () => {
     latest.invalidate();
@@ -84,6 +92,7 @@ export function lintFeedback(
     const result = settings && latest.accept(event.data, lintBase(doc), configIdentity(settings));
     if (result) {
       current = result.diagnostics;
+      measured = { base: result.base, sentences: result.sentences };
       render();
     } else if ("error" in event.data) fail(event.data.error);
   };

@@ -15,7 +15,7 @@ export const diagnosticMarks = StateField.define({
             .filter((d) => d.severity !== "soft" && inRange(d, tr.newDoc.length))
             .map((d) =>
               Decoration.mark({
-                class: "cm-lint",
+                class: `cm-lint cm-lint-${d.severity}`,
                 attributes: {
                   title: d.message,
                   "data-code": d.code,

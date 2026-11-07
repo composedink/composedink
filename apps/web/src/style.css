@@ -99,6 +99,21 @@ button {
   text-decoration: underline wavy #ba6200;
   text-underline-offset: 3px;
 }
+.cm-lint-error {
+  text-decoration-color: #c0261a;
+}
+.diagnostic[data-severity="error"] {
+  border-left-color: #c0261a;
+}
+.diagnostic[data-severity="soft"] {
+  border-left-color: #8a8f6a;
+}
+.diagnostic .severity {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #5f6b64;
+}
 .diagnostic {
   border-left: 3px solid #ba6200;
   padding-left: 0.75rem;
@@ -120,10 +135,10 @@ button {
 .statusbar [role="status"] {
   margin: 0;
 }
-.statusbar button {
+.statusbar .zen-toggle {
   margin-left: auto;
 }
-.statusbar button[aria-pressed="true"] {
+.statusbar .zen-toggle[aria-pressed="true"] {
   background: #25332e;
   color: #faf9f5;
 }
@@ -133,4 +148,69 @@ button {
 .cm-soft-gutter {
   min-width: 1em;
   color: #8a8f6a;
+}
+
+.sparkline-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sparkline {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 1.5rem;
+  min-width: 2rem;
+  max-width: 360px;
+  padding: 2px;
+  border: 1px solid #b6c4ba;
+  background: white;
+}
+.sparkline[data-stale="true"] {
+  opacity: 0.5;
+}
+.sparkline .bar {
+  flex: 1 1 0;
+  min-width: 1px;
+  max-width: 6px;
+  background: #6d8a78;
+}
+.sparkline .bar[data-active="true"] {
+  background: #25332e;
+}
+.sparkline-hover {
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sentence-list {
+  position: absolute;
+  bottom: 2.25rem;
+  left: 0;
+  z-index: 10;
+  width: min(32rem, 90vw);
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.5rem 0.5rem 0.5rem 2.5rem;
+  border: 1px solid #b6c4ba;
+  background: #faf9f5;
+}
+.sentence-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 0.25rem;
+}
+.sentence-list button:hover,
+.sentence-list button:focus-visible {
+  background: #e8eee9;
+}
+.sentence-list .words {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }

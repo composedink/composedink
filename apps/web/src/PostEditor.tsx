@@ -1,6 +1,7 @@
 import { rewriteKeys, rewriteSelection } from "./editor/rewrite";
-import { lintFeedback, lintBase } from "./editor/lint";
-import type { Diagnostic, LintSettings, LintSnapshot } from "@composedink/lint";
+import { lintFeedback, lintBase, type Measured } from "./editor/lint";
+import type { Diagnostic, LintSettings, LintSnapshot, Sentence } from "@composedink/lint";
+import { SentenceSparkline } from "./SentenceSparkline";
 import { parseSchema } from "@composedink/blocks";
 import { dimControls } from "./editor/dim";
 import { readZen, wordCount, writeZen, zenKeys } from "./editor/zen";
@@ -24,6 +25,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   const editorView = useRef<EditorView | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const diagnosticBase = useRef("");
+  const [measured, setMeasured] = useState<Measured & { current: boolean }>();
   const feedback = useRef<ReturnType<typeof lintFeedback> | null>(null);
   const [stash, setStash] = useState<{ id: string; text: string }[]>([]);
   const transport = useRef<EditorTransport | null>(null);
@@ -57,9 +59,10 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     doc.configTextStyle({ dim: { expand: "none" } });
     const lint = lintFeedback(
       doc,
-      (items, base) => {
+      (items, base, sentences) => {
         setDiagnostics(items);
         diagnosticBase.current = base;
+        setMeasured(sentences && { ...sentences, current: sentences.base === base });
       },
       setError,
     );
@@ -241,6 +244,17 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
     };
   }, [id]);
   const soft = diagnostics.filter((d) => d.severity === "soft").length;
+  // Offsets are only valid at the base they were measured at; never select unrelated prose.
+  const jump = (sentence: Sentence, base: string) => {
+    const v = editorView.current,
+      c = transport.current;
+    if (!v || !c || lintBase(c.doc) !== base || sentence.to > v.state.doc.length) return;
+    v.dispatch({
+      selection: { anchor: sentence.from, head: sentence.to },
+      effects: EditorView.scrollIntoView(sentence.from, { y: "center" }),
+    });
+    v.focus();
+  };
   async function action(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
@@ -309,7 +323,9 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
                   data-from={d.from}
                   data-to={d.to}
                 >
-                  <p>{d.message}</p>
+                  <p>
+                    <span className="severity">{d.severity}</span> {d.message}
+                  </p>
                   <button onClick={() => feedback.current?.dismiss(d)}>Dismiss</button>
                   {d.replacement !== undefined && (
                     <button
@@ -440,7 +456,14 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
             {soft} {soft === 1 ? "note" : "notes"}
           </span>
         )}
-        <button aria-pressed={zen} onClick={toggleZen} title="Zen (⌘⇧.)">
+        {!zen && measured && (
+          <SentenceSparkline
+            sentences={measured.sentences}
+            current={measured.current}
+            onJump={(sentence) => jump(sentence, measured.base)}
+          />
+        )}
+        <button className="zen-toggle" aria-pressed={zen} onClick={toggleZen} title="Zen (⌘⇧.)">
           Zen
         </button>
       </footer>

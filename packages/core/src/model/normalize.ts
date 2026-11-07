@@ -41,7 +41,14 @@ export function dissolveCrossed(doc: LoroDoc, before: LoroDoc) {
       pos += d.delete;
     }
   }
+  const entry = (d: LoroDoc, id: string) => {
+    const v = d.getMap("alts").get(id);
+    return JSON.stringify(v instanceof LoroMap ? v.toJSON() : v);
+  };
   for (const a of alternatives(before)) {
+    // Typing never writes the alts map; an entry rewritten in the same import is an operation
+    // (a synced flip replaces its own range) and keeps its alternative.
+    if (entry(doc, a.id) !== entry(before, a.id)) continue;
     const r = interval(before, a);
     if (
       edits.some(

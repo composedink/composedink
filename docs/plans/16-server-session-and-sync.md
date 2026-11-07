@@ -143,7 +143,7 @@
   These are the author's own and normalization ops: pulled ops are already inside `vv`, so they are never echoed back. Kinds, rulesets, receipts and cursors never sync.
 
 - [x] Any 401 means: delete `session.secret`, rewrite `session.json` to `{server}`, stop the loop and publish signed-out status. Network errors keep the session and retry on the next trigger. After each completed cycle, write `lastSyncAt`. Studio broadcasts `{session: status}` to every socket on each status change.
-- [ ] (all checks pass except alternatives surviving a synced flip; see Implementation log, discrepancy 1) `packages/core/tests/sync.test.ts` uses two authorities on temporary homes against a spawned server and checks:
+- [x] `packages/core/tests/sync.test.ts` uses two authorities on temporary homes against a spawned server and checks:
   - a post typed on A appears on B, and a component created on B appears on A;
   - a flip on A and concurrent typing on B converge to the same text, alternatives and threads;
   - lost acknowledgement: an HTTP proxy in the test forwards the first push and then destroys the client socket, the retry answers `duplicate: true`, and the server row count grows by exactly 1;
@@ -221,3 +221,16 @@ keeps the alternative. A fix for Lachlan to decide: `dissolveCrossed` skips alte
 map entry changed in the same import (an operation such as a flip, not typing), or synced imports
 skip `dissolveCrossed` and rely on `normalizeAlternatives`. The Task 5 test box and Task 6's
 "the flipped version is active" (alternatives identical) stay qualified by this.
+
+### 2026-11-07 — discrepancy 1 resolved
+
+Decision (Lachlan): fix `dissolveCrossed`, not the synced import path. `dissolveCrossed` now
+skips any alternative whose own `alts` map entry changed in the same import: editor typing never
+writes the alts map, so a rewritten entry means an operation such as a flip replaced its own
+range, not typing across it. The `it.fails` marker in `packages/core/tests/sync.test.ts` is now a
+passing `it`, and the Task 5 and Task 6 alternative checks hold unqualified.
+
+Evidence: `vp test run tests/sync.test.ts` in `packages/core` — 6 passed, including "keeps the
+alternative after a synced flip"; `vp run sync-e2e` PASS with both alternatives present in
+`test-results/plan-16-sync-proof.json` (`active: 1, count: 2`, text "Flipped by A." /
+"Flipped by B." live); `vp check --fix` clean; `vp run -r test` 9/9 successful.

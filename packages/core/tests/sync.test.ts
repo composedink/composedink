@@ -300,11 +300,8 @@ it("re-pushes everything after the server loses its sync storage", async () => {
   expect(fresh.a.read("p").text).toMatch(/\nSurvives a reset\.$/);
 }, 60_000);
 
-// Discrepancy (plan 16 implementation log, 2026-11-07): posts import synced updates through
-// importTyping, whose dissolveCrossed reads a remote flip's whole-range replacement as typing
-// across the range and stashes the alternative on the receiving device. Both devices converge,
-// but without the alternative. This marker fails once the import keeps it.
-it.fails("keeps the alternative after a synced flip", async () => {
+// A remote flip rewrites the alt entry in the same import; dissolveCrossed keeps it.
+it("keeps the alternative after a synced flip", async () => {
   const { A, B } = await world();
   await A.run("doc.create", { slug: "p" });
   await type(A, "p", "Alpha beta gamma.");

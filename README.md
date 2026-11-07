@@ -19,6 +19,7 @@ on npm; the artifact server runs at `https://cdn.composed.ink` (staging:
 - `docs/design/grounding.md` — what was decided before design began
 - `docs/design/composed.md` — the design package
 - `docs/design/writing-process.md` — phase 1.5: kinds, rulesets, measurements, feedback
+- `docs/design/sync-and-sharing.md` — P2: server session, device sync, shared preview links
 - `docs/design/arena-decision.md` — how the design was chosen and reviewed
 - `docs/plans/README.md` — the implementation plan index with per-plan status
 - `deploy/README.md` — deployment runbook

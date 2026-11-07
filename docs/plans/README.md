@@ -93,6 +93,8 @@ its own conventions when Lachlan is ready. Nothing in this repo changes consumer
 - Prose masking limits: four-space-indented lines read as code and count as a visual, `snake_case` counts as two words, setext headings are not recognised (14).
 - After each edit the editor's background check triggers a second lint that clears diagnostics until it returns (06/13).
 
+**P2 (sync and sharing):** `docs/design/sync-and-sharing.md`, plans 16 (server session, device pairing, update relay, authority sync loop) and 17 (shared preview links with named-guest comments).
+
 **Later phases:** P2 sync/accounts/device tokens/ideas/remote MCP/server bundling;
 P3 sharing/comments/component.render and sandboxed usercontent in editor/preview/share
 hosts; P4 mobile after a webview spike plus on-device AI; P5 listing/npm export of

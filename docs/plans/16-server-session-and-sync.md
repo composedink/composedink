@@ -234,3 +234,30 @@ Evidence: `vp test run tests/sync.test.ts` in `packages/core` — 6 passed, incl
 alternative after a synced flip"; `vp run sync-e2e` PASS with both alternatives present in
 `test-results/plan-16-sync-proof.json` (`active: 1, count: 2`, text "Flipped by A." /
 "Flipped by B." live); `vp check --fix` clean; `vp run -r test` 9/9 successful.
+
+### 2026-11-07 — verification (boss, after the implementer was interrupted following Task 6)
+
+Two regressions found by the gates and fixed:
+
+- `apps/web/tests/measurements.spec.ts`: the session status widened the status bar, so a long
+  sparkline hover text wrapped the session span and moved the bars every frame (Playwright
+  "element is not stable"). Status bar items no longer wrap or shrink; only the hover text
+  ellipsizes (`style.css`).
+- `tests/tracer.ts`: the local artifact server now needs `COMPOSED_BOOTSTRAP_TOKEN` and answers
+  404 at `/`; the tracer sets the token and polls `/healthz` for 200.
+
+Gate results (all run in the foreground, sequentially):
+
+- `vp check --fix`: pass, 212 files, no warnings.
+- `vp run -r test`: 9/9 successful (core 33 files / 154 tests, lint 149, cli 9, server 22, web 10).
+- `vp run composed-server#bundle`: `dist/main.mjs` 206 kB, `grep -c "@rsbuild\|@mdx-js"` → 0.
+- `vp run sync-e2e`: PASS — two homes converge typing/flip/thread both ways, lost ack stored once
+  (`duplicate: true` on retry, 1 row), revoked device signed out; both alternatives present with
+  the flipped version active (`test-results/plan-16-sync-proof.json`).
+- `vp run composed-web#e2e`: 9/9 specs PASS, including `session-status.spec.ts`.
+- `vp run composed-web#build`: built.
+- Docker: image built; `/app/node_modules` holds only `loro-crdt` and `.pnpm`; the `find` for
+  `@rsbuild`, `@mdx-js`, `vite-plus` prints nothing; `/healthz` → `ok`; `/data/server.db` present.
+- `vp run host-tanstack#e2e`: all assertions true (`6-ms` 875, `code-save-ms` 811).
+- `vp run composed-desktop#package` then `composed-desktop#smoke`: `signedOutStatus: true`, packaged
+  studio, persistence across relaunch, no remotes (`test-results/plan-11-smoke-1794067655972`).

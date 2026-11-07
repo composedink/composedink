@@ -3,7 +3,7 @@ import { z } from "zod";
 import { KEYS } from "./keys.ts";
 import { threadAuthorSchema, type ThreadAuthor } from "./threads.ts";
 
-/** Recipients: the model now; `link:<LinkId>` is reserved for P2 shared preview links. */
+/** Recipients: the model, or a shared preview link `link:<LinkId>` whose guests answer. */
 export const recipientSchema = z.union([z.literal("model"), z.string().regex(/^link:.+/)]);
 export const reviewAnswerSchema = z.object({
   question: z.string(),
@@ -61,6 +61,17 @@ export function createRequest(
   doc.commit();
   return request;
 }
+/** Addresses a pending request to one more recipient (a new shared link takes its questions). */
+export function addRecipient(doc: LoroDoc, id: string, recipient: z.infer<typeof recipientSchema>) {
+  const request = feedbackRequest(doc, id);
+  if (request.state.status !== "pending")
+    throw Error(`InvalidInvariant: request ${id} is already ${request.state.status}`);
+  if (request.to.includes(recipient)) return request;
+  const next = requestSchema.parse({ ...request, to: [...request.to, recipient] });
+  doc.getMap(KEYS.requests).set(id, next);
+  doc.commit();
+  return next;
+}
 /** Answers live in the request's state; there is no separate answers container. */
 export function settleRequest(doc: LoroDoc, id: string, state: RequestState) {
   const request = feedbackRequest(doc, id);
@@ -79,9 +90,15 @@ export const pendingRequests = (doc: LoroDoc) =>
     .entries()
     .filter(([, value]) => requestSchema.safeParse(value).data?.state.status === "pending")
     .map(([id]) => id);
-/** Pending requests nobody is answering (the authority restarted) fail with a retry instruction. */
+/**
+ * Pending model requests: only the authority that asked the provider answers them, so after a
+ * restart nobody is. Link-only requests stay pending; guests answer them on the link page.
+ */
+export const orphanedRequests = (doc: LoroDoc) =>
+  pendingRequests(doc).filter((id) => feedbackRequest(doc, id).to.includes("model"));
+/** Pending model requests nobody is answering (the authority restarted) fail with a retry instruction. */
 export function failOrphaned(doc: LoroDoc) {
-  const orphaned = pendingRequests(doc).map((id) => ({ id }));
+  const orphaned = orphanedRequests(doc).map((id) => ({ id }));
   for (const r of orphaned)
     settleRequest(doc, r.id, {
       status: "failed",

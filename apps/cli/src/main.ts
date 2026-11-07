@@ -242,6 +242,22 @@ try {
       case "sync.now":
         input = positional[0] ? { id: positional[0] } : {};
         break;
+      case "share.create": {
+        const questions = values.flatMap((v, i) => (v === "--question" ? [values[i + 1]] : []));
+        input = {
+          id: positional[0],
+          mode: values.includes("--live") ? "live" : "pinned",
+          ...(values.includes("--expires") ? { expiresIn: option("--expires") } : {}),
+          ...(questions.length ? { questions } : {}),
+        };
+        break;
+      }
+      case "share.list":
+        input = { id: positional[0] };
+        break;
+      case "share.revoke":
+        input = { link: positional[0] };
+        break;
       case "deps.add": {
         const [id, version] = positional[2].split("@");
         input = { doc: positional[0], tag: positional[1], component: id, version };

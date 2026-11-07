@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
-export type StateKind = "receipt" | "history" | "intent" | "sync";
+/** `link`: key linkId → `{url, doc}` for links this device created (tokens are never recoverable). */
+export type StateKind = "receipt" | "history" | "intent" | "sync" | "link";
 function state<T>(home: string, run: (db: DatabaseSync) => T) {
   const db = new DatabaseSync(join(home, "state.db"));
   try {

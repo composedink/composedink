@@ -31,8 +31,8 @@ export async function call(
   studioRequired = false,
   by: Attribution = { kind: "agent", name: "cli" },
 ) {
-  // Export and sync run only inside studio.
-  if (name === "export" || name === "sync.now" || studioRequired) {
+  // Export, sync and sharing (which syncs first) run only inside studio.
+  if (name === "export" || name === "sync.now" || name === "share.create" || studioRequired) {
     await ensureStudio(home);
   } else {
     const lock = await acquire(home, "inline");

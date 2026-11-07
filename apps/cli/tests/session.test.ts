@@ -146,6 +146,30 @@ it("signs homes in and out, pairs devices and refuses signed-out sync with the f
     const feedback = await b.fails("feedback", "request", "p", "--to", "link:x");
     expect(feedback.code).toBe(1);
     expect(feedback.stderr).toContain(fix);
+    const share = await b.fails("share", "p");
+    expect(share.code).toBe(1);
+    expect(share.stderr).toContain(`SignInRequired: not signed in to a composed server; ${fix}`);
+
+    // Signed in: share starts studio (it syncs first), then list and revoke.
+    await a.cli("new", "post", "s");
+    const pinned = await a.cli("share", "s", "--question", "Is the opening clear?");
+    expect(pinned).toMatchObject({
+      mode: "pinned",
+      questions: [{ text: "Is the opening clear?" }],
+      url: expect.stringMatching(new RegExp(`^${server.url}/s/[A-Za-z0-9_-]{43}$`)),
+    });
+    const live = await a.cli("share", "s", "--live", "--expires", "7d");
+    expect(live.mode).toBe("live");
+    expect(live.expiresAt).toBeGreaterThan(Date.now() + 6 * 86_400_000);
+    expect((await fetch(live.url)).status).toBe(200);
+    const listed = await a.cli("share", "list", "s");
+    expect(listed.links).toEqual([
+      expect.objectContaining({ linkId: pinned.link, mode: "pinned", url: pinned.url }),
+      expect.objectContaining({ linkId: live.link, mode: "live", url: live.url }),
+    ]);
+    const revoked = await a.cli("share", "revoke", pinned.link);
+    expect(revoked).toEqual({ link: pinned.link, revokedAt: expect.any(Number) });
+    expect((await fetch(pinned.url)).status).toBe(404);
 
     const client = new Client({ name: "session-test", version: "1" });
     const transport = new StdioClientTransport({
@@ -159,7 +183,15 @@ it("signs homes in and out, pairs devices and refuses signed-out sync with the f
     await client.connect(transport);
     try {
       const names = (await client.listTools()).tools.map((t) => t.name);
-      expect(names).toEqual(expect.arrayContaining(["session_status", "sync_now"]));
+      expect(names).toEqual(
+        expect.arrayContaining([
+          "session_status",
+          "sync_now",
+          "share_create",
+          "share_list",
+          "share_revoke",
+        ]),
+      );
       expect(names.filter((n) => /^(session_login|session_logout|devices_)/.test(n))).toEqual([]);
       const status = await client.callTool({ name: "session_status", arguments: {} });
       expect(JSON.parse((status.content as { text: string }[])[0].text)).toMatchObject({
@@ -175,4 +207,4 @@ it("signs homes in and out, pairs devices and refuses signed-out sync with the f
     await b.close();
     await server.close();
   }
-}, 60_000);
+}, 120_000);

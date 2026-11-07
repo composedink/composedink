@@ -1,4 +1,5 @@
 import { requireSession } from "./session.ts";
+import { activeLinks } from "./share.ts";
 import { z } from "zod";
 import type { Authority } from "./authority.ts";
 import { documentSettings, resolveKind } from "./kinds.ts";
@@ -34,10 +35,13 @@ const retry = "ask again with a new feedback request";
 export async function createFeedback(a: Authority, i: FeedbackInput, by: Author): Promise<Result> {
   const doc = a.get(i.id);
   if (!isPost(doc)) throw Error(`InvalidInvariant: ${i.id} is not a post`);
-  if (i.to.some((to) => to !== "model")) {
-    // Link recipients need a server session, then a shared link (plan 17).
+  const links = i.to.filter((to) => to !== "model").map((to) => to.slice("link:".length));
+  if (links.length) {
+    // Link recipients need a server session and a link of this document that is still active.
     await requireSession(a.store.home);
-    throw Error("UnsupportedRecipient: link recipients need shared links, not available yet");
+    const active = await activeLinks(a.store.home, i.id);
+    for (const link of links)
+      if (!active.has(link)) throw Error(`UnknownLink: ${link}; fix: composed share list ${i.id}`);
   }
   const questions =
     i.questions ??
@@ -122,6 +126,8 @@ async function review(
   });
   if (started.replay !== undefined) return current(a, i.id, started.replay);
   const { id, brief } = started;
+  // Only the model is asked here; link guests answer on the link page, so the request stays pending.
+  if (!i.to.includes("model")) return current(a, i.id, id);
   const completion = `feedback:${id}:answer`;
   const completionHash = payloadHash("feedback.answer", { id: i.id, request: id });
   let outcome: { model: string; answers: Awaited<ReturnType<typeof reviewProvider>> } | Error;

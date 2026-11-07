@@ -92,7 +92,13 @@ it("thread and feedback ops reach MCP; attribution is context, never an input or
       "feedback_answers",
     ]),
   );
-  expect(names.some((n) => n.startsWith("share"))).toBe(false);
+  // Shared links (plan 17) reach MCP; signing in and pairing never do.
+  expect(names.filter((n) => n.startsWith("share")).sort()).toEqual([
+    "share_create",
+    "share_list",
+    "share_revoke",
+  ]);
+  expect(names.filter((n) => /^(session_login|session_logout|devices_)/.test(n))).toEqual([]);
   const open = mcpRegistry.find((t) => t.name === "thread_open")!;
   expect(Object.keys(open.inputSchema.properties)).not.toContain("by");
   expect(() =>

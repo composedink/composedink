@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { authority, openStore, bind } from "../src/node.ts";
 import { replaceText } from "../src/model/text.ts";
 import { openThread } from "../src/model/threads.ts";
+import { evaluateUses } from "../src/export.ts";
+import { validateProjection } from "../src/model/validate.ts";
 it("exports exact MDX and schema-validated locked Markdown, then refreshes on component.write", async () => {
   const home = await mkdtemp(join(tmpdir(), "composed-export-"));
   try {
@@ -22,6 +24,17 @@ it("exports exact MDX and schema-validated locked Markdown, then refreshes on co
     expect(await readFile(join(home, "content/tracer/index.mdx"), "utf8")).toBe(
       a.read("tracer").text,
     );
+    // The extracted usage evaluation is what the lock records, plus each usage's Markdown.
+    const evaluated = await evaluateUses(
+      a,
+      "tracer",
+      validateProjection(a.read("tracer", "clean").text, []),
+      "preview",
+    );
+    expect(evaluated.blocks).toEqual((result as { lock: { blocks: unknown } }).lock.blocks);
+    expect(evaluated.uses).toEqual([
+      { tag: "Hello", node: expect.any(Object), markdown: expect.stringContaining("Lachlan") },
+    ]);
     const restarted = await authority(await openStore(home));
     const resumed = bind(restarted);
     const before = await resumed("component.read", { id });

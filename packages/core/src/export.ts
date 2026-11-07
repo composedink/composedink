@@ -68,8 +68,27 @@ export async function preview(
     base: projected.base,
     view,
     sha256: sha256(text),
-    blocks: {},
+    blocks: (await evaluateUses(a, docId, ast, mode)).blocks,
   };
+  const directory = target;
+  await mkdir(directory, { recursive: true });
+  const lockBytes = JSON.stringify(lock, null, 2) + "\n";
+  await a.exportPair(directory, [text, lockBytes], projected.base, old);
+  return { directory, lock };
+}
+/**
+ * Evaluates every composed usage in a validated projection as export does: release pins must be
+ * published; dev dependencies build, releases come from the artifact server, and each distinct
+ * instance's fallback Markdown runs in the evaluator worker. Returns the lock's blocks and, per
+ * usage, its JSX node and fallback Markdown (shared links key these by `renderKey`).
+ */
+export async function evaluateUses(
+  a: Authority,
+  docId: string,
+  ast: unknown,
+  mode: "release" | "preview",
+) {
+  const blocks: ExportLock["blocks"] = {};
   const deps = a.get(docId).getMap(KEYS.deps).toJSON();
   if (mode === "release")
     for (const dep of Object.values(deps)) {
@@ -94,6 +113,7 @@ export async function preview(
     if (Array.isArray(node.children)) node.children.forEach(walk);
   }
   walk(ast);
+  const evaluated: Array<{ tag: string; node: Record<string, unknown>; markdown: string }> = [];
   for (const { tag, node } of uses) {
     const dep = deps[tag];
     if (
@@ -121,7 +141,7 @@ export async function preview(
         );
     const props = applyDefaults(built.props, jsxProps(node.attributes));
     const hash = sha256(canonical(props));
-    const descriptor = (lock.blocks[tag] ??= {
+    const descriptor = (blocks[tag] ??= {
       id: dep.id,
       version: built.version,
       kind: built.kind,
@@ -135,12 +155,9 @@ export async function preview(
         props,
         markdown: await evaluateFallback(built.fallback, props),
       };
+    evaluated.push({ tag, node, markdown: descriptor.instances[hash].markdown });
   }
-  const directory = target;
-  await mkdir(directory, { recursive: true });
-  const lockBytes = JSON.stringify(lock, null, 2) + "\n";
-  await a.exportPair(directory, [text, lockBytes], projected.base, old);
-  return { directory, lock };
+  return { blocks, uses: evaluated };
 }
 export async function refreshPreviews(a: Authority, component: string) {
   const diagnostics: Array<{ code: "BuildFailed"; doc: string; message: string }> = [];

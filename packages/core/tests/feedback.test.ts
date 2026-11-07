@@ -7,6 +7,8 @@ import { authority, openStore, bind } from "../src/node.ts";
 import { replaceText, retainMeta } from "../src/model/text.ts";
 import { QUESTIONS } from "../src/kinds/builtins.ts";
 import { reviewDouble, type Brief } from "./support/review-double.ts";
+import { syncSlot } from "../src/node.ts";
+import { BOOTSTRAP, spawnServer } from "./support/server-process.ts";
 
 const human = { kind: "human" } as const;
 const model = { kind: "agent", name: "model" } as const;
@@ -562,3 +564,56 @@ it("exported MDX and read projections carry no request data", async () => {
     await f.close();
   }
 });
+
+it("a link-only request stays pending without a provider call, survives a restart, and needs an active link", async () => {
+  const f = await fixture();
+  const server = await spawnServer();
+  f.a.sync = syncSlot(f.a, f.home, () => {});
+  try {
+    await f.run("session.login", { server: server.url, bootstrap: BOOTSTRAP, deviceName: "A" });
+    const { link } = (await f.run("share.create", { id: "p", questions: ["Opening?"] })) as {
+      link: string;
+    };
+    const asked = (await f.run(
+      "feedback.request",
+      { id: "p", to: [`link:${link}`], questions: ["Does the ending land?"] },
+      undefined,
+      undefined,
+      human,
+    )) as { request: string; state: unknown };
+    expect(asked.state).toEqual({ status: "pending" });
+    expect(f.double.calls()).toBe(0);
+    await f.a.sync.stop();
+
+    // A restarted authority fails orphaned model requests only.
+    const restarted = await authority(await openStore(f.home));
+    const requests = Object.values(restarted.get("p").getMap("requests").toJSON()) as {
+      to: string[];
+      state: unknown;
+    }[];
+    expect(requests).toHaveLength(2);
+    for (const request of requests) expect(request.state).toEqual({ status: "pending" });
+
+    // The link page reframes to the newest request addressed to it.
+    restarted.sync = syncSlot(restarted, f.home, () => {});
+    await restarted.sync.now("p");
+    const run = bind(restarted);
+    const url = (
+      (await run("share.list", { id: "p" })) as { links: { linkId: string; url: string }[] }
+    ).links.find((l) => l.linkId === link)!.url;
+    expect(await (await fetch(url)).text()).toContain("Does the ending land?");
+
+    await run("share.revoke", { link });
+    await expect(
+      run("feedback.request", { id: "p", to: [`link:${link}`], questions: ["Again?"] }),
+    ).rejects.toThrow(`UnknownLink: ${link}`);
+    await expect(
+      run("feedback.request", { id: "p", to: ["link:never-created"], questions: ["?"] }),
+    ).rejects.toThrow("UnknownLink: never-created");
+    await restarted.sync.stop();
+  } finally {
+    await f.a.sync?.stop();
+    await server.close();
+    await f.close();
+  }
+}, 60_000);

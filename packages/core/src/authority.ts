@@ -6,7 +6,7 @@ import type { Store } from "./store/store.ts";
 import { read, head } from "./model/read.ts";
 import { importSynced, importTyping, isPost } from "./model/text.ts";
 import { normalizeThreads } from "./model/threads.ts";
-import { failOrphaned, pendingRequests } from "./model/feedback.ts";
+import { failOrphaned, orphanedRequests } from "./model/feedback.ts";
 /** Sync results: document ids pushed and pulled in one cycle. */
 export interface SyncResult {
   pushed: string[];
@@ -254,10 +254,10 @@ export async function authority(store: Store) {
       return result;
     },
   };
-  // Only the lock holder answers feedback, so a pending request at startup has no one working
-  // on it: fail it with a retry instruction rather than calling the provider again.
+  // Only the lock holder answers model feedback, so a pending model request at startup has no one
+  // working on it: fail it with a retry instruction rather than calling the provider again.
   const orphaned = [...documents]
-    .filter(([, doc]) => isPost(doc) && pendingRequests(doc).length)
+    .filter(([, doc]) => isPost(doc) && orphanedRequests(doc).length)
     .map(([id]) => id);
   if (orphaned.length)
     await self.transaction(undefined, "feedback-orphaned", async () => {

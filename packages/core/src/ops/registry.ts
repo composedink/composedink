@@ -43,6 +43,7 @@ import { createComponent, readFiles, writeFiles, safePath } from "../model/files
 import { pinDependency, addDependency } from "../model/deps.ts";
 import { componentTemplate } from "../model/component-template.ts";
 import { login, requireSession, serverJson, sessionStatus, signOut } from "../session.ts";
+import { createShare, listLinks, revokeLink, shareCreateInput } from "../share.ts";
 const slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 const id = z.string().regex(/^composed:[a-z0-9-]+\/[a-z0-9-]+$/);
 /**
@@ -407,6 +408,20 @@ export const registry = [
       return a.sync.now(i.id);
     },
   ),
+  // share.list and share.revoke come before share.create: the CLI takes the first prefix match.
+  operation("share.list", z.object({ id: z.string().min(1) }), false, ["share", "list"], (a, i) =>
+    listLinks(a.store.home, i.id),
+  ),
+  operation(
+    "share.revoke",
+    z.object({ link: z.string().min(1) }),
+    false,
+    ["share", "revoke"],
+    (a, i) => revokeLink(a.store.home, i.link),
+  ),
+  operation("share.create", shareCreateInput, false, ["share"], (a, i, c) =>
+    createShare(a, i, c.by),
+  ),
   operation(
     "deps.add",
     z.object({
@@ -461,6 +476,9 @@ const unqueued = new Set([
   "devices.list",
   "devices.revoke",
   "sync.now",
+  "share.list",
+  "share.revoke",
+  "share.create",
 ]);
 export function bind(a: Authority) {
   return async (
@@ -488,8 +506,8 @@ export function bind(a: Authority) {
           ? a.sessionOperation(session, execute)
           : execute();
       });
-    // Session, device and sync operations change no document; sync pulls serialize their own
-    // transactions.
+    // Session, device, sync and share operations call the server; sync pulls and share.create
+    // serialize their own transactions (share.create syncs, which must not wait on its own queue slot).
     if (unqueued.has(name)) return op.run(a, parsed, { by });
     // Model review awaits the provider outside the queue; it is not a session-undo item.
     if (name === "feedback.request")

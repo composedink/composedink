@@ -1,7 +1,8 @@
 # composed server
 
-One process serves the artifact routes (`/c/`), device accounts (`/auth/`) and the update relay
-(`/sync/`), with `server.db` (SQLite) next to the artifacts in `$COMPOSED_STORAGE`.
+One process serves the artifact routes (`/c/`), device accounts (`/auth/`), the update relay
+(`/sync/`) and shared preview links (`/s/`), with `server.db` (SQLite) next to the artifacts in
+`$COMPOSED_STORAGE`.
 
 ```sh
 COMPOSED_TOKEN=... COMPOSED_BOOTSTRAP_TOKEN=... COMPOSED_STORAGE=./data mise exec -- vp run composed-server#start
@@ -16,7 +17,8 @@ COMPOSED_TOKEN=... COMPOSED_BOOTSTRAP_TOKEN=... COMPOSED_STORAGE=./data mise exe
 
 Build from the repository root: `docker build -f apps/server/Dockerfile .`. The image is
 multi-stage: a Debian build stage installs the workspace, bundles `src/main.ts` with tsdown
-(`vp run composed-server#bundle` → `dist/main.mjs`, bundling `@composedink/core/model`) and deploys
+(`vp run composed-server#bundle` → `dist/main.mjs`, bundling `@composedink/core/model` and the
+remark/rehype renderer for link pages) and deploys
 production dependencies; the Alpine runtime stage holds only `dist/`, `node_modules/loro-crdt`
 (external, because it loads its WASM from its own directory) and `package.json`. It contains no
 build toolchain (`@rsbuild`, `@mdx-js`, `vite-plus`).
@@ -69,3 +71,55 @@ at most once a minute.
 Clients: `composed login <server> (--code <code> | --bootstrap <token>) [--name <device>]`,
 `composed logout`, `composed status`, `composed devices pair|list|revoke <device>` and
 `composed sync [<id>]`. Studio runs the sync loop; see `docs/design/sync-and-sharing.md`.
+
+## Shared links
+
+A link shows one post to named guests without a device. Management lives under `/sync`
+(device-authenticated); the page and guest comments under `/s/<token>` authenticate by the link
+token alone. Link tokens are 32 random bytes (base64url); the database stores only their SHA-256,
+so a lost URL cannot be recovered, only replaced.
+
+| Route                                     | Auth   | Answer                                                                                                                   |
+| ----------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `POST /sync/links`                        | device | `{linkId, docId, mode, frontiers?, questions, expiresAt?, instances}` (64 MiB) → `201 {linkId, token}`                   |
+| `GET /sync/links?doc=<docId>`             | device | `{links: {linkId, mode, questions, createdAt, expiresAt, revokedAt}[]}`, never tokens                                    |
+| `POST /sync/links/:linkId/revoke`         | device | `{linkId, revokedAt}`; idempotent                                                                                        |
+| `GET /s/<token>`                          | link   | the page: clean projection of the pinned frontiers or the live replica, the questions, guest threads, one comment script |
+| `POST /s/<token>/threads`                 | link   | `{quote: 1..2000, text: 1..4000, question?, name?}` → `201 {thread, state, messages}`; `409` for an ambiguous quote      |
+| `POST /s/<token>/threads/:thread/replies` | link   | `{text, name?}` → `201 {thread, state, messages}`; only threads started from this link (others 404)                      |
+
+- **Create** needs a document the account already synced (404 otherwise) and, for a pinned link,
+  frontiers the replica contains (409 otherwise; the authority syncs first). `instances` is the
+  render snapshot `{[renderKey]: markdown}` stored with the link; a live link keeps it.
+- **Render**: `remark-parse` + `remark-frontmatter` + `remark-mdx`, as MDX hosts parse. Frontmatter,
+  ESM and expressions are dropped; each JSX element renders its snapshot fallback when
+  `renderKey(tag, literal props)` matches, else a `<figure class="block" data-tag>` placeholder
+  (`<span>` inside a paragraph) with the props summary. `remark-rehype` without
+  `allowDangerousHtml`, so raw HTML is text. No component code runs and no remote loads. Text that
+  does not parse as MDX renders preformatted. The questions are those of the newest feedback
+  request addressed to `link:<linkId>`, else the link's own. The aside lists only threads whose
+  first message came from this link; author and model notes stay private.
+- **Guests**: the first comment carries `name` (1–60 characters); the answer sets
+  `composed_guest=<name>; Path=/s/<token>; HttpOnly; SameSite=Strict; Max-Age=31536000` (plus
+  `Secure` when the request arrived over HTTPS, `X-Forwarded-Proto: https`). Every guest `POST`
+  needs `Content-Type: application/json` and an `Origin` whose host equals `Host` (403 otherwise).
+  The comment applies `openThread`/`replyThread` to the live replica with
+  `by: {kind: "guest", name, linkId}` (a pinned link comments on the live text; a quote no longer
+  there opens detached) and stores the update through the relay's append path with no device, so
+  signed-in devices receive it as sync.
+- **Limits**: 60 requests a minute per link token for the page and guest posts together, counted
+  by the token's SHA-256 before lookup (429 with `Retry-After`); 64 KiB guest bodies.
+- **Not found**: unknown, revoked and expired tokens (and a deleted post) answer one byte-identical
+  404 page that never says why.
+- **Headers** on every page: `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline';
+  script-src 'sha256-<hash of the one inline script>'; connect-src 'self'; img-src 'self' data:;
+  form-action 'none'; base-uri 'none'; frame-ancestors 'none'`, `Cache-Control: no-store`,
+  `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex`, `X-Content-Type-Options: nosniff`.
+
+A link URL is `<server>/s/<token>`, where `<server>` is the origin the creating device logged in
+with (`session.json`). Log devices in with the public HTTPS origin, not an internal address, or the
+URLs they hand out will not open for guests.
+
+Clients: `composed share <id> [--live] [--expires 7d] [--question <text> ...]`,
+`composed share list <id>`, `composed share revoke <link>`, and `feedback request <id> --to
+link:<linkId>` to reframe a link's questions.

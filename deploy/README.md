@@ -55,27 +55,39 @@ Cloudflare proxies and caches the immutable artifacts (`cf-cache-status: HIT`); 
     first device signs in`, and Coolify keeps the old container. Once an account exists it is
     ignored. Staging and production must have it set before their next deploy of `main` (both
     have it as of plan 16; deploying is a separate authorized action).
-- Routes beside `/c/`: `/auth` (pairing, device list and revocation) and `/sync` (update log,
-  pulls, `text/event-stream` changes). Limits: 8 MiB per update, 64 MiB per snapshot, 10 failed
-  sign-ins per minute (429). The event stream sends a `: ping` every 25 s, so a proxy idle timeout
-  above 30 s keeps it open; clients reconnect and also poll every 30 s. Details in
+- Routes beside `/c/`: `/auth` (pairing, device list and revocation), `/sync` (update log,
+  pulls, `text/event-stream` changes, and since plan 17 link management under `/sync/links`) and
+  `/s` (shared preview link pages and named-guest comments). Limits: 8 MiB per update, 64 MiB per
+  snapshot or link creation, 10 failed sign-ins per minute (429), 60 guest requests a minute per
+  link token (429 with `Retry-After`). The event stream sends a `: ping` every 25 s, so a proxy
+  idle timeout above 30 s keeps it open; clients reconnect and also poll every 30 s. Details in
   `apps/server/README.md`.
+- Link pages (`/s/<token>`) are public to anyone holding the URL. They send a strict CSP (only
+  their one inline script, by hash; `connect-src 'self'`, no remote scripts, images or frames),
+  `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`, so the
+  edge must not cache or rewrite them. Unknown, revoked and expired tokens all answer one identical 404. Guest posts require an `Origin` whose host equals `Host`, so the proxy must pass `Host`
+  through unchanged (Traefik does); the guest cookie gains `Secure` from `X-Forwarded-Proto: https`.
+- A link URL uses the server origin the creating device logged in with, so devices must log in
+  with the public origin (`composed login https://cdn.composed.ink ...`), not a tunnel or
+  container address.
 - Restart policy and rollback are Coolify's: a deploy starts the new container, waits for the
   health check, then removes the old one; an unhealthy new container is removed and the old one
   kept. Redeploying any earlier commit is the rollback: a pre-plan-16 image serves artifacts and
-  ignores `server.db`; plan 16's migrations only add tables. The volume survives replacement.
+  ignores `server.db`; plan 16's and plan 17's migrations only add tables (`003-links` adds `links`
+  and `render_snapshots`), and an older image leaves a newer `user_version` alone. The volume
+  survives replacement.
 
 ## Verify the image locally
 
 ```sh
-docker build -f apps/server/Dockerfile -t composed-server:plan16 .
-docker run --rm --user root --entrypoint sh composed-server:plan16 -c \
+docker build -f apps/server/Dockerfile -t composed-server:plan17 .
+docker run --rm --user root --entrypoint sh composed-server:plan17 -c \
   'ls -a /app/node_modules; find / -xdev \( -name "@rsbuild" -o -name "@mdx-js" -o -name "vite-plus" \) -print'
-docker run -d --name composed-plan16 -e COMPOSED_TOKEN=t -e COMPOSED_BOOTSTRAP_TOKEN=b \
-  -v composed-plan16-data:/data -p 127.0.0.1::4849 composed-server:plan16
-curl -fsS http://$(docker port composed-plan16 4849)/healthz   # ok
-docker exec composed-plan16 ls -l /data/server.db
-docker rm -f composed-plan16 && docker volume rm composed-plan16-data
+docker run -d --name composed-plan17 -e COMPOSED_TOKEN=t -e COMPOSED_BOOTSTRAP_TOKEN=b \
+  -v composed-plan17-data:/data -p 127.0.0.1::4849 composed-server:plan17
+curl -fsS http://$(docker port composed-plan17 4849)/healthz   # ok
+docker exec composed-plan17 ls -l /data/server.db
+docker rm -f composed-plan17 && docker volume rm composed-plan17-data
 ```
 
 ## Coolify recipe (what created staging, via the API with the `devbox` token from `~/.config/coolify/config.json`)

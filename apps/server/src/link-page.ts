@@ -183,7 +183,8 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: 2rem; }
 article { max-width: 40rem; }
 figure.block, span.block { border: 1px dashed GrayText; padding: 0.25rem 0.5rem; margin: 1rem 0; font-family: system-ui, sans-serif; font-size: 0.85rem; }
 span.block { display: inline; margin: 0; }
-aside { font-family: system-ui, sans-serif; font-size: 0.9rem; }
+aside { font-family: system-ui, sans-serif; font-size: 0.9rem; min-width: 0; }
+aside input, aside select, aside textarea { box-sizing: border-box; width: 100%; min-width: 0; }
 aside form { display: grid; gap: 0.4rem; margin: 0.5rem 0 1rem; }
 aside textarea { min-height: 4rem; }
 .thread { border-top: 1px solid GrayText; padding-top: 0.5rem; }

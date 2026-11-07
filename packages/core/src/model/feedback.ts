@@ -72,9 +72,16 @@ export function settleRequest(doc: LoroDoc, id: string, state: RequestState) {
 export function hasQuestion(doc: LoroDoc, question: string) {
   return feedbackRequests(doc).some((r) => r.questions.some((q) => q.id === question));
 }
+/** Pending request IDs; tolerant of malformed entries so an authority can always start. */
+export const pendingRequests = (doc: LoroDoc) =>
+  doc
+    .getMap(KEYS.requests)
+    .entries()
+    .filter(([, value]) => requestSchema.safeParse(value).data?.state.status === "pending")
+    .map(([id]) => id);
 /** Pending requests nobody is answering (the authority restarted) fail with a retry instruction. */
 export function failOrphaned(doc: LoroDoc) {
-  const orphaned = feedbackRequests(doc).filter((r) => r.state.status === "pending");
+  const orphaned = pendingRequests(doc).map((id) => ({ id }));
   for (const r of orphaned)
     settleRequest(doc, r.id, {
       status: "failed",

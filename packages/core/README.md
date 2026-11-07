@@ -56,7 +56,63 @@ In studio, select text and press Mod-Shift-R. The pending control cancels before
 commit; a completed receipt wins a cancellation race. The original remains version
 1/4. Alt-↑/↓ flips; Mod-Enter keeps. Edits continue while the provider waits; deleted
 targets go to detached stash. Core embedders may pass an AbortSignal as the fourth
-argument to the bound operation function.
+argument to the bound operation function, and the actor's attribution as the fifth.
+
+## Threads and model feedback
+
+Threads are anchored comment conversations stored in the document (`threads`), so they
+work offline, from the CLI, MCP and the editor, and merge across devices. A thread opens
+on a unique quote of a retained base; its anchors follow the text as it is edited, edge
+typing stays outside, and a partial deletion keeps it anchored. When its text is
+deleted entirely it becomes `detached`: kept, listed with `from`/`to` null, never
+re-anchored. Resolving is a state change; nothing deletes a thread. Threads and
+requests never appear in exported MDX or in `doc.read`.
+
+```sh
+composed thread open draft --base <base-from-cat-json> --quote 'Selected text.' --text 'Why?'
+composed thread reply draft <thread> --text 'Because.'
+composed thread resolve draft <thread>
+composed thread list draft --state open
+```
+
+Who wrote a message comes from the adapter, not an input: studio is
+`{kind:"human"}`, the CLI `{kind:"agent",name:"cli"}`, MCP `{kind:"agent",name:"mcp"}`,
+model notes `{kind:"agent",name:"model"}`. Attribution grants no capability; direct
+edits stay human-only exactly as before.
+
+Model feedback is the rewrite provider's review mode (same `config.json`, transport,
+timeout and 1 MiB response budget):
+
+```sh
+composed feedback request draft --to model --question 'Is the opening clear?' --request ask-1
+composed feedback answers draft <request>
+```
+
+Without `--question` the document kind's `questions` (the four seeded defaults) are
+asked. The request is stored as pending before the provider is called, so another
+device sees it. The brief is the clean text (dim excluded), the kind's
+reader/medium/budget, the effective ruleset including disabled rules (the model is told
+not to raise them), and the questions. The model must answer every question once; its
+notes become threads linked to the question and its rewrites become alternatives
+through the normal proposal path, attributed to the model. Nothing is inserted into
+the prose; accept a rewrite with `alt.flip`/`alt.resolve`. Every quote must resolve
+uniquely in the captured clean base, or the request fails with nothing applied. A
+failure (provider error, timeout, cancellation, malformed answer, bad quote) is stored
+as `failed` with its fix; ask again with a new request. A request still pending when
+the authority restarts becomes `failed` instead of calling the provider again.
+`--request` replays the same request ID and its current state after a lost
+acknowledgement; duplicate in-flight calls share one provider call.
+
+### Sharing (P2 contract)
+
+Shared preview links need a server session (accounts, device token, relay), which does
+not exist yet. No `share.*` operation is registered. When P2 adds them, the authority
+must reject every `share.*` request made without a server session with
+`sign in to share`, and a signed-out desktop must show its share control disabled with
+that reason. Guest attribution (`{kind:"guest",name,linkId}`) and `link:<id>`
+recipients are typed and stored, but no adapter writes as a guest, and
+`feedback.request` rejects link recipients with `sign in to share` until then. P2 must
+test the signed-out refusal and a guest comment arriving on a second signed-in device.
 
 ## Document kinds and rulesets
 

@@ -19,7 +19,8 @@ import {
   threadState,
   threadViews,
 } from "../model/threads.ts";
-import { createRequest, feedbackRequest, hasQuestion, recipientSchema } from "../model/feedback.ts";
+import { feedbackRequest, hasQuestion } from "../model/feedback.ts";
+import { createFeedback, feedbackInput, requestFeedback } from "../feedback.ts";
 import { inspect } from "../inspect.ts";
 import { payloadHash } from "../store/receipts.ts";
 import { preview, refreshPreviews } from "../export.ts";
@@ -29,7 +30,6 @@ import { createPost, isPost, setKind } from "../model/text.ts";
 import {
   creation,
   documentSettings,
-  resolveKind,
   effectiveRules,
   kindExists,
   kindFiles,
@@ -267,34 +267,8 @@ export const registry = [
     ["thread", "list"],
     (a, i) => threadViews(a.get(i.id), i.state),
   ),
-  operation(
-    "feedback.request",
-    z.object({
-      id: z.string(),
-      questions: z.array(z.string().min(1)).min(1).optional(),
-      to: z.array(recipientSchema).min(1),
-    }),
-    true,
-    ["feedback", "request"],
-    async (a, i, c) => {
-      const doc = a.get(i.id);
-      if (!isPost(doc)) throw Error(`InvalidInvariant: ${i.id} is not a post`);
-      if (i.to.some((to) => to !== "model"))
-        throw Error("SignInRequired: sign in to share; link recipients need a server session (P2)");
-      const questions =
-        i.questions ??
-        (await resolveKind(a.store.home, String(doc.getMap("meta").get("kind")))).kind.config
-          .questions;
-      if (!questions.length)
-        throw Error(
-          `InvalidInvariant: kind has no feedback questions; fix: pass --question or add questions to kind.json`,
-        );
-      const request = crypto.randomUUID();
-      const created = await a.change(i.id, (d) =>
-        createRequest(d, { by: c.by, questions, to: i.to }, request),
-      );
-      return { request, state: created.state };
-    },
+  operation("feedback.request", feedbackInput, true, ["feedback", "request"], (a, i, c) =>
+    createFeedback(a, i, c.by),
   ),
   operation(
     "feedback.answers",
@@ -440,6 +414,9 @@ export function bind(a: Authority) {
           ? a.sessionOperation(session, execute)
           : execute();
       });
+    // Model review awaits the provider outside the queue; it is not a session-undo item.
+    if (name === "feedback.request")
+      return requestFeedback(a, feedbackInput.parse(parsed), { by, signal, request, hash });
     if (name !== "alt.rewrite") return commit(async () => op.run(a, parsed, { by }));
     const prior = await a.serialize(async () =>
       request ? a.store.journal.lookup(request, hash) : undefined,

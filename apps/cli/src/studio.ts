@@ -154,9 +154,9 @@ export async function studio(home: string) {
     let session = randomBytes(16).toString("hex");
     let unsubscribe: (() => void) | undefined;
     socket.on("close", () => unsubscribe?.());
-    const rewrites = new Map<number, AbortController>();
+    const providerWork = new Map<number, AbortController>();
     socket.on("close", () => {
-      for (const controller of rewrites.values()) controller.abort();
+      for (const controller of providerWork.values()) controller.abort();
     });
     const send = (frame: unknown) => {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
@@ -173,21 +173,24 @@ export async function studio(home: string) {
           );
           try {
             if (typeof frame.cancel === "number") {
-              rewrites.get(frame.cancel)?.abort();
-            } else if (frame.name === "alt.rewrite") {
+              providerWork.get(frame.cancel)?.abort();
+            } else if (frame.name === "alt.rewrite" || frame.name === "feedback.request") {
+              // Provider work runs beside the ordered frames so typing keeps flowing; a cancel
+              // frame or socket close aborts it.
               const controller = new AbortController();
-              rewrites.set(frame.request, controller);
+              providerWork.set(frame.request, controller);
               void run(
                 frame.name,
                 frame.input,
                 frame.human ? session : undefined,
                 controller.signal,
+                frame.human ? { kind: "human" } : agent(frame.by),
               )
                 .then(
                   (result) => send({ request: frame.request, result }),
                   (error) => send({ request: frame.request, error: String(error) }),
                 )
-                .finally(() => rewrites.delete(frame.request));
+                .finally(() => providerWork.delete(frame.request));
             } else if (frame.subscribe) {
               if (typeof frame.session === "string" && /^[0-9a-f-]{36}$/.test(frame.session))
                 session = frame.session;

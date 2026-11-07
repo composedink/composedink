@@ -6,6 +6,7 @@ import type { Store } from "./store/store.ts";
 import { read, head } from "./model/read.ts";
 import { importTyping, isPost } from "./model/text.ts";
 import { normalizeThreads } from "./model/threads.ts";
+import { failOrphaned, pendingRequests } from "./model/feedback.ts";
 export async function authority(store: Store) {
   const documents = new Map<string, LoroDoc>();
   for (const { id, bytes } of await store.load()) {
@@ -24,7 +25,7 @@ export async function authority(store: Store) {
   let finalizers: Array<() => void> = [];
   let staged: Envelope["writes"] | undefined;
   let queue = Promise.resolve();
-  return {
+  const self = {
     store,
     claimTarget(target: string) {
       if (!claimedTargets.has(target)) {
@@ -201,5 +202,15 @@ export async function authority(store: Store) {
       return result;
     },
   };
+  // Only the lock holder answers feedback, so a pending request at startup has no one working
+  // on it: fail it with a retry instruction rather than calling the provider again.
+  const orphaned = [...documents]
+    .filter(([, doc]) => isPost(doc) && pendingRequests(doc).length)
+    .map(([id]) => id);
+  if (orphaned.length)
+    await self.transaction(undefined, "feedback-orphaned", async () => {
+      for (const id of orphaned) await self.change(id, failOrphaned);
+    });
+  return self;
 }
 export type Authority = Awaited<ReturnType<typeof authority>>;

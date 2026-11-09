@@ -83,7 +83,7 @@ try {
   const bars = spark.locator(".bar");
   const hover = page.getByTestId("sparkline-hover");
   const list = page.getByRole("list", { name: "Sentences by length" });
-  await expect(editor).toContainText("title:");
+  await expect(editor.locator(".cm-settings-fold")).toBeVisible();
   await editor.fill(main);
   await expect(status).toHaveText("Saved");
 

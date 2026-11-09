@@ -396,6 +396,85 @@ dialog.new-post h2 {
   gap: 0.5rem;
   margin-top: 1rem;
 }
+/* Settings strip: the post's title and reading fields, above the editor. */
+.settings-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.6rem 0;
+  border-block: 1px solid var(--rule);
+}
+.setting {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.8125rem;
+}
+.setting > span:first-child {
+  font-weight: 600;
+  color: var(--muted);
+}
+.setting input,
+.setting select {
+  font-size: 0.9375rem;
+}
+.setting-title {
+  flex: 2 1 16rem;
+}
+.setting-reader {
+  flex: 1 1 12rem;
+}
+.setting-title input,
+.setting-reader input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.setting-budget {
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 0.35rem;
+}
+.setting-budget > span:first-child {
+  grid-column: 1 / -1;
+}
+.setting-budget input {
+  width: 6rem;
+}
+.setting input[readonly] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+.setting input:disabled,
+.setting select:disabled {
+  border-style: dashed;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.unit {
+  color: var(--muted);
+}
+.cm-settings-fold {
+  font: 600 0.75rem/1.4 var(--chrome);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.05rem 0.6rem;
+  vertical-align: 0.15em;
+}
+.cm-settings-fold:hover {
+  color: var(--ink);
+  border-color: var(--control);
+}
+.cm-frontmatter {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  color: var(--muted);
+}
 .opening {
   min-height: 50vh;
 }

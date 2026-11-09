@@ -33,11 +33,11 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Task 3 — Web: frontmatter as settings, body counts regardless
 
-- [ ] A **Settings strip** above the editor shows the kind's reading fields (title, reader, medium as a select, budget as a number) read from the live document. Editing a field writes the corresponding frontmatter line through the CodeMirror binding (so it is ordinary typing through Loro, undoable with ⌘Z); adding a missing key appends it to the block; `kinds.ts` already exposes the key-range helper. Fields the kind keeps in `meta` are written with `doc.kind`-style ops only if such an op exists; otherwise they are read-only in the strip with the reason as a tooltip (confirm which ops exist before deciding; do not invent one).
-- [ ] The YAML block is folded in the editor by default (a one-line fold marker reading `settings`); clicking it unfolds for direct editing. Typing into the folded marker is impossible; the caret skips over it.
-- [ ] A malformed block produces exactly one notice at the top of the Writing feedback list: "The post's settings block is malformed (line N): <yaml message>", with an **Unfold** action. `doc.read`'s `diagnostic` string is no longer rendered under Block usages.
-- [ ] Word count, sparkline and lint come from the body whether or not the block parses (Task 1's lint change plus the shared word-count function).
-- [ ] e2e: change the budget in the strip → frontmatter line changes and ⌘Z reverts it; break the YAML by unfolding and typing → one notice, word count unchanged, sparkline still populated; fix it → notice gone.
+- [x] A **Settings strip** above the editor shows the kind's reading fields (title, reader, medium as a select, budget as a number) read from the live document. Editing a field writes the corresponding frontmatter line through the CodeMirror binding (so it is ordinary typing through Loro, undoable with ⌘Z); adding a missing key appends it to the block; `kinds.ts` already exposes the key-range helper. Fields the kind keeps in `meta` are written with `doc.kind`-style ops only if such an op exists; otherwise they are read-only in the strip with the reason as a tooltip (confirm which ops exist before deciding; do not invent one).
+- [x] The YAML block is folded in the editor by default (a one-line fold marker reading `settings`); clicking it unfolds for direct editing. Typing into the folded marker is impossible; the caret skips over it.
+- [x] A malformed block produces exactly one notice at the top of the Writing feedback list: "The post's settings block is malformed (line N): <yaml message>", with an **Unfold** action. `doc.read`'s `diagnostic` string is no longer rendered under Block usages.
+- [x] Word count, sparkline and lint come from the body whether or not the block parses (Task 1's lint change plus the shared word-count function).
+- [x] e2e: change the budget in the strip → frontmatter line changes and ⌘Z reverts it; break the YAML by unfolding and typing → one notice, word count unchanged, sparkline still populated; fix it → notice gone.
 
 ### Task 4 — Web: one error at a time, writer copy, status bar
 
@@ -156,3 +156,39 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
   `plan-18-home-empty.png`, `-new-post.png`, `-new-post-opened.png`, `-home-unknown.png`,
   `-home-list.png`, `-home-list-900.png`, `-home-list-1440.png`). `editor.spec.ts` and
   `alternatives.spec.ts` still pass; `composed-web#test` 5 files / 11.
+
+### 2026-11-09 — Task 3: frontmatter as settings, body counts regardless
+
+- **Meta fields (confirmed in code)**: no operation writes `meta` reading values. `doc.kind`
+  changes only the kind id; `retainMeta` is a model function used at creation and export, not an
+  op. So for a kind that lists a field in `meta` (built-in `hellotimber` lists all three) the strip
+  shows the value read-only with the reason as its `title`; no op was added.
+- **Write path**: a strip edit is one CodeMirror transaction built from core's
+  `setFrontmatterField` (replace the key's lines, append before the closing fence, or create the
+  block), so it is ordinary typing through the binding and Loro. ⌘Z inside a strip field calls the
+  binding's own `UndoManager` (`undoTyping`/`redoTyping`, exported from `editor/sync.ts`), so
+  the browser's per-input undo never runs. Fields write while the writer types; budget writes only
+  positive integers; a malformed block disables the frontmatter fields with the reason.
+- **Fold**: `editor/frontmatter.ts` replaces the block (minus its last newline) with a `settings`
+  marker that is an atomic range. A change filter blocks typed, pasted and deleted input that
+  touches a folded block. CodeMirror reports typed input as a minimal diff, and under Playwright's
+  `fill` the DOM select-all reached the change before the selection did. So a typed change that
+  removes text through the block's end passes (only a selection holding the whole block can do
+  that), while deletions still need a covering selection; Backspace at the body's start is proven
+  harmless in the spec. Clicking the marker (or the notice's **Unfold**) opens the block with the
+  caret on its last setting; it folds again when the caret moves into the body and the block
+  parses. Unfolded lines use the monospace face (they are data).
+- **Notice**: `frontmatterProblem` gives the line and the first line of yaml's reason; yaml reports
+  where it gave up, which for an unclosed `[` is past the last setting, so the line is clamped to the
+  last settings line, never the fence. An opening fence with no closing fence also gets the notice.
+  `doc.read`'s `diagnostic` string is no longer rendered.
+- **Counts**: the status bar uses core's `bodyWords` on the live text; the old `wordCount` in
+  `editor/zen.ts` is gone.
+- **Specs moved**: `kinds-zen.spec.ts` read `title: Memo` and `reader:` from the editor text; it
+  now reads them from the strip. `measurements.spec.ts` waited for `title:` in the editor; it now
+  waits for the fold marker.
+- Evidence: `tests/settings.spec.ts` passes (`test-results/plan-18-settings.json`: folded block
+  protected, budget edit and ⌘Z, title and medium, one malformed notice with words 13 and three
+  sparkline bars unchanged, notice gone after the fix, refold, select-all replace, meta fields
+  read-only; screenshots `plan-18-settings-strip.png`, `plan-18-settings-malformed.png`).
+  `kinds-zen`, `measurements`, `lint` and `dim` specs pass; core `frontmatter.test.ts` 3.

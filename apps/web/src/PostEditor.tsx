@@ -4,13 +4,23 @@ import type { Diagnostic, LintSettings, LintSnapshot, Sentence } from "@composed
 import { SentenceSparkline } from "./SentenceSparkline";
 import { parseSchema } from "@composedink/blocks";
 import { dimControls } from "./editor/dim";
-import { readZen, wordCount, writeZen, zenKeys } from "./editor/zen";
+import { readZen, writeZen, zenKeys } from "./editor/zen";
+import { frontmatterFold, settingsEdit, unfold } from "./editor/frontmatter";
+import { undoTyping, redoTyping } from "./editor/sync";
+import { SettingsStrip, type Field, type KindFields } from "./Settings";
+import { Notice } from "./Notice";
 import { selection as captureSelection } from "./editor/selection";
 import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternatives";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EditorView } from "@codemirror/view";
 import { LoroDoc } from "loro-crdt";
-import { frontmatterBlock, frontmatterValues } from "@composedink/core";
+import {
+  bodyWords,
+  frontmatterBlock,
+  frontmatterProblem,
+  frontmatterValues,
+  setFrontmatterField,
+} from "@composedink/core";
 import { sourceEditor } from "./editor/editor";
 import { EditorTransport } from "./editor/transport";
 import { SessionStatus, type Session } from "./SessionStatus";
@@ -58,7 +68,10 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
   const [preview, setPreview] = useState("");
   const [zen, setZen] = useState(readZen);
   const zenNow = useRef(zen);
-  const [words, setWords] = useState(0);
+  const [source, setSource] = useState("");
+  const [meta, setMeta] = useState<Record<string, unknown>>({});
+  const [kindFields, setKindFields] = useState<KindFields>();
+  const [reading, setReading] = useState<Partial<Record<Field, string | number>>>({});
   const [kind, setKind] = useState<{ kind: string; warnings: string[] }>();
   const [threads, setThreads] = useState<Thread[]>([]);
   const liveThreads = useRef<Thread[]>([]);
@@ -126,6 +139,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         if (!view && parent.current)
           view = sourceEditor(parent.current, doc, [
             lint.extension,
+            frontmatterFold,
             zenKeys(toggleZen),
             rewriteKeys((v) => {
               if (rewriteAbort.current) return;
@@ -213,6 +227,8 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         refreshThreads();
         relayout();
         const source = doc.getText("mdx").toString();
+        setSource(source);
+        setMeta(doc.getMap("meta").toJSON() as Record<string, unknown>);
         const front = frontmatterValues(source).title;
         setTitle(typeof front === "string" && front.trim() ? front.trim() : id);
         if (opening && view) {
@@ -237,7 +253,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
             ),
         );
         editorView.current = view ?? null;
-        setWords(wordCount(doc.getText("mdx").toString()));
         clearTimeout(timer);
         timer = setTimeout(() => {
           // Effective rules come from the authority on every inspection, so kind and rule
@@ -249,7 +264,30 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
               const { warnings, ...settings } = result as LintSettings & { warnings: string[] };
               lint.setSettings(settings);
               const recorded = doc.getMap("meta").get("kind");
-              setKind({ kind: typeof recorded === "string" ? recorded : "post", warnings });
+              const kindId = typeof recorded === "string" ? recorded : "post";
+              setKind({ kind: kindId, warnings });
+              setReading({
+                reader: settings.reader,
+                medium: settings.medium,
+                budget: settings.budget,
+              });
+              void connection.operation("kind.read", { kind: kindId }).then(
+                (read) => {
+                  const files = (read as { files?: Record<string, string> }).files ?? {};
+                  try {
+                    const config = JSON.parse(files["kind.json"] ?? "{}");
+                    setKindFields({
+                      kind: kindId,
+                      frontmatter: Array.isArray(config.frontmatter) ? config.frontmatter : [],
+                      meta: Array.isArray(config.meta) ? config.meta : [],
+                    });
+                  } catch {
+                    setKindFields({ kind: kindId, frontmatter: [], meta: [] });
+                  }
+                },
+                // A kind missing on this device lints as post; the strip then edits frontmatter.
+                () => setKindFields({ kind: kindId, frontmatter: [], meta: [] }),
+              );
             })
             .catch((e) => setError(String(e)));
           void connection
@@ -329,6 +367,18 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
     };
   }, [id]);
   const soft = diagnostics.filter((d) => d.severity === "soft").length;
+  // Counts and the settings notice read the live text: the body counts whether or not the block parses.
+  const words = bodyWords(source);
+  const problem = frontmatterProblem(source);
+  const editSetting = (field: Field, value: string | number) => {
+    const v = editorView.current;
+    if (!v) return;
+    v.dispatch({
+      changes: setFrontmatterField(v.state.doc.toString(), field, value),
+      annotations: settingsEdit.of(true),
+      userEvent: "input.settings",
+    });
+  };
   // Offsets are only valid at the base they were measured at; never select unrelated prose.
   const jump = (sentence: Sentence, base: string) => {
     const v = editorView.current,
@@ -380,6 +430,20 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
           />
         </div>
       </header>
+      {!zen && (
+        <SettingsStrip
+          text={source}
+          kind={kindFields}
+          meta={meta}
+          defaults={reading}
+          blocked={problem && "Fix the settings block first: its text cannot be read."}
+          onEdit={editSetting}
+          onUndo={(redo) => {
+            const doc = transport.current?.doc;
+            if (doc) void (redo ? redoTyping(doc) : undoTyping(doc));
+          }}
+        />
+      )}
       {sharing && session?.signedIn && !zen && (
         <SharePanel id={id} transport={transport.current} onError={setError} />
       )}
@@ -454,6 +518,25 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
           <div className="panels" hidden={zen}>
             <h3>Writing feedback</h3>
             <section aria-label="Writing feedback">
+              {problem && (
+                <Notice
+                  className="settings-problem"
+                  notice={{
+                    code: "SettingsMalformed",
+                    title: `The post's settings block is malformed (line ${problem.line}): ${problem.message}`,
+                    detail:
+                      "Words, rhythm and feedback still read the body; the settings are ignored until the block is fixed.",
+                  }}
+                  actions={
+                    <button
+                      type="button"
+                      onClick={() => editorView.current && unfold(editorView.current)}
+                    >
+                      Unfold
+                    </button>
+                  }
+                />
+              )}
               {diagnostics.map((d, i) => (
                 <article
                   className="diagnostic"
@@ -576,7 +659,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
               <p>{block.validation}</p>
             </article>
           ))}
-          <p>{inspection?.diagnostic}</p>
           <h3>Dependencies</h3>
           <pre data-testid="deps">{JSON.stringify(inspection?.deps, null, 2)}</pre>
           {panels}

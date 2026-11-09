@@ -16,7 +16,3 @@ export const zenKeys = (toggle: () => void) =>
       },
     },
   ]);
-/** Words in the prose, frontmatter excluded; shown in the status bar in and out of zen. */
-export const wordCount = (text: string) =>
-  text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, "").match(/[\p{L}\p{N}][\p{L}\p{N}’'-]*/gu)
-    ?.length ?? 0;

@@ -47,7 +47,10 @@ export function frontmatterProblem(text: string): FrontmatterProblem | undefined
   const parsed = parseDocument(block.yaml);
   const [error] = parsed.errors;
   if (error) {
-    const line = 1 + (error.linePos?.[0].line ?? 1);
+    // yaml reports where it gave up, which can be past the last setting (an unclosed `[`): name
+    // the last line of settings at most, never the closing fence.
+    const last = block.yaml.replace(/\n$/, "").split("\n").length;
+    const line = 1 + Math.min(error.linePos?.[0].line ?? 1, Math.max(1, last));
     // yaml's message carries a code frame after its first line; the notice shows only the reason.
     return {
       line,

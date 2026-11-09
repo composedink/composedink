@@ -9,8 +9,13 @@ import { keymap, ViewPlugin, type EditorView, type ViewUpdate } from "@codemirro
 import { type LoroDoc, type LoroText, UndoManager } from "loro-crdt";
 
 const synced = Annotation.define<boolean>();
+const managers = new WeakMap<LoroDoc, UndoManager>();
+/** Keystroke undo and redo for controls outside the editor that type into it (the settings strip). */
+export const undoTyping = (doc: LoroDoc) => managers.get(doc)?.undo() ?? false;
+export const redoTyping = (doc: LoroDoc) => managers.get(doc)?.redo() ?? false;
 export function LoroSyncPlugin(doc: LoroDoc, getText: (doc: LoroDoc) => LoroText): Extension {
   const undo = new UndoManager(doc, {});
+  managers.set(doc, undo);
   return [
     keymap.of([
       {
@@ -91,6 +96,7 @@ class Binding {
   destroy() {
     this.destroyed = true;
     this.unsubscribe();
+    if (managers.get(this.doc) === this.undo) managers.delete(this.doc);
     this.undo.free();
   }
 }

@@ -90,8 +90,10 @@ try {
   const feedback = page.getByRole("region", { name: "Writing feedback" });
   const status = page.getByRole("status");
   // Template and frontmatter defaults applied once at creation.
-  await expect(editor).toContainText("title: Memo");
-  await expect(editor).toContainText("reader: blog readers");
+  // The settings block is folded; the strip shows its values (plan 18).
+  const strip = page.getByRole("region", { name: "Post settings" });
+  await expect(strip.getByRole("textbox", { name: "Title" })).toHaveValue("Memo");
+  await expect(strip.getByRole("textbox", { name: "Reader" })).toHaveValue("blog readers");
   await expect(editor).toContainText("Synergy first, by the way.");
   await expect(page.getByTestId("kind")).toHaveText("memo");
   await expect(page.getByTestId("kind-warning")).toHaveCount(0);

@@ -25,6 +25,10 @@ it("names the line and reason of a malformed block, and of one never closed", ()
     message: "the block opened here is never closed with a --- line",
   });
   expect(frontmatterProblem("---\n- a\n- b\n---\n")).toMatchObject({ line: 2 });
+  // An unclosed flow sequence fails at the end of the YAML: the notice names its last line.
+  expect(frontmatterProblem("---\ntitle: T\nbroken: [unclosed\n---\n\nB")).toMatchObject({
+    line: 3,
+  });
 });
 it("sets, appends, removes and creates keys as YAML lines", () => {
   expect(apply(post, setFrontmatterField(post, "budget", 1500))).toBe(

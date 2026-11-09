@@ -93,10 +93,9 @@ await withStudio("errors", async ({ home, origin, page: open, cli, shot, evidenc
   evidence.headerNotice = true;
 
   // Over budget turns the figure to the warning colour.
-  await page
-    .getByRole("region", { name: "Post settings" })
-    .getByRole("spinbutton", { name: "Budget" })
-    .fill("5");
+  await editor.fill(
+    "---\ntitle: Untitled\nreader: blog readers\nmedium: web\nbudget: 5\n---\n\nA short body sentence for the model to read.",
+  );
   await expect(page.getByTestId("word-count")).toHaveText("9 / 5 words");
   await expect(page.getByTestId("word-count")).toHaveClass(/over/);
   evidence.overBudget = true;

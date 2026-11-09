@@ -432,55 +432,6 @@ dialog.new-post h2 {
   color: var(--muted);
   cursor: not-allowed;
 }
-/* Reading settings: the kind's reader, medium and budget, in the aids column. */
-.settings-strip {
-  display: grid;
-  gap: 0.6rem;
-  margin: 0 0 0.5rem;
-}
-.setting {
-  display: grid;
-  gap: 0.15rem;
-  font-size: 0.8125rem;
-}
-.setting > span:first-child {
-  font-weight: 600;
-  color: var(--muted);
-}
-.setting input,
-.setting select {
-  font-size: 0.9375rem;
-}
-.setting-reader input {
-  width: 100%;
-  box-sizing: border-box;
-}
-.setting-budget {
-  grid-template-columns: auto auto;
-  justify-content: start;
-  align-items: center;
-  column-gap: 0.35rem;
-}
-.setting-budget > span:first-child {
-  grid-column: 1 / -1;
-}
-.setting-budget input {
-  width: 6rem;
-}
-.setting input[readonly] {
-  border-style: dashed;
-  background: transparent;
-  color: var(--muted);
-}
-.setting input:disabled,
-.setting select:disabled {
-  border-style: dashed;
-  color: var(--muted);
-  cursor: not-allowed;
-}
-.unit {
-  color: var(--muted);
-}
 .cm-settings-fold {
   font: 600 0.75rem/1.4 var(--chrome);
   letter-spacing: 0.04em;
@@ -534,9 +485,6 @@ dialog.new-post h2 {
 .editor.zen .workspace {
   grid-template-columns: minmax(0, 1fr);
 }
-.editor.zen .settings-strip {
-  display: none;
-}
 .writing {
   min-width: 0;
 }
@@ -565,8 +513,12 @@ dialog.new-post h2 {
 .editor-column > .notice > * {
   font: 15px/1.5 var(--chrome);
 }
+.comments-aid {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
 .thread-filter {
-  margin-left: auto;
   color: var(--muted);
 }
 .writing-tools[hidden] {

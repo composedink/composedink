@@ -28,25 +28,20 @@ await withStudio("settings", async ({ origin, page: open, cli, json, shot, evide
   await editor.press("ControlOrMeta+z");
   await expect(status).toHaveText("Saved");
 
-  const strip = page.getByRole("region", { name: "Post settings" });
-  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Untitled");
-  await expect(strip.getByRole("combobox", { name: "Medium" })).toHaveValue("web");
-  const budget = strip.getByRole("spinbutton", { name: "Budget" });
-  await expect(budget).toHaveValue("1200");
-  await budget.fill("1500");
-  await expect.poll(text).toContain("\nbudget: 1500\n");
-  await budget.press("ControlOrMeta+z");
-  await expect(status).toHaveText("Saved");
-  await expect.poll(text).toContain("\nbudget: 1200\n");
-  await expect(budget).toHaveValue("1200");
-  evidence.budgetEditUndo = true;
-  await page.getByRole("textbox", { name: "Title" }).fill("Settings: a strip");
+  const title = page.getByRole("textbox", { name: "Title" });
+  await expect(title).toHaveValue("Untitled");
+  await title.fill("Settings: a strip");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings: a strip");
   await expect.poll(text).toContain('\ntitle: "Settings: a strip"\n');
-  await strip.getByRole("combobox", { name: "Medium" }).selectOption("phone");
-  await expect.poll(text).toContain("\nmedium: phone\n");
+  await title.press("ControlOrMeta+z");
+  await expect(status).toHaveText("Saved");
+  await expect.poll(text).toContain("\ntitle: Untitled\n");
+  await expect(title).toHaveValue("Untitled");
+  evidence.titleEditUndo = true;
+  await title.fill("Settings: a strip");
+  await expect.poll(text).toContain('\ntitle: "Settings: a strip"\n');
   await shot(page, "settings-strip");
-  evidence.titleAndMedium = true;
+  evidence.titleEdited = true;
 
   // Unfold, break the YAML by typing: one notice, counts and rhythm still read the body.
   const words = page.getByTestId("word-count");
@@ -63,7 +58,7 @@ await withStudio("settings", async ({ origin, page: open, cli, json, shot, evide
   await expect(words).toHaveText("13 / 1200 words");
   await expect(page.getByTestId("sparkline").locator(".bar")).toHaveCount(3);
   await expect(page.getByText("YAMLParseError")).toHaveCount(0);
-  await expect(strip.getByRole("spinbutton", { name: "Budget" })).toBeDisabled();
+  await expect(title).toBeDisabled();
   await shot(page, "settings-malformed");
   evidence.malformedOneNotice = true;
   // Leaving the broken block keeps it open; the notice's Unfold returns to it.
@@ -83,15 +78,4 @@ await withStudio("settings", async ({ origin, page: open, cli, json, shot, evide
   await editor.fill("---\ntitle: Filled\n---\n\nFilled body.");
   await expect.poll(text).toBe("---\ntitle: Filled\n---\n\nFilled body.");
   evidence.replaceAll = true;
-
-  // A kind that keeps reading fields in meta shows them read-only, with the reason.
-  cli("new", "post", "timber", "--kind", "hellotimber");
-  await page.goto(`${origin}/?doc=timber`);
-  const reader = page
-    .getByRole("region", { name: "Post settings" })
-    .getByRole("textbox", { name: "Reader" });
-  await expect(reader).toHaveValue("blog readers");
-  await expect(reader).toHaveAttribute("readonly", "");
-  await expect(reader).toHaveAttribute("title", /keeps reader out of the exported file/);
-  evidence.metaFieldsReadOnly = true;
 });

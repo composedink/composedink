@@ -9,7 +9,7 @@ import { dimControls } from "./editor/dim";
 import { readZen, writeZen, zenKeys } from "./editor/zen";
 import { frontmatterFold, settingsEdit, unfold } from "./editor/frontmatter";
 import { undoTyping, redoTyping } from "./editor/sync";
-import { SettingsStrip, type Field, type KindFields } from "./Settings";
+import { TitleField, type Field } from "./Settings";
 import { describe, Notice, type NoticeContent } from "./Notice";
 import { SignInState } from "./Account";
 import { Shortcuts } from "./Shortcuts";
@@ -111,8 +111,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
   const [zen, setZen] = useState(readZen);
   const zenNow = useRef(zen);
   const [source, setSource] = useState("");
-  const [meta, setMeta] = useState<Record<string, unknown>>({});
-  const [kindFields, setKindFields] = useState<KindFields>();
   const [reading, setReading] = useState<Partial<Record<Field, string | number>>>({});
   const [kind, setKind] = useState<{ kind: string; warnings: string[] }>();
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -265,7 +263,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         relayout();
         const source = doc.getText("mdx").toString();
         setSource(source);
-        setMeta(doc.getMap("meta").toJSON() as Record<string, unknown>);
         const front = frontmatterValues(source).title;
         setTitle(typeof front === "string" && front.trim() ? front.trim() : id);
         if (opening && view) {
@@ -308,23 +305,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 medium: settings.medium,
                 budget: settings.budget,
               });
-              void connection.operation("kind.read", { kind: kindId }).then(
-                (read) => {
-                  const files = (read as { files?: Record<string, string> }).files ?? {};
-                  try {
-                    const config = JSON.parse(files["kind.json"] ?? "{}");
-                    setKindFields({
-                      kind: kindId,
-                      frontmatter: Array.isArray(config.frontmatter) ? config.frontmatter : [],
-                      meta: Array.isArray(config.meta) ? config.meta : [],
-                    });
-                  } catch {
-                    setKindFields({ kind: kindId, frontmatter: [], meta: [] });
-                  }
-                },
-                // A kind missing on this device lints as post; the strip then edits frontmatter.
-                () => setKindFields({ kind: kindId, frontmatter: [], meta: [] }),
-              );
             })
             .catch(fail("page"));
           void connection
@@ -530,12 +510,8 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         <section className="writing" aria-label="Writing">
           <div className={showComments ? "source-row with-comments" : "source-row"}>
             <div className="editor-column">
-              <SettingsStrip
-                show="title"
+              <TitleField
                 text={source}
-                kind={kindFields}
-                meta={meta}
-                defaults={reading}
                 blocked={problem && "Fix the settings block first: its text cannot be read."}
                 onEdit={editSetting}
                 onUndo={(redo) => {
@@ -544,14 +520,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 }}
               />
               <div className="writing-tools" hidden={zen}>
-                <CommentComposer
-                  id={id}
-                  view={editorView.current}
-                  transport={transport.current}
-                  hasSelection={hasSelection}
-                  onOpened={setActive}
-                  onDraft={setComposing}
-                />
                 <FeedbackPanel
                   id={id}
                   view={editorView.current}
@@ -566,7 +534,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                     setActive(thread);
                   }}
                 />
-                {threads.length > 0 && <ThreadFilterSelect filter={filter} onFilter={setFilter} />}
               </div>
               {rewriting && (
                 <p className="working">
@@ -593,20 +560,18 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         </section>
         {!zen && (
           <aside className="aids" aria-label="Writing aids">
-            <h2>Reading</h2>
-            <SettingsStrip
-              show="reading"
-              text={source}
-              kind={kindFields}
-              meta={meta}
-              defaults={reading}
-              blocked={problem && "Fix the settings block first: its text cannot be read."}
-              onEdit={editSetting}
-              onUndo={(redo) => {
-                const doc = transport.current?.doc;
-                if (doc) void (redo ? redoTyping(doc) : undoTyping(doc));
-              }}
-            />
+            <h2>Comments</h2>
+            <section className="comments-aid" aria-label="Comments">
+              <CommentComposer
+                id={id}
+                view={editorView.current}
+                transport={transport.current}
+                hasSelection={hasSelection}
+                onOpened={setActive}
+                onDraft={setComposing}
+              />
+              {threads.length > 0 && <ThreadFilterSelect filter={filter} onFilter={setFilter} />}
+            </section>
             <h2>Writing feedback</h2>
             <FeedbackList
               diagnostics={diagnostics}

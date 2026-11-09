@@ -24,7 +24,7 @@ export function ThreadFilterSelect({
 }) {
   return (
     <label className="thread-filter">
-      Comments{" "}
+      Show{" "}
       <select
         aria-label="Comment filter"
         value={filter}

@@ -29,7 +29,7 @@ await withStudio("settings", async ({ origin, page: open, cli, json, shot, evide
   await expect(status).toHaveText("Saved");
 
   const strip = page.getByRole("region", { name: "Post settings" });
-  await expect(strip.getByRole("textbox", { name: "Title" })).toHaveValue("Untitled");
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Untitled");
   await expect(strip.getByRole("combobox", { name: "Medium" })).toHaveValue("web");
   const budget = strip.getByRole("spinbutton", { name: "Budget" });
   await expect(budget).toHaveValue("1200");
@@ -40,7 +40,7 @@ await withStudio("settings", async ({ origin, page: open, cli, json, shot, evide
   await expect.poll(text).toContain("\nbudget: 1200\n");
   await expect(budget).toHaveValue("1200");
   evidence.budgetEditUndo = true;
-  await strip.getByRole("textbox", { name: "Title" }).fill("Settings: a strip");
+  await page.getByRole("textbox", { name: "Title" }).fill("Settings: a strip");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings: a strip");
   await expect.poll(text).toContain('\ntitle: "Settings: a strip"\n');
   await strip.getByRole("combobox", { name: "Medium" }).selectOption("phone");

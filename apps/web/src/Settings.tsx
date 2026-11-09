@@ -15,11 +15,14 @@ const MEDIA = [
   ["web", "Web"],
 ] as const;
 /**
- * The settings strip: the post's title and the kind's reading fields, read from the live document.
- * Editing a field types into the settings block through the editor (undoable with ⌘Z); a field the
- * kind keeps in document meta is read-only, because no operation writes meta yet.
+ * The post's settings, read from the live document. `show: "title"` is the title alone, drawn as
+ * the post's heading at the top of the writing area; `show: "reading"` is the kind's reading fields
+ * (reader, medium, budget) for the aids column. Editing a field types into the settings block
+ * through the editor (undoable with ⌘Z); a field the kind keeps in document meta is read-only,
+ * because no operation writes meta yet.
  */
 export function SettingsStrip({
+  show,
   text,
   kind,
   meta,
@@ -28,6 +31,7 @@ export function SettingsStrip({
   onEdit,
   onUndo,
 }: {
+  show: "title" | "reading";
   text: string;
   kind?: KindFields;
   meta: Record<string, unknown>;
@@ -66,19 +70,34 @@ export function SettingsStrip({
       }),
     onKeyDown: undoKeys,
   });
-  return (
-    <section className="settings-strip" aria-label="Post settings">
-      <label className="setting setting-title">
-        <span>Title</span>
-        <input
+  if (show === "title")
+    return (
+      <div className="post-title">
+        <textarea
           {...bind("title")}
+          aria-label="Title"
+          rows={1}
           placeholder="Untitled"
+          spellCheck={false}
+          onKeyDown={(event) => {
+            // One line: Enter moves on to the text instead of breaking the title.
+            if (event.key === "Enter") {
+              event.preventDefault();
+              (document.querySelector(".cm-content") as HTMLElement | null)?.focus();
+              return;
+            }
+            undoKeys(event);
+          }}
           onChange={(e) => {
-            setDraft((d) => ({ ...d, title: e.target.value }));
-            onEdit("title", e.target.value);
+            const value = e.target.value.replace(/[\r\n]+/g, " ");
+            setDraft((d) => ({ ...d, title: value }));
+            onEdit("title", value);
           }}
         />
-      </label>
+      </div>
+    );
+  return (
+    <section className="settings-strip" aria-label="Post settings">
       <label className="setting setting-reader">
         <span>Reader</span>
         <input

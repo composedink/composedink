@@ -397,15 +397,46 @@ dialog.new-post h2 {
   gap: 0.5rem;
   margin-top: 1rem;
 }
-/* Settings strip: the post's title and reading fields, above the editor. */
+/* The title: the post's heading, typed at the top of the writing area, on the text's measure. */
+.post-title {
+  box-sizing: border-box;
+  max-width: calc(70ch + 2rem);
+  margin: 0.25rem auto 0;
+  padding-left: 2rem;
+  font: 19px/1.4 var(--prose);
+}
+.post-title textarea {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0.1em 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 600 2rem/1.2 var(--prose);
+  letter-spacing: -0.01em;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+}
+.post-title textarea::placeholder {
+  color: var(--muted);
+}
+.post-title textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--control);
+}
+.post-title textarea:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+/* Reading settings: the kind's reader, medium and budget, in the aids column. */
 .settings-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.5rem 1rem;
-  margin: 0.75rem 0 1rem;
-  padding: 0.6rem 0;
-  border-block: 1px solid var(--rule);
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 0.5rem;
 }
 .setting {
   display: grid;
@@ -420,19 +451,13 @@ dialog.new-post h2 {
 .setting select {
   font-size: 0.9375rem;
 }
-.setting-title {
-  flex: 2 1 16rem;
-}
-.setting-reader {
-  flex: 1 1 12rem;
-}
-.setting-title input,
 .setting-reader input {
   width: 100%;
   box-sizing: border-box;
 }
 .setting-budget {
   grid-template-columns: auto auto;
+  justify-content: start;
   align-items: center;
   column-gap: 0.35rem;
 }
@@ -498,6 +523,7 @@ dialog.new-post h2 {
 .header-actions {
   flex: none;
   flex-wrap: nowrap;
+  margin-left: auto;
 }
 .workspace {
   display: grid;

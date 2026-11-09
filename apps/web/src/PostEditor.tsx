@@ -504,7 +504,10 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
           </svg>
           All posts
         </a>
-        <h1 title={id}>{title}</h1>
+        {/* The page heading for the outline; the writer edits the title in the writing area. */}
+        <h1 className="sr-only" title={id}>
+          {title}
+        </h1>
         <div className="header-actions">
           <button
             onClick={() =>
@@ -522,25 +525,24 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         </div>
       </header>
       {notice("page", "page-notice")}
-      {!zen && (
-        <SettingsStrip
-          text={source}
-          kind={kindFields}
-          meta={meta}
-          defaults={reading}
-          blocked={problem && "Fix the settings block first: its text cannot be read."}
-          onEdit={editSetting}
-          onUndo={(redo) => {
-            const doc = transport.current?.doc;
-            if (doc) void (redo ? redoTyping(doc) : undoTyping(doc));
-          }}
-        />
-      )}
       {sharing && session?.signedIn && !zen && <SharePanel id={id} transport={transport.current} />}
       <div className="workspace">
         <section className="writing" aria-label="Writing">
           <div className={showComments ? "source-row with-comments" : "source-row"}>
             <div className="editor-column">
+              <SettingsStrip
+                show="title"
+                text={source}
+                kind={kindFields}
+                meta={meta}
+                defaults={reading}
+                blocked={problem && "Fix the settings block first: its text cannot be read."}
+                onEdit={editSetting}
+                onUndo={(redo) => {
+                  const doc = transport.current?.doc;
+                  if (doc) void (redo ? redoTyping(doc) : undoTyping(doc));
+                }}
+              />
               <div className="writing-tools" hidden={zen}>
                 <CommentComposer
                   id={id}
@@ -591,6 +593,20 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         </section>
         {!zen && (
           <aside className="aids" aria-label="Writing aids">
+            <h2>Reading</h2>
+            <SettingsStrip
+              show="reading"
+              text={source}
+              kind={kindFields}
+              meta={meta}
+              defaults={reading}
+              blocked={problem && "Fix the settings block first: its text cannot be read."}
+              onEdit={editSetting}
+              onUndo={(redo) => {
+                const doc = transport.current?.doc;
+                if (doc) void (redo ? redoTyping(doc) : undoTyping(doc));
+              }}
+            />
             <h2>Writing feedback</h2>
             <FeedbackList
               diagnostics={diagnostics}

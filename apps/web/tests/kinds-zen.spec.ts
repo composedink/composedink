@@ -92,7 +92,7 @@ try {
   // Template and frontmatter defaults applied once at creation.
   // The settings block is folded; the strip shows its values (plan 18).
   const strip = page.getByRole("region", { name: "Post settings" });
-  await expect(strip.getByRole("textbox", { name: "Title" })).toHaveValue("Memo");
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Memo");
   await expect(strip.getByRole("textbox", { name: "Reader" })).toHaveValue("blog readers");
   await expect(editor).toContainText("Synergy first, by the way.");
   await expect(page.getByTestId("kind")).toHaveText("Kind: Memo");

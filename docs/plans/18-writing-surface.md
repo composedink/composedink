@@ -25,11 +25,11 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Task 2 — Web: home, new post, no fallback slug
 
-- [ ] Delete the `"tracer"` fallback. The URL decides: no `doc` parameter shows **Home**; `?doc=<slug>` opens a document; an unknown slug shows Home with one notice ("There is no post called `<slug>`"). `localStorage` `composed.selectedDocument` is no longer read at startup; it is kept only so the desktop smoke can read the last-opened slug (confirm the smoke's use before removing it entirely).
-- [ ] Home lists `doc.list` as rows (title, kind, words, last edited as relative time), newest first, with a **New post** button and the session state. Rows are links to `?doc=<slug>`. Empty state: a short invitation to start the first post, not a blank page. Home subscribes to the studio's doc events if the transport exposes them; otherwise it re-lists on focus and after creation.
-- [ ] New post: a title field and a kind chooser built from `kind.list` and `kind.read`: one row per kind showing its name, reader, medium and budget, and the template's first heading lines; `post` is preselected. The slug derives from the title (lowercase, hyphens, deduplicated against the list with `-2`, `-3`); the writer sees the slug and can edit it. Submit calls `doc.create {slug, kind}` and navigates into the editor with the caret after the frontmatter. Escape or Cancel returns to Home. Keyboard: the title field is focused on open; Enter submits; the kind list is arrow-navigable with visible focus.
-- [ ] The editor header gains **All posts** (back to Home) left of the title; the title shows the document's frontmatter title (live), with the slug as `title` attribute; it never wraps mid-word.
-- [ ] e2e: cold open shows Home with the empty invitation; New post → weekly-update → navigates, template present, kind in the status bar; unknown slug shows the notice; Home lists the two posts newest first.
+- [x] Delete the `"tracer"` fallback. The URL decides: no `doc` parameter shows **Home**; `?doc=<slug>` opens a document; an unknown slug shows Home with one notice ("There is no post called `<slug>`"). `localStorage` `composed.selectedDocument` is no longer read at startup; it is kept only so the desktop smoke can read the last-opened slug (confirm the smoke's use before removing it entirely).
+- [x] Home lists `doc.list` as rows (title, kind, words, last edited as relative time), newest first, with a **New post** button and the session state. Rows are links to `?doc=<slug>`. Empty state: a short invitation to start the first post, not a blank page. Home subscribes to the studio's doc events if the transport exposes them; otherwise it re-lists on focus and after creation.
+- [x] New post: a title field and a kind chooser built from `kind.list` and `kind.read`: one row per kind showing its name, reader, medium and budget, and the template's first heading lines; `post` is preselected. The slug derives from the title (lowercase, hyphens, deduplicated against the list with `-2`, `-3`); the writer sees the slug and can edit it. Submit calls `doc.create {slug, kind}` and navigates into the editor with the caret after the frontmatter. Escape or Cancel returns to Home. Keyboard: the title field is focused on open; Enter submits; the kind list is arrow-navigable with visible focus.
+- [x] The editor header gains **All posts** (back to Home) left of the title; the title shows the document's frontmatter title (live), with the slug as `title` attribute; it never wraps mid-word.
+- [x] e2e: cold open shows Home with the empty invitation; New post → weekly-update → navigates, template present, kind in the status bar; unknown slug shows the notice; Home lists the two posts newest first.
 
 ### Task 3 — Web: frontmatter as settings, body counts regardless
 
@@ -122,3 +122,37 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 - Evidence: `vp run @composedink/lint#test` 7 files / 153; `vp run @composedink/core#test`
   35 files / 166; `vp run composed-cli#test` 7 files / 10 (new `tests/list.test.ts` covers the
   table, `--json`, `stash remove` twice, the no-model refusal and MCP `doc_list`/`stash_remove`).
+
+### 2026-11-09 — Task 2: home, new post, no fallback slug
+
+- **Routing**: `main.tsx` reads `?doc=` once. With a slug it asks `doc.list` before mounting the
+  editor; a missing post renders Home with the `UnknownDoc` notice and replaces the URL with the
+  bare path, so a reload shows plain Home. If the list cannot be read the editor opens and reports
+  its own failure. `localStorage` `composed.selectedDocument` is still written on open (the desktop
+  smoke reads it) and never read.
+- **Studio client**: Home and New post use a new `StudioClient` (`src/studio.ts`): the same
+  `/session` handshake, operations without `subscribe`, and the `{session}` frames. The socket has
+  no document events, so Home re-lists on window focus, on becoming visible and after the dialog
+  closes.
+- **New post title**: the plan names only `doc.create {slug, kind}`. The title goes into the new
+  post's settings block with one `doc.apply` (`mode: "direct"`, `by: human`) right after creation,
+  using core's new `setFrontmatterField`, so the list and the header show it at once. The slug is
+  derived (`unique(slugify(title), list)`), shown, editable, and validated before submit.
+- **Kind chooser**: native radio inputs inside a `<dialog>` (Escape cancels, focus stays inside,
+  arrow keys move between kinds); each row shows the reader, medium, budget and the template's
+  headings. `post` is listed first, the rest alphabetically.
+- **Frontmatter in core**: `packages/core/src/frontmatter.ts` (browser-safe, exported from `.`)
+  now owns the block regex, `frontmatterValues`, `frontmatterProblem`, `keyRanges` and
+  `setFrontmatterField`; `kinds.ts` uses it for `stripRanges`, `withFrontmatter` and reading values.
+  `tests/frontmatter.test.ts` covers values, problems and the field setter.
+- **Header**: "All posts" links to `/`; the `h1` is the frontmatter title (live, re-read on every
+  document change), the slug is its `title` attribute, and it truncates with an ellipsis instead of
+  wrapping. On open the caret goes after the settings block and its blank line.
+- **Desktop smoke**: the cold open now asserts Home and opens `tracer` from its row; the second page
+  opens `?doc=tracer` directly, checks the recorded slug, and that a bare origin shows Home
+  (`homeOnColdOpen`). `desktop-gui.ts` presses the post's link through Accessibility before typing;
+  it cannot be checked while the screen is locked.
+- Evidence: `tests/home.spec.ts` passes (`test-results/plan-18-home.json`; screenshots
+  `plan-18-home-empty.png`, `-new-post.png`, `-new-post-opened.png`, `-home-unknown.png`,
+  `-home-list.png`, `-home-list-900.png`, `-home-list-1440.png`). `editor.spec.ts` and
+  `alternatives.spec.ts` still pass; `composed-web#test` 5 files / 11.

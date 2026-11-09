@@ -111,7 +111,11 @@ try {
   page.on("request", (r) => {
     if (r.url().includes("remoteEntry")) remotes.push(r.url());
   });
+  // Cold open shows Home (plan 18); the post opens from its row.
   await page.goto(origin);
+  await expect(page.getByRole("heading", { level: 1, name: "Posts" })).toBeVisible();
+  await page.locator('[data-doc="tracer"] a').click();
+  await page.waitForURL(/\?doc=tracer$/);
   const editor = page.locator(".cm-content");
   await expect(editor).toBeVisible();
   const sentence = "Desktop packaged persistence " + Date.now() + ".";
@@ -190,18 +194,21 @@ try {
   );
   proof.persistenceAcrossSidecarRelaunch = true;
   const second = await browser.newPage();
-  await second.goto(origin);
+  await second.goto(origin + "/?doc=tracer");
   await expect(second.locator(".cm-content")).toContainText("A terminal alternative.");
+  // The last-opened slug is still recorded on the device, but startup no longer reads it.
   assert.equal(
     await second.evaluate(() => localStorage.getItem("composed.selectedDocument")),
     "tracer",
   );
   await run("new", "post", "selected");
   await second.goto(origin + "/?doc=selected");
-  await expect(second.getByRole("heading", { level: 1 })).toHaveText("composed · selected");
+  await expect(second.getByRole("heading", { level: 1 })).toHaveAttribute("title", "selected");
   await second.goto(origin);
-  await expect(second.getByRole("heading", { level: 1 })).toHaveText("composed · selected");
+  await expect(second.getByRole("heading", { level: 1, name: "Posts" })).toBeVisible();
+  await expect(second.locator('[data-doc="selected"]')).toBeVisible();
   proof.selectedDocumentDeviceState = true;
+  proof.homeOnColdOpen = true;
   assert.deepEqual(remotes, []);
   assert.deepEqual(errors, []);
   proof.studioLoadsNoRemotes = true;

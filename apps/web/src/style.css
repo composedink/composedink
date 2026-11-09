@@ -1,24 +1,405 @@
 :root {
-  font: 16px/1.5 system-ui;
-  color: #25332e;
-  background: #faf9f5;
+  /* Palette (plan 18): text colours meet 4.5:1 on paper; borders and highlights keep the originals. */
+  --ink: #25332e;
+  --paper: #faf9f5;
+  --surface: #ffffff;
+  --rule: #b6c4ba;
+  --control: #7a8a80;
+  --muted: #5b6b61;
+  --green: #4f7d6a;
+  --green-soft: #6d8a78;
+  --green-ink: #3f6b5a;
+  --green-wash: #e3ece6;
+  --warn: #ba6200;
+  --warn-ink: #a85800;
+  --error: #c0261a;
+  --alt: #8872d5;
+  --alt-ink: #6b5bb8;
+  --thread: #d0a93a;
+  --thread-ink: #8a5a00;
+  --soft-ink: #66704a;
+  --dim-ink: #5f6b64;
+  --selection: #cfe0d5;
+  --chrome: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --prose: "Source Serif 4 Variable", "Source Serif 4", Georgia, serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  font: 15px/1.5 var(--chrome);
+  color: var(--ink);
+  background: var(--paper);
+  accent-color: var(--green);
 }
 body {
   margin: 0;
 }
-main {
-  max-width: 1400px;
-  margin: auto;
-  padding: 2rem;
+::selection {
+  background: var(--selection);
+  color: var(--ink);
 }
-header {
+:focus-visible {
+  outline: 2px solid var(--green-ink);
+  outline-offset: 2px;
+}
+a {
+  color: var(--green-ink);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+code,
+pre {
+  font-family: var(--mono);
+  font-size: 0.875em;
+}
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+input,
+textarea,
+select {
+  border: 1px solid var(--control);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 0.3rem 0.5rem;
+}
+input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--control);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 0.25rem 0.75rem;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) {
+  background: var(--green-wash);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: transparent;
+  border-style: dashed;
+}
+button.primary {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--green-ink);
+}
+button.primary:disabled {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--control);
+}
+button.quiet {
+  border-color: transparent;
+  background: transparent;
+}
+button.quiet:hover:not(:disabled) {
+  border-color: var(--rule);
+}
+button.link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--green-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+button.link:hover:not(:disabled) {
+  background: none;
+  text-decoration-thickness: 2px;
+}
+.muted {
+  color: var(--muted);
+}
+main {
+  max-width: 1440px;
+  margin: auto;
+  padding: 1.25rem 2rem 0;
+  box-sizing: border-box;
+}
+
+/* Page header: wordmark or All posts, the title, the actions, the sign-in state. */
+.app-header,
+.editor-header {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 0.75rem 1.25rem;
+  min-height: 2.5rem;
 }
-h1 {
+.wordmark {
+  font: 600 1.05rem/1 var(--prose);
+  letter-spacing: 0.01em;
   margin-right: auto;
 }
+.editor-header .back {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.editor-header .back::before {
+  content: "← ";
+}
+.editor-header h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font: 600 1.35rem/1.3 var(--prose);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.sign-in {
+  position: relative;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: max-content;
+  max-width: min(26rem, 80vw);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 6px 24px rgb(37 51 46 / 12%);
+  white-space: normal;
+}
+.popover code {
+  display: block;
+  margin-top: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--paper);
+  border-radius: 4px;
+  user-select: all;
+}
+
+/* Notices: one failure, said once, beside the control that failed. */
+.notice {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  background: #fdf3f1;
+}
+.notice p {
+  margin: 0;
+}
+.notice-title {
+  font-weight: 600;
+  color: #8f1d14;
+}
+.notice-detail {
+  margin-top: 0.15rem !important;
+}
+.notice-help {
+  margin-top: 0.4rem;
+}
+.notice-help summary {
+  cursor: pointer;
+  color: var(--green-ink);
+}
+.notice-help pre {
+  white-space: pre-wrap;
+  margin: 0.4rem 0 0;
+}
+.notice-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.page-notice {
+  max-width: 48rem;
+}
+
+/* Home */
+.home {
+  max-width: 52rem;
+}
+.home-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 2.5rem 0 1rem;
+}
+.home-head h1 {
+  margin: 0;
+  font: 600 2rem/1.15 var(--prose);
+}
+.post-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.post-list li {
+  border-bottom: 1px solid var(--rule);
+}
+.post-list a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+  padding: 0.9rem 0.5rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+.post-list a:hover {
+  background: var(--green-wash);
+}
+.post-list a:hover .post-title {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.post-title {
+  font: 500 1.2rem/1.35 var(--prose);
+}
+.post-facts {
+  display: flex;
+  gap: 1.25rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.empty {
+  max-width: 34rem;
+  padding: 2rem 0;
+}
+.empty h2 {
+  font: 600 1.4rem/1.25 var(--prose);
+  margin: 0 0 0.5rem;
+}
+.empty p {
+  margin: 0 0 1.25rem;
+}
+
+/* New post */
+dialog.new-post {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 16px 48px rgb(37 51 46 / 20%);
+}
+dialog.new-post::backdrop {
+  background: rgb(37 51 46 / 30%);
+}
+dialog.new-post h2 {
+  margin: 0 0 1rem;
+  font: 600 1.5rem/1.2 var(--prose);
+}
+.field {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+}
+.field-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.field-hint {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.field input[aria-invalid="true"] + .field-hint {
+  color: var(--error);
+}
+.kinds {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+.kinds legend {
+  padding: 0;
+  margin-bottom: 0.4rem;
+}
+.kind-option {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+  background: var(--surface);
+}
+.kind-option:hover {
+  border-color: var(--control);
+}
+.kind-option:has(input:checked) {
+  border-color: var(--green);
+  background: var(--green-wash);
+}
+.kind-option:has(input:focus-visible) {
+  outline: 2px solid var(--green-ink);
+  outline-offset: 2px;
+}
+.kind-option input {
+  margin-top: 0.3rem;
+}
+.kind-option input:focus-visible {
+  outline: none;
+}
+.kind-body {
+  display: grid;
+  gap: 0.1rem;
+}
+.kind-name {
+  font-weight: 600;
+}
+.kind-facts,
+.kind-template {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.opening {
+  min-height: 50vh;
+}
+
 .split {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(250px, 1fr);
@@ -51,23 +432,10 @@ pre {
   overflow-wrap: anywhere;
   font-size: 13px;
 }
-label {
-  display: block;
-  margin: 1rem 0;
-}
-input,
-textarea,
-select,
-button {
-  font: inherit;
-}
 textarea {
   display: block;
   width: 90%;
   min-height: 6rem;
-}
-button {
-  cursor: pointer;
 }
 [role="alert"] {
   color: #952f20;

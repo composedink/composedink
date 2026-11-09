@@ -46,3 +46,13 @@ export interface DocSummary {
   words: number;
   updatedAt: number;
 }
+export {
+  frontmatterBlock,
+  frontmatterProblem,
+  frontmatterValues,
+  keyRanges,
+  setFrontmatterField,
+  type FrontmatterBlock,
+  type FrontmatterProblem,
+  type TextChange,
+} from "./frontmatter.ts";

@@ -74,6 +74,19 @@ if (/<key>CGSSessionScreenIsLocked<\/key>\s*<true\s*\/>/.test(session.stdout)) {
           ),
         ) > 0,
     );
+    // Cold open shows Home (plan 18): open the post from its row before typing.
+    await apple(`tell application "System Events"
+    tell (first process whose unix id is ${pid})
+      set frontmost to true
+      repeat with element in (entire contents of window 1)
+        if role of element is "AXLink" and (description of element contains "Untitled" or title of element contains "Untitled") then
+          perform action "AXPress" of element
+          exit repeat
+        end if
+      end repeat
+    end tell
+  end tell`);
+    await delay(1500);
     await apple(`tell application "System Events"
     tell (first process whose unix id is ${pid})
       set frontmost to true

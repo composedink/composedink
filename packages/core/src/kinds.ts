@@ -2,7 +2,8 @@ import { mkdir, readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { hash } from "node:crypto";
 import { z } from "zod";
-import { parseDocument, stringify } from "yaml";
+import { stringify } from "yaml";
+import { frontmatterBlock, frontmatterValues, keyRanges } from "./frontmatter.ts";
 import type { LoroDoc } from "loro-crdt";
 import {
   mergeRulesets,
@@ -208,17 +209,7 @@ export async function effectiveRules(home: string, id: KindId): Promise<Effectiv
     throw invalid(kindPath(home, id, "rules.json"), e instanceof Error ? e.message : String(e));
   }
 }
-const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-export function frontmatterValues(text: string): Record<string, unknown> {
-  const yaml = text.match(FRONTMATTER);
-  if (!yaml) return {};
-  const parsed = parseDocument(yaml[1]);
-  if (parsed.errors.length) return {};
-  const value: unknown = parsed.toJS();
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
+export { frontmatterValues } from "./frontmatter.ts";
 const fieldValue = {
   reader: (v: unknown) => (typeof v === "string" ? v : undefined),
   medium: (v: unknown) => (medium.safeParse(v).success ? (v as LintSettings["medium"]) : undefined),
@@ -262,10 +253,9 @@ export function withFrontmatter(template: string, entries: Partial<Record<Field,
     .map(([key, value]) => stringify({ [key]: value }))
     .join("");
   if (!lines) return template;
-  const yaml = template.match(FRONTMATTER);
-  if (!yaml) return `---\n${lines}---\n\n${template}`;
-  const close = yaml[0].lastIndexOf("---");
-  return template.slice(0, close) + lines + template.slice(close);
+  const block = frontmatterBlock(template);
+  if (!block) return `---\n${lines}---\n\n${template}`;
+  return template.slice(0, block.close) + lines + template.slice(block.close);
 }
 /** The document a kind creates: the template with frontmatter defaults, and meta defaults. */
 export async function creation(home: string, id: KindId) {
@@ -287,36 +277,9 @@ export async function creation(home: string, id: KindId) {
     },
   };
 }
-/**
- * Source ranges of top-level frontmatter keys in `keys`, whole lines including continuation
- * lines (indented or sequence items) — the export projection removes them.
- */
-export function stripRanges(text: string, keys: readonly string[]) {
-  const yaml = text.match(FRONTMATTER);
-  if (!yaml || !keys.length) return [];
-  const ranges: [number, number][] = [];
-  const lines = [...yaml[1].matchAll(/[^\n]*(?:\n|$)/g)]
-    .filter((m) => m[0])
-    .map((m) => ({ from: text.indexOf("\n") + 1 + m.index, text: m[0] }));
-  const continues = (i: number): boolean => {
-    const line = lines[i]?.text;
-    if (line === undefined) return false;
-    if (/^(?:\s+\S|-(?:\s|$))/.test(line)) return true;
-    return !line.trim() && continues(i + 1);
-  };
-  for (let i = 0; i < lines.length; i++) {
-    const key = lines[i].text.match(/^([A-Za-z_][\w-]*)\s*:/)?.[1];
-    if (!key || !keys.includes(key)) continue;
-    let end = i;
-    while (continues(end + 1)) end++;
-    const last = lines[end];
-    const to = last.from + last.text.length;
-    // The closing fence's newline belongs to the fence, so the last body line keeps its own.
-    ranges.push([lines[i].from, last.text.endsWith("\n") ? to : to + 1]);
-    i = end;
-  }
-  return ranges;
-}
+/** Source ranges of top-level frontmatter keys in `keys`; the export projection removes them. */
+export const stripRanges = (text: string, keys: readonly string[]) =>
+  frontmatterBlock(text) ? keyRanges(text, keys) : [];
 export const removeRanges = (text: string, ranges: readonly [number, number][]) =>
   ranges.reduceRight((t, [from, to]) => t.slice(0, from) + t.slice(to), text);
 /**

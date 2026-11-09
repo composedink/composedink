@@ -10,6 +10,7 @@ import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternati
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EditorView } from "@codemirror/view";
 import { LoroDoc } from "loro-crdt";
+import { frontmatterBlock, frontmatterValues } from "@composedink/core";
 import { sourceEditor } from "./editor/editor";
 import { EditorTransport } from "./editor/transport";
 import { SessionStatus, type Session } from "./SessionStatus";
@@ -34,7 +35,7 @@ type Inspection = {
   blocks: { tag: string; version: string; props: unknown; validation: string }[];
   diagnostic: string;
 };
-export function PostEditor({ panels }: { panels?: ReactNode }) {
+export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
   const [rewriting, setRewriting] = useState(false);
   const rewriteAbort = useRef<AbortController | null>(null);
   const parent = useRef<HTMLDivElement>(null);
@@ -90,11 +91,9 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
       .querySelector(`.thread[data-thread="${CSS.escape(active)}"]`)
       ?.scrollIntoView({ block: "nearest" });
   }, [active]);
-  const id =
-    new URLSearchParams(location.search).get("doc") ??
-    localStorage.getItem("composed.selectedDocument") ??
-    "tracer";
-  localStorage.setItem("composed.selectedDocument", id);
+  // Written, never read at startup: the desktop smoke reads the last-opened slug from here.
+  useEffect(() => localStorage.setItem("composed.selectedDocument", id), [id]);
+  const [title, setTitle] = useState(id);
   useEffect(() => {
     const doc = new LoroDoc();
     doc.configTextStyle({ dim: { expand: "none" } });
@@ -123,6 +122,7 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
       id,
       setStatus,
       () => {
+        const opening = !view;
         if (!view && parent.current)
           view = sourceEditor(parent.current, doc, [
             lint.extension,
@@ -212,6 +212,16 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
           ]);
         refreshThreads();
         relayout();
+        const source = doc.getText("mdx").toString();
+        const front = frontmatterValues(source).title;
+        setTitle(typeof front === "string" && front.trim() ? front.trim() : id);
+        if (opening && view) {
+          // The writer lands in the body, after the settings block and its blank line.
+          const end = frontmatterBlock(source)?.to ?? 0;
+          const anchor = Math.min(source.length, source[end] === "\n" ? end + 1 : end);
+          view.dispatch({ selection: { anchor }, scrollIntoView: true });
+          view.focus();
+        }
         setStash(
           doc
             .getMovableList("stash")
@@ -346,24 +356,29 @@ export function PostEditor({ panels }: { panels?: ReactNode }) {
   }
   return (
     <main>
-      <header>
-        <h1>composed · {id}</h1>
-        <button
-          onClick={() =>
-            void transport.current
-              ?.undoOperation()
-              .then(() => setError(""))
-              .catch((e) => setError(String(e)))
-          }
-        >
-          Undo operation
-        </button>
-        <ShareButton
-          session={session}
-          open={sharing}
-          zen={zen}
-          onToggle={() => setSharing((open) => !open)}
-        />
+      <header className="editor-header">
+        <a className="back" href="/">
+          All posts
+        </a>
+        <h1 title={id}>{title}</h1>
+        <div className="header-actions">
+          <button
+            onClick={() =>
+              void transport.current
+                ?.undoOperation()
+                .then(() => setError(""))
+                .catch((e) => setError(String(e)))
+            }
+          >
+            Undo operation
+          </button>
+          <ShareButton
+            session={session}
+            open={sharing}
+            zen={zen}
+            onToggle={() => setSharing((open) => !open)}
+          />
+        </div>
       </header>
       {sharing && session?.signedIn && !zen && (
         <SharePanel id={id} transport={transport.current} onError={setError} />

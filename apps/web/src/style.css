@@ -516,9 +516,6 @@ textarea {
   width: 90%;
   min-height: 6rem;
 }
-[role="alert"] {
-  color: #952f20;
-}
 @media (max-width: 700px) {
   .split {
     grid-template-columns: 1fr;
@@ -590,25 +587,72 @@ textarea {
 .statusbar [role="status"] {
   margin: 0;
 }
-.statusbar .zen-toggle {
+.statusbar .shortcuts {
   margin-left: auto;
+  position: relative;
+}
+.statusbar .words {
+  font-variant-numeric: tabular-nums;
+}
+.statusbar .words.over {
+  color: var(--warn-ink);
+  font-weight: 600;
+}
+.statusbar .warning {
+  color: var(--warn-ink);
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.statusbar .session {
+  color: var(--muted);
+}
+.shortcuts-panel {
+  top: auto;
+  bottom: calc(100% + 0.5rem);
+  width: min(28rem, 90vw);
+  white-space: normal;
+}
+.shortcuts-panel dl {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.shortcuts-panel dl > div {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.shortcuts-panel dt {
+  display: flex;
+  gap: 0.2rem;
+}
+.shortcuts-panel dd {
+  margin: 0;
+}
+.shortcuts-panel p {
+  margin: 0.75rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--rule);
+}
+kbd {
+  display: inline-block;
+  min-width: 1.1em;
+  padding: 0 0.3em;
+  border: 1px solid var(--control);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  font: 500 0.8125rem/1.5 var(--chrome);
+  text-align: center;
+}
+.working {
+  color: var(--muted);
 }
 .statusbar .zen-toggle[aria-pressed="true"] {
   background: #25332e;
   color: #faf9f5;
-}
-.statusbar .session code {
-  font-size: 13px;
-}
-.statusbar .session .synced {
-  margin-left: 0.5rem;
-  color: #5b6b61;
-}
-.statusbar .session.signed-out {
-  color: #952f20;
-}
-.statusbar .warning {
-  color: #952f20;
 }
 .cm-soft-gutter {
   min-width: 1em;
@@ -778,9 +822,6 @@ textarea {
   padding-left: 0.75rem;
   margin-block: 0.75rem;
 }
-.request .failure {
-  color: #952f20;
-}
 .answer h4 {
   margin: 0.5rem 0 0.25rem;
 }
@@ -790,18 +831,6 @@ textarea {
   text-align: left;
 }
 
-.share-button {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.share-fix {
-  color: #952f20;
-  font-size: 14px;
-}
-.share-fix code {
-  font-size: 13px;
-}
 .share-panel {
   border-left: 3px solid #4f7d6a;
   padding: 0.25rem 0 0.25rem 1rem;

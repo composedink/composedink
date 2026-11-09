@@ -1,7 +1,18 @@
 import { RetainedUpdates } from "./pending";
 import { encodeFrontiers, type LoroDoc } from "loro-crdt";
 
+/** The save state the status bar shows; operation failures never reach it. */
+export type SaveState = "Connecting" | "Saving" | "Saved" | "Offline" | "Offline · Unsaved changes";
+export interface TransportEvents {
+  /** Studio's `{session}` frames, and `session.status` on every connect. */
+  session?: (status: unknown) => void;
+  /** A failure with no operation to reject (the subscription itself): shown once as a notice. */
+  error?: (message: string) => void;
+  /** Preview rebuild diagnostics from studio, for the components panel. */
+  preview?: (diagnostics: unknown) => void;
+}
 export class EditorTransport {
+  private connected = false;
   private socket?: WebSocket;
   private session = crypto.randomUUID();
   private stopped = false;
@@ -19,17 +30,18 @@ export class EditorTransport {
   constructor(
     readonly doc: LoroDoc,
     readonly id: string,
-    private status: (status: string) => void,
+    private status: (status: SaveState) => void,
     private changed: () => void,
-    /** The server session: read on every connect, then pushed by studio as `{session}` frames. */
-    private serverSession?: (status: unknown) => void,
+    private events: TransportEvents = {},
   ) {
     this.unsubscribe = doc.subscribeLocalUpdates((bytes) => {
       const seq = ++this.sequence;
       const frame = JSON.stringify({ doc: id, bytes: btoa(String.fromCharCode(...bytes)), seq });
       this.pending.set(seq, frame);
       if (this.ready) this.socket?.send(frame);
-      this.status(this.ready ? "Saving" : "Unsaved — disconnected");
+      this.status(
+        this.ready ? "Saving" : this.connected ? "Offline · Unsaved changes" : "Connecting",
+      );
     });
     window.addEventListener("offline", this.offline);
     void this.connect();
@@ -60,18 +72,18 @@ export class EditorTransport {
           return;
         }
         if (frame.session) {
-          this.serverSession?.(frame.session);
+          this.events.session?.(frame.session);
           return;
         }
         if (frame.preview) {
-          this.status(`Preview — ${JSON.stringify(frame.preview.diagnostics)}`);
+          this.events.preview?.(frame.preview.diagnostics);
           return;
         }
         if (frame.error) {
           const call = this.calls.get(frame.request);
-          call?.reject(new Error(frame.error));
+          if (call) call.reject(new Error(frame.error));
+          else this.events.error?.(String(frame.error));
           this.calls.delete(frame.request);
-          this.status(`Unsaved — ${frame.error}`);
           return;
         }
         if (frame.doc && frame.doc !== this.id) return;
@@ -79,9 +91,10 @@ export class EditorTransport {
         if (bytes) this.doc.import(Uint8Array.from(atob(bytes), (c) => c.charCodeAt(0)));
         if (frame.snapshot) {
           this.ready = true;
+          this.connected = true;
           for (const retained of this.pending.values()) socket.send(retained);
-          if (this.serverSession)
-            void this.operation("session.status", {}).then(this.serverSession, () => {});
+          const session = this.events.session;
+          if (session) void this.operation("session.status", {}).then(session, () => {});
         }
         if (typeof frame.seq === "number") this.pending.acknowledge(frame.seq);
         if (typeof frame.request === "number") {
@@ -96,7 +109,7 @@ export class EditorTransport {
       };
       socket.onclose = () => {
         this.ready = false;
-        this.status("Unsaved — disconnected");
+        this.status(this.pending.size ? "Offline · Unsaved changes" : "Offline");
         for (const call of this.calls.values())
           call.reject(new Error("Disconnected before acknowledgement"));
         this.calls.clear();

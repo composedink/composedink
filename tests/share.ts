@@ -332,15 +332,19 @@ try {
   await pageC.goto(`${C.origin}/?doc=post`);
   await expect(pageC.getByRole("status")).toHaveText("Saved", { timeout: 30_000 });
   await expect(pageC.getByRole("button", { name: "Share", exact: true })).toBeDisabled();
-  await expect(pageC.getByTestId("share-fix")).toHaveText(
-    "Sign in to share — fix: composed login <server>",
+  // Plan 18: the reason is the button's tooltip; the header's Sign in has the command.
+  await expect(pageC.getByRole("button", { name: "Share", exact: true })).toHaveAttribute(
+    "title",
+    /^Sign in to share/,
   );
+  await pageC.getByRole("button", { name: "Sign in" }).click();
+  await expect(pageC.getByRole("dialog", { name: "Sign in" })).toBeVisible();
   await pageC.screenshot({ path: join(root, "test-results/plan-17-share-c-signed-out.png") });
   proof.signedOut = {
     exitCode: refused.code,
     stderr: refused.stderr.trim(),
     shareDisabled: true,
-    fix: await pageC.getByTestId("share-fix").textContent(),
+    fix: await pageC.getByRole("dialog", { name: "Sign in" }).textContent(),
   };
 
   await writeFile(

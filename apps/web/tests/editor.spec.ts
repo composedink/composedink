@@ -122,7 +122,7 @@ try {
   results.operationUndoIsolation = true;
   results.operationUndoAfterReconnect = true;
   await page.getByRole("button", { name: "Undo operation" }).click();
-  await expect(page.getByRole("alert")).toContainText("NothingToUndo");
+  await expect(page.getByRole("alert")).toHaveAttribute("data-code", "NothingToUndo");
   results.remoteOpsExcluded = true;
   await editor.press("ControlOrMeta+End");
   await page.keyboard.insertText('\n\n<Card name="Lachlan" />');

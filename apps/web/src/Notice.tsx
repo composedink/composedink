@@ -31,9 +31,10 @@ function ModelHelp() {
 export function describe(error: unknown): NoticeContent {
   let raw = error instanceof Error ? error.message : String(error);
   raw = raw.replace(/^(?:Error:\s*)+/, "");
-  const coded = raw.match(/^([A-Z][A-Za-z]+): ([\s\S]*)$/);
+  // `Code: reason; fix: …`, or a bare code such as `NothingToUndo`.
+  const coded = raw.match(/^([A-Z][a-z]+(?:[A-Z][a-z]*)+)(?::\s*([\s\S]*))?$/);
   const code = coded?.[1];
-  const [reason, fix] = (coded ? coded[2] : raw).split(/;\s*fix:\s*/);
+  const [reason, fix] = (coded ? (coded[2] ?? "") : raw).split(/;\s*fix:\s*/);
   const recovery = fix ? `To fix it: ${fix.trim()}` : undefined;
   switch (code) {
     case "ProviderFailed":

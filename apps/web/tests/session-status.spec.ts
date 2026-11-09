@@ -37,19 +37,27 @@ try {
   page.on("pageerror", (e) => console.error("PAGE", e));
   await page.goto(`http://127.0.0.1:${env.COMPOSED_PORT}/?doc=p`);
   await expect(page.getByRole("status")).toHaveText("Saved", { timeout: 30000 });
+  // Plan 18: signed out appears once, in the header; Sign in opens the command for this device.
   const session = page.getByTestId("session");
-  // A home that never signed in: the fix has no server to name.
-  await expect(session).toHaveText("Signed out composed login <server>");
+  await expect(session).toHaveCount(1);
+  await expect(session).toContainText("Not signed in · Sign in");
+  await expect(page.locator("footer.statusbar").getByTestId("session")).toHaveCount(0);
+  // A home that never signed in has no server to name: pair it from a signed-in device.
+  await session.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("dialog", { name: "Sign in" })).toContainText(
+    "composed devices pair",
+  );
   // Zen hides the column and panels but keeps the session, like the save state.
   await page.getByRole("button", { name: "Zen" }).click();
   await expect(page.getByRole("button", { name: "Zen" })).toHaveAttribute("aria-pressed", "true");
   await expect(session).toBeVisible();
   await page.getByRole("button", { name: "Zen" }).click();
-  // After logout or revocation session.json keeps the server, and the fix names it.
+  // After logout or revocation session.json keeps the server, and the command names it.
   await writeFile(join(home, "session.json"), JSON.stringify({ server: "https://example.test" }));
   await page.reload();
-  await expect(page.getByTestId("session")).toHaveText(
-    "Signed out composed login https://example.test",
+  await page.getByTestId("session").getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("dialog", { name: "Sign in" })).toContainText(
+    "composed login https://example.test",
   );
   await mkdir(join(root, "test-results"), { recursive: true });
   await page.screenshot({ path: join(root, "test-results/plan-16-session-status.png") });

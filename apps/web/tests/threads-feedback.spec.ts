@@ -129,9 +129,18 @@ async function select(page: Page, needle: string) {
     }
     throw Error(`not rendered: ${needle}`);
   }, needle);
-  await expect(
-    page.getByRole("region", { name: "Source", exact: true }).locator("> p"),
-  ).toContainText(`selected: ${needle}`);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const [from, to] = document
+          .querySelector(".source-editor")!
+          .getAttribute("data-selection")!
+          .split("-")
+          .map(Number);
+        return to - from;
+      }),
+    )
+    .toBe(needle.length);
 }
 /** Card top minus the highlight's top: zero when the comment is aligned with its anchor. */
 async function offset(page: Page, thread: string) {
@@ -319,7 +328,8 @@ try {
     .toBe(typed.replace("Delta epsilon zeta.", "Delta, briefly."));
   evidence.modelAnswers = true;
 
-  // Cancellation before the answer commits records a failure; late output is ignored.
+  // Cancellation before the answer commits: the request is removed (plan 18), the Ask form says
+  // so, and late output is ignored.
   hold();
   await page.getByRole("button", { name: "Ask the model" }).click();
   await page.getByRole("button", { name: "Ask", exact: true }).click();
@@ -328,7 +338,10 @@ try {
     completed = r;
   });
   await page.getByRole("button", { name: "Cancel request" }).click();
-  await expect(page.locator(".request[data-status=failed]").first()).toContainText("cancelled");
+  await expect(
+    page.getByRole("region", { name: "Model feedback" }).getByRole("alert"),
+  ).toContainText("The request was cancelled.");
+  await expect(page.locator(".request[data-status=failed]")).toHaveCount(0);
   const count = threads().length;
   release();
   await late;

@@ -11,6 +11,7 @@ import {
   type Thread,
 } from "./editor/threads";
 import type { EditorTransport } from "./editor/transport";
+import { describe, Notice, type NoticeContent } from "./Notice";
 
 export type ThreadFilter = "open" | "resolved" | "all";
 export const shownThreads = (threads: Thread[], filter: ThreadFilter) =>
@@ -19,24 +20,30 @@ type Common = {
   id: string;
   view: EditorView | null;
   transport: EditorTransport | null;
-  onError: (message: string) => void;
 };
+/** A control's own failure, shown beside it until dismissed or the next success. */
+function useNotice() {
+  const [notice, setNotice] = useState<NoticeContent>();
+  const shown = notice && <Notice notice={notice} onDismiss={() => setNotice(undefined)} />;
+  return { shown, fail: (e: unknown) => setNotice(describe(e)), clear: () => setNotice(undefined) };
+}
 
 /** Selection comments: quote and base are captured on click, before typing is flushed. */
 export function CommentComposer({
   id,
   view,
   transport,
-  onError,
   hasSelection,
   onOpened,
 }: Common & { hasSelection: boolean; onOpened: (thread: string) => void }) {
   const [draft, setDraft] = useState<{ base: string; quote: string }>();
   const [text, setText] = useState("");
+  const { shown, fail, clear } = useNotice();
   return (
     <div className="comment-composer">
       <button
         disabled={!hasSelection}
+        title={hasSelection ? "Comment on the selected text" : "Select text to comment on it"}
         onClick={() => {
           if (!view || !transport) return;
           const at = selectionNow(view, transport.doc);
@@ -63,10 +70,11 @@ export function CommentComposer({
               })
               .then((result) => {
                 setDraft(undefined);
+                clear();
                 if (result && typeof result === "object" && "thread" in result)
                   onOpened(String(result.thread));
               })
-              .catch((e) => onError(String(e)));
+              .catch(fail);
           }}
         >
           <blockquote>{draft.quote}</blockquote>
@@ -82,6 +90,7 @@ export function CommentComposer({
           </button>
         </form>
       )}
+      {shown}
     </div>
   );
 }
@@ -90,7 +99,6 @@ function ThreadCard({
   id,
   thread,
   transport,
-  onError,
   active,
   question,
   quote,
@@ -109,6 +117,7 @@ function ThreadCard({
   measure?: (element: HTMLElement | null) => void;
 }) {
   const [reply, setReply] = useState("");
+  const { shown, fail, clear } = useNotice();
   return (
     <article
       ref={measure}
@@ -135,8 +144,11 @@ function ThreadCard({
           if (!transport || !reply.trim()) return;
           void transport
             .operation("thread.reply", { id, thread: thread.thread, text: reply })
-            .then(() => setReply(""))
-            .catch((e) => onError(String(e)));
+            .then(() => {
+              setReply("");
+              clear();
+            })
+            .catch(fail);
         }}
       >
         <input
@@ -158,13 +170,14 @@ function ThreadCard({
             onClick={() =>
               void transport
                 ?.operation("thread.resolve", { id, thread: thread.thread })
-                .catch((e) => onError(String(e)))
+                .then(clear, fail)
             }
           >
             Resolve
           </button>
         )}
       </div>
+      {shown}
     </article>
   );
 }
@@ -177,7 +190,6 @@ export function ThreadColumn({
   id,
   view,
   transport,
-  onError,
   threads,
   requests,
   filter,
@@ -233,7 +245,6 @@ export function ThreadColumn({
       id={id}
       thread={t}
       transport={transport}
-      onError={onError}
       active={active === t.thread}
       question={t.question ? (questions.get(t.question) ?? t.question) : undefined}
       quote={
@@ -287,7 +298,6 @@ export function FeedbackPanel({
   id,
   view,
   transport,
-  onError,
   kind,
   requests,
   threads,
@@ -303,6 +313,7 @@ export function FeedbackPanel({
   const [questions, setQuestions] = useState<string[]>();
   const [asking, setAsking] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  const { shown, fail, clear } = useNotice();
   const start = () =>
     void transport
       ?.operation("kind.read", { kind })
@@ -313,14 +324,16 @@ export function FeedbackPanel({
             : {};
         const seeded: unknown = JSON.parse(files["kind.json"] ?? "{}").questions;
         setQuestions(Array.isArray(seeded) ? seeded.map(String) : [""]);
+        clear();
       })
-      .catch((e) => onError(String(e)));
+      .catch(fail);
   const ask = (event: React.FormEvent) => {
     event.preventDefault();
     if (!transport || !questions || abort.current) return;
     const controller = new AbortController();
     abort.current = controller;
     setAsking(true);
+    clear();
     void transport
       .operation(
         "feedback.request",
@@ -333,9 +346,8 @@ export function FeedbackPanel({
         controller.signal,
       )
       .then(() => setQuestions(undefined))
-      .catch((e) => {
-        if (!controller.signal.aborted) onError(String(e));
-      })
+      // The form stays open with the failure under it; a cancelled request says so.
+      .catch(fail)
       .finally(() => {
         abort.current = null;
         setAsking(false);
@@ -385,6 +397,7 @@ export function FeedbackPanel({
           </button>
         </form>
       )}
+      {shown}
       {requests.map((r) => (
         <article className="request" key={r.request} data-status={r.state.status}>
           {r.state.status === "pending" && !r.to.includes("model") && (
@@ -403,7 +416,7 @@ export function FeedbackPanel({
               )}
             </p>
           )}
-          {r.state.status === "failed" && <p className="failure">{r.state.message}</p>}
+          {r.state.status === "failed" && <Notice notice={describe(r.state.message)} />}
           {r.state.status === "answered" &&
             r.questions.map((q) => {
               const answer =

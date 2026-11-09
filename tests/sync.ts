@@ -326,14 +326,15 @@ try {
   };
 
   // 6. A's status bar names its device.
-  await expect(pageA.getByTestId("session")).toContainText("Signed in as A");
-  await expect(pageA.getByTestId("session")).toContainText("synced");
+  // Plan 18: the status bar says "Synced …"; the device and server are its tooltip.
+  await expect(pageA.getByTestId("session")).toHaveAttribute("title", /^Signed in as A on /);
+  await expect(pageA.getByTestId("session")).toContainText("Synced");
   proof.statusBarA = await pageA.getByTestId("session").textContent();
 
   // 7. A revokes B: B drops to signed out everywhere.
   const bSession = JSON.parse(await readFile(join(B.path, "session.json"), "utf8"));
   await A.cli("devices", "revoke", bSession.deviceId);
-  await expect(pageB.getByTestId("session")).toHaveText(`Signed out composed login ${serverUrl}`, {
+  await expect(pageB.getByTestId("session")).toHaveText("Not signed in · Sign in", {
     timeout: 45_000,
   });
   assert.deepEqual(await B.cli("status"), { signedIn: false, server: serverUrl });

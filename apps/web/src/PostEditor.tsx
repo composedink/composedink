@@ -8,7 +8,10 @@ import { readZen, writeZen, zenKeys } from "./editor/zen";
 import { frontmatterFold, settingsEdit, unfold } from "./editor/frontmatter";
 import { undoTyping, redoTyping } from "./editor/sync";
 import { SettingsStrip, type Field, type KindFields } from "./Settings";
-import { Notice } from "./Notice";
+import { describe, Notice, type NoticeContent } from "./Notice";
+import { SignInState } from "./Account";
+import { Shortcuts } from "./Shortcuts";
+import { kindName } from "./NewPost";
 import { selection as captureSelection } from "./editor/selection";
 import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternatives";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -22,7 +25,7 @@ import {
   setFrontmatterField,
 } from "@composedink/core";
 import { sourceEditor } from "./editor/editor";
-import { EditorTransport } from "./editor/transport";
+import { EditorTransport, type SaveState } from "./editor/transport";
 import { SessionStatus, type Session } from "./SessionStatus";
 import { ShareButton, SharePanel } from "./SharePanel";
 import {
@@ -40,6 +43,7 @@ import {
   type ThreadFilter,
 } from "./ThreadColumn";
 
+type Slot = "page" | "rewrite" | "alternative" | "stash" | "feedback" | "action";
 type Inspection = {
   deps: unknown;
   blocks: { tag: string; version: string; props: unknown; validation: string }[];
@@ -58,12 +62,30 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
   const transport = useRef<EditorTransport | null>(null);
   const [alts, setAlts] = useState<Alt[]>([]);
   const liveAlts = useRef<Alt[]>([]);
-  const [status, setStatus] = useState("Connecting");
+  const [status, setStatus] = useState<SaveState>("Connecting");
   const [session, setSession] = useState<Session>();
   const [sharing, setSharing] = useState(false);
-  const [context, setContext] = useState("No selection");
   const [inspection, setInspection] = useState<Inspection>();
-  const [error, setError] = useState("");
+  const [previewDiagnostics, setPreviewDiagnostics] = useState<unknown>();
+  // One failure, once, beside the control that failed; `page` is for operations with no control.
+  const [notices, setNotices] = useState<Partial<Record<Slot, NoticeContent>>>({});
+  const fail = (slot: Slot) => (error: unknown) =>
+    setNotices((n) => {
+      const next = describe(error);
+      return n[slot]?.title === next.title && n[slot]?.detail === next.detail
+        ? n
+        : { ...n, [slot]: next };
+    });
+  const clear = (slot: Slot) => () =>
+    setNotices((n) => {
+      if (!n[slot]) return n;
+      const { [slot]: _, ...rest } = n;
+      return rest;
+    });
+  const notice = (slot: Slot, className?: string) =>
+    notices[slot] && (
+      <Notice className={className} notice={notices[slot]} onDismiss={clear(slot)} />
+    );
   const [result, setResult] = useState<unknown>();
   const [preview, setPreview] = useState("");
   const [zen, setZen] = useState(readZen);
@@ -117,7 +139,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         diagnosticBase.current = base;
         setMeasured(sentences && { ...sentences, current: sentences.base === base });
       },
-      setError,
+      fail("page"),
     );
     feedback.current = lint;
     lint.setZen(zenNow.current);
@@ -146,7 +168,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
               const controller = new AbortController();
               rewriteAbort.current = controller;
               setRewriting(true);
-              setError("");
+              clear("rewrite")();
               const at = rewriteSelection(v, doc);
               void connection
                 .operation(
@@ -154,8 +176,8 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                   { doc: id, at, count: 3, request: crypto.randomUUID() },
                   controller.signal,
                 )
-                .catch((e) => {
-                  if (!controller.signal.aborted) setError(String(e));
+                .then(clear("rewrite"), (e) => {
+                  if (!controller.signal.aborted) fail("rewrite")(e);
                 })
                 .finally(() => {
                   rewriteAbort.current = null;
@@ -181,7 +203,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                     })(),
                   }),
                 )
-                .catch((e) => setError(String(e)));
+                .catch(fail("page"));
             }),
             alternativeGutter(() => liveAlts.current),
             threadHighlights(() => ({
@@ -208,7 +230,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                       ? { doc: id, alt, rest: action === "ghost" ? "ghost" : "stash" }
                       : { doc: id, alt, to: action },
                   )
-                  .catch((e) => setError(String(e)));
+                  .then(clear("alternative"), fail("alternative"));
               },
             ),
             EditorView.updateListener.of((update) => {
@@ -217,11 +239,8 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
               if (update.docChanged || update.geometryChanged || update.viewportChanged) relayout();
               const { from, to } = update.state.selection.main;
               setHasSelection(from !== to);
-              setContext(
-                from === to
-                  ? `Cursor ${from}`
-                  : `${to - from} UTF-16 units selected: ${update.state.sliceDoc(from, to)}`,
-              );
+              // The editor's own selection (UTF-16 offsets), for specs that wait on it.
+              parent.current?.setAttribute("data-selection", `${from}-${to}`);
             }),
           ]);
         refreshThreads();
@@ -289,7 +308,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 () => setKindFields({ kind: kindId, frontmatter: [], meta: [] }),
               );
             })
-            .catch((e) => setError(String(e)));
+            .catch(fail("page"));
           void connection
             .operation("doc.read", { doc: id })
             .then((result) => {
@@ -349,10 +368,14 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 lint.setBlocks(result.base, lintBlocks);
               setInspection({ blocks, deps: result.deps, diagnostic: result.diagnostic });
             })
-            .catch((e) => setError(String(e)));
+            .catch(fail("page"));
         }, 150);
       },
-      (value) => setSession(value as Session),
+      {
+        session: (value) => setSession(value as Session),
+        error: fail("page"),
+        preview: setPreviewDiagnostics,
+      },
     );
     transport.current = connection;
     return () => {
@@ -366,9 +389,11 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
       feedback.current = null;
     };
   }, [id]);
-  const soft = diagnostics.filter((d) => d.severity === "soft").length;
+  const rhythm = diagnostics.filter((d) => d.code === "rhythm").length;
   // Counts and the settings notice read the live text: the body counts whether or not the block parses.
   const words = bodyWords(source);
+  const budget = typeof reading.budget === "number" ? reading.budget : undefined;
+  const over = budget ? words - budget : 0;
   const problem = frontmatterProblem(source);
   const editSetting = (field: Field, value: string | number) => {
     const v = editorView.current;
@@ -399,9 +424,9 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
     try {
       const input: unknown = JSON.parse(raw);
       setResult(await transport.current?.operation(name, input));
-      setError("");
+      clear("action")();
     } catch (e) {
-      setError(String(e));
+      fail("action")(e);
     }
   }
   return (
@@ -414,10 +439,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         <div className="header-actions">
           <button
             onClick={() =>
-              void transport.current
-                ?.undoOperation()
-                .then(() => setError(""))
-                .catch((e) => setError(String(e)))
+              void transport.current?.undoOperation().then(clear("page"), fail("page"))
             }
           >
             Undo operation
@@ -425,11 +447,12 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
           <ShareButton
             session={session}
             open={sharing}
-            zen={zen}
             onToggle={() => setSharing((open) => !open)}
           />
+          <SignInState session={session} />
         </div>
       </header>
+      {notice("page", "page-notice")}
       {!zen && (
         <SettingsStrip
           text={source}
@@ -444,16 +467,14 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
           }}
         />
       )}
-      {sharing && session?.signedIn && !zen && (
-        <SharePanel id={id} transport={transport.current} onError={setError} />
-      )}
+      {sharing && session?.signedIn && !zen && <SharePanel id={id} transport={transport.current} />}
       {rewriting && (
-        <p>
+        <p className="working">
           Rewriting selection…{" "}
           <button onClick={() => rewriteAbort.current?.abort()}>Cancel rewrite</button>
         </p>
       )}
-      {error && <p role="alert">{error}</p>}
+      {notice("rewrite")}
       <div className={zen ? "split zen" : "split"}>
         <section aria-label="Source">
           <h2>Source</h2>
@@ -462,7 +483,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
               id={id}
               view={editorView.current}
               transport={transport.current}
-              onError={setError}
               hasSelection={hasSelection}
               onOpened={setActive}
             />
@@ -470,7 +490,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
               id={id}
               view={editorView.current}
               transport={transport.current}
-              onError={setError}
               kind={kind?.kind ?? "post"}
               requests={requests}
               threads={threads}
@@ -489,7 +508,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 id={id}
                 view={editorView.current}
                 transport={transport.current}
-                onError={setError}
                 threads={threads}
                 requests={requests}
                 filter={filter}
@@ -499,7 +517,6 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
               />
             )}
           </div>
-          <p>{context}</p>
         </section>
         <aside aria-label="Preview">
           <h2>Preview</h2>
@@ -514,6 +531,20 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 Open blog preview
               </a>
             </p>
+          )}
+          {Array.isArray(previewDiagnostics) && previewDiagnostics.length > 0 && (
+            <div className="preview-diagnostics">
+              <p>The last component rebuild reported:</p>
+              <ul>
+                {previewDiagnostics.map((d: unknown, i) => (
+                  <li key={i}>
+                    {d && typeof d === "object" && "message" in d
+                      ? String(d.message)
+                      : JSON.stringify(d)}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <div className="panels" hidden={zen}>
             <h3>Writing feedback</h3>
@@ -537,6 +568,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                   }
                 />
               )}
+              {notice("feedback")}
               {diagnostics.map((d, i) => (
                 <article
                   className="diagnostic"
@@ -572,7 +604,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                                 by: { kind: "human" },
                               });
                             })
-                            .catch((e) => setError(String(e)));
+                            .then(clear("feedback"), fail("feedback"));
                       }}
                     >
                       Propose “{d.replacement}”
@@ -598,7 +630,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                             ? { doc: id, alt: alt.id, rest: action === "ghost" ? "ghost" : "stash" }
                             : { doc: id, alt: alt.id, to: action },
                         )
-                        .catch((e) => setError(String(e)))
+                        .then(clear("alternative"), fail("alternative"))
                     }
                   >
                     {action === "keep"
@@ -612,6 +644,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 ))}
               </article>
             ))}
+            {notice("alternative")}
             <h3>Stash</h3>
             <button
               onClick={() => {
@@ -620,11 +653,12 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 if (v && c)
                   void captureSelection(v, c)
                     .then((at) => c.operation("stash.add", { doc: id, at }))
-                    .catch((e) => setError(String(e)));
+                    .then(clear("stash"), fail("stash"));
               }}
             >
               Stash selection
             </button>
+            {notice("stash")}
             {stash.map((item) => (
               <article className="stash-item" key={item.id}>
                 <pre>{item.text}</pre>
@@ -641,10 +675,19 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                             at: { ...at, to: at.from },
                           }),
                         )
-                        .catch((e) => setError(String(e)));
+                        .then(clear("stash"), fail("stash"));
                   }}
                 >
                   Insert
+                </button>
+                <button
+                  onClick={() =>
+                    void transport.current
+                      ?.operation("stash.remove", { doc: id, item: item.id })
+                      .then(clear("stash"), fail("stash"))
+                  }
+                >
+                  Remove
                 </button>
               </article>
             ))}
@@ -665,18 +708,24 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         </aside>
       </div>
       <footer className="statusbar" aria-label="Status bar">
-        <span data-testid="word-count">{words} words</span>
+        <span
+          data-testid="word-count"
+          className={over > 0 ? "words over" : "words"}
+          title={over > 0 ? `${over} words over the ${budget}-word budget` : undefined}
+        >
+          {budget ? `${words} / ${budget} words` : `${words} words`}
+        </span>
         <p role="status">{status}</p>
         <SessionStatus session={session} />
-        {kind && <span data-testid="kind">{kind.kind}</span>}
+        {kind && <span data-testid="kind">Kind: {kindName(kind.kind)}</span>}
         {kind?.warnings.map((warning) => (
-          <span className="warning" data-testid="kind-warning" key={warning}>
+          <span className="warning" data-testid="kind-warning" key={warning} title={warning}>
             {warning}
           </span>
         ))}
-        {!zen && soft > 0 && (
+        {!zen && rhythm > 0 && (
           <span data-testid="soft-count">
-            {soft} {soft === 1 ? "note" : "notes"}
+            {rhythm} {rhythm === 1 ? "rhythm note" : "rhythm notes"}
           </span>
         )}
         {!zen && measured && (
@@ -686,6 +735,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
             onJump={(sentence) => jump(sentence, measured.base)}
           />
         )}
+        <Shortcuts />
         <button className="zen-toggle" aria-pressed={zen} onClick={toggleZen} title="Zen (⌘⇧.)">
           Zen
         </button>
@@ -723,6 +773,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
           </label>
           <button>Run action</button>
         </form>
+        {notice("action")}
         {result !== undefined && (
           <pre aria-label="Action result">{JSON.stringify(result, null, 2)}</pre>
         )}

@@ -41,12 +41,12 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Task 4 — Web: one error at a time, writer copy, status bar
 
-- [ ] One `Notice` component replaces the header `[role=alert]`, the purple `.request .failure` and any error text in the status bar. A notice is rendered next to the control that failed (Ask, Comment, Share, Stash, the alternative widget, the strip); operations with no control (undo, inspection) use a single header notice. Messages are shown once; the `Error: Error:` prefixes are gone (`String(e)` is never shown raw; strip `^Error: ` and the `code: ` prefix, keep the `fix:` clause as a second line). Known codes map to writer copy: `ProviderFailed` → "No writing model is set up on this device yet." with a **How to set one up** disclosure that names `~/.composed/config.json` and the two keys; `UnknownDoc` → the Home notice from Task 2; `Unauthorized` → "This device was signed out. Sign in again to sync."
-- [ ] The transport's status callback reports only connection and save state (`Connecting`, `Saving`, `Saved`, `Offline`); operation failures never reach it. Check `editor/transport.ts` for the path that produced `Unsaved — Error: …` and route it to a notice.
-- [ ] Signed-out state appears once: in the header, as "Not signed in · Sign in" where **Sign in** opens a small disclosure with the exact command for this device (`composed login <server>` only when a server is known; otherwise "Pair this device from a signed-in one: `composed devices pair`"). The status bar shows the session only when signed in ("Synced just now").
-- [ ] Status bar order and copy: `175 / 1200 words` when the kind has a budget (plain `175 words` otherwise; over budget turns the figure to the warning colour), save state, `Kind: Post`, `5 rhythm notes` (or none), sparkline, **Shortcuts**, **Zen**. The `Cursor N` / `N UTF-16 units selected` line is removed. **Shortcuts** opens a popover listing ⌘. dim, ⌥↑/⌥↓ flip, ⌘⏎ keep, ⌘⇧R rewrite, ⌘⇧. zen, ⌘Z undo typing, and the Undo operation button.
-- [ ] Share: the disabled button's reason is a tooltip and the header's sign-in disclosure; no second red line.
-- [ ] e2e: Ask with no provider → one notice under the Ask form with the writer copy, status bar still `Saved`, reload shows no persisted request; signed-out header text once, status bar without a session item.
+- [x] One `Notice` component replaces the header `[role=alert]`, the purple `.request .failure` and any error text in the status bar. A notice is rendered next to the control that failed (Ask, Comment, Share, Stash, the alternative widget, the strip); operations with no control (undo, inspection) use a single header notice. Messages are shown once; the `Error: Error:` prefixes are gone (`String(e)` is never shown raw; strip `^Error: ` and the `code: ` prefix, keep the `fix:` clause as a second line). Known codes map to writer copy: `ProviderFailed` → "No writing model is set up on this device yet." with a **How to set one up** disclosure that names `~/.composed/config.json` and the two keys; `UnknownDoc` → the Home notice from Task 2; `Unauthorized` → "This device was signed out. Sign in again to sync."
+- [x] The transport's status callback reports only connection and save state (`Connecting`, `Saving`, `Saved`, `Offline`); operation failures never reach it. Check `editor/transport.ts` for the path that produced `Unsaved — Error: …` and route it to a notice.
+- [x] Signed-out state appears once: in the header, as "Not signed in · Sign in" where **Sign in** opens a small disclosure with the exact command for this device (`composed login <server>` only when a server is known; otherwise "Pair this device from a signed-in one: `composed devices pair`"). The status bar shows the session only when signed in ("Synced just now").
+- [x] Status bar order and copy: `175 / 1200 words` when the kind has a budget (plain `175 words` otherwise; over budget turns the figure to the warning colour), save state, `Kind: Post`, `5 rhythm notes` (or none), sparkline, **Shortcuts**, **Zen**. The `Cursor N` / `N UTF-16 units selected` line is removed. **Shortcuts** opens a popover listing ⌘. dim, ⌥↑/⌥↓ flip, ⌘⏎ keep, ⌘⇧R rewrite, ⌘⇧. zen, ⌘Z undo typing, and the Undo operation button.
+- [x] Share: the disabled button's reason is a tooltip and the header's sign-in disclosure; no second red line.
+- [x] e2e: Ask with no provider → one notice under the Ask form with the writer copy, status bar still `Saved`, reload shows no persisted request; signed-out header text once, status bar without a session item.
 
 ### Task 5 — Web: layout, typography, feedback grouping
 
@@ -192,3 +192,52 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
   sparkline bars unchanged, notice gone after the fix, refold, select-all replace, meta fields
   read-only; screenshots `plan-18-settings-strip.png`, `plan-18-settings-malformed.png`).
   `kinds-zen`, `measurements`, `lint` and `dim` specs pass; core `frontmatter.test.ts` 3.
+
+### 2026-11-09 — Task 4: one error at a time, writer copy, status bar
+
+- **Notices**: `Notice.tsx` has `describe(error)` (strips repeated `Error: `, reads `Code: reason;
+  fix: …` or a bare code such as `NothingToUndo`, and turns `fix:` into a second line) and the
+  `Notice` component (`role="alert"`, `data-code` for tests). Known codes: `ProviderFailed` (no
+  model → "No writing model is set up on this device yet." with **How to set one up** naming
+  `~/.composed/config.json`, `endpoint` and `model`; cancelled → "The request was cancelled."),
+  `UnknownDoc`, `Unauthorized` and `SignInRequired` (the plan's signed-out sentence),
+  `NothingToUndo`, and dropped sockets. Each control keeps its own slot: Ask and the failed-request
+  record (in the feedback panel), Comment, each thread card, Share, Stash, the alternatives,
+  Writing feedback's Propose, the rewrite line, and Developer actions; undo, dim, inspection,
+  the lint worker and transport-level failures use one header slot. A slot shows the newest
+  failure once and clears on its control's next success.
+- **Transport**: the status callback is typed `Connecting | Saving | Saved | Offline | Offline ·
+  Unsaved changes`. The path behind the critique's `Unsaved — Error: …` was `frame.error`: an
+  error with no pending call (the subscription itself) now goes to the header notice, and an
+  operation error only rejects its call. Preview rebuild diagnostics (`frame.preview`) used to
+  overwrite the save state; they now render in the aside. **Deviation**: offline with pending
+  edits reads `Offline · Unsaved changes`, not bare `Offline`, because the tracer gate
+  (`tests/tracer.ts`) and `editor.spec.ts` assert that the offline state contains "Unsaved";
+  offline with nothing pending reads `Offline`.
+- **Signed out**: `SignInState` in the header ("Not signed in · Sign in"); the disclosure shows
+  `composed login <server>` only when `session.json` names a server, otherwise the plan's
+  pairing sentence. The status bar's `SessionStatus` renders only when signed in ("Synced just
+  now", device and server in its tooltip). Share is disabled with its reason as a tooltip; the
+  `share-fix` text is gone.
+- **Status bar**: `175 / 1200 words` from the effective budget (warning colour and a tooltip when
+  over), save state, sync state when signed in, `Kind: Post`, kind warnings, `N rhythm notes`,
+  the sparkline, **Shortcuts**, **Zen**. **Deviation**: the count now counts `rhythm` notes only,
+  as the copy says; before it counted every soft note, so a custom soft rule (kinds-zen's `aside`)
+  lists in Writing feedback but no longer in the status bar. The cursor line is gone; specs that
+  waited on it now read a `data-selection` attribute the update listener writes on
+  `.source-editor`.
+- **Shortcuts** lists the plan's keys plus ⌘⇧⏎ (keep and ghost) and redo, and explains the Undo
+  operation button. Escape and an outside click close it and the Sign in disclosure.
+- **Specs moved**: `editor` and `rewrite` assert `data-code` on the notice; `measurements` and
+  `threads-feedback` read the selection instead of the cursor line; `kinds-zen` expects `Kind:
+  Memo`, `4 / … words` and no status-bar count for the custom soft rule; `session-status` and
+  `share` assert the header sign-in and the Share tooltip; `threads-feedback`'s cancellation now
+  expects the panel notice and no failed request. Root scripts outside this plan's file list were
+  updated for the same copy: `tests/sync.ts` (signed-in tooltip, "Not signed in · Sign in") and
+  `tests/share.ts` (tooltip and disclosure); `tests/desktop-smoke.ts` likewise.
+- Evidence: `tests/errors.spec.ts` passes (`test-results/plan-18-errors.json`: status bar items
+  `9 / 1200 words`, `Saved`, `Kind: Post`, …, `Shortcuts`, `Zen`; signed out once; Ask with no
+  model → one notice, still `Saved`, nothing after reload; rewrite with no model; header
+  `NothingToUndo`; over budget; login command with a known server; screenshots
+  `plan-18-ask-no-model.png`, `-shortcuts.png`, `-sign-in.png`). `editor`, `rewrite`,
+  `measurements`, `kinds-zen`, `session-status`, `threads-feedback` and `share` specs pass.

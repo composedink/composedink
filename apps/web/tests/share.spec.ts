@@ -90,11 +90,10 @@ try {
   await expect(page.getByRole("status")).toHaveText("Saved", { timeout: 30000 });
   const share = page.getByRole("button", { name: "Share", exact: true });
   await expect(share).toBeDisabled();
-  await expect(page.getByTestId("share-fix")).toHaveText(
-    "Sign in to share — fix: composed login <server>",
-  );
-  await page.getByRole("button", { name: "Zen" }).click();
+  // Plan 18: the reason is the button's tooltip; the header's Sign in has the command.
+  await expect(share).toHaveAttribute("title", /^Sign in to share/);
   await expect(page.getByTestId("share-fix")).toHaveCount(0);
+  await page.getByRole("button", { name: "Zen" }).click();
   await expect(share).toBeDisabled();
   await page.getByRole("button", { name: "Zen" }).click();
   await writeFile(
@@ -102,8 +101,9 @@ try {
     JSON.stringify({ server: "https://example.test" }),
   );
   await page.reload();
-  await expect(page.getByTestId("share-fix")).toHaveText(
-    "Sign in to share — fix: composed login https://example.test",
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("dialog", { name: "Sign in" })).toContainText(
+    "composed login https://example.test",
   );
   await expect(page.getByRole("button", { name: "Share", exact: true })).toBeDisabled();
   await mkdir(join(root, "test-results"), { recursive: true });

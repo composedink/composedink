@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EditorTransport } from "./editor/transport";
 import type { Session } from "./SessionStatus";
+import { describe, Notice, type NoticeContent } from "./Notice";
 
 /** `share.list` entries: the server's link plus the URL when this device created it. */
 interface Link {
@@ -20,32 +21,33 @@ const EXPIRIES = [
 const date = (at: number) => new Date(at).toLocaleString();
 
 /**
- * The toolbar's Share button. Sharing needs a server session: signed out, the button is disabled
- * and the fix is visible next to it (hidden in zen, like the panel).
+ * The header's Share button. Sharing needs a server session: signed out, the button is disabled and
+ * its tooltip says why; the header's "Sign in" disclosure has the command.
  */
 export function ShareButton({
   session,
   open,
-  zen,
   onToggle,
 }: {
   session?: Session;
   open: boolean;
-  zen: boolean;
   onToggle: () => void;
 }) {
   const signedIn = session?.signedIn === true;
   return (
-    <span className="share-button">
-      <button disabled={!signedIn} aria-expanded={signedIn && open} onClick={onToggle}>
-        Share
-      </button>
-      {session && !signedIn && !zen && (
-        <span className="share-fix" data-testid="share-fix">
-          Sign in to share — fix: <code>composed login {session.server ?? "<server>"}</code>
-        </span>
-      )}
-    </span>
+    <button
+      className="share-button"
+      disabled={!signedIn}
+      aria-expanded={signedIn && open}
+      title={
+        signedIn
+          ? "Share a preview link with comments"
+          : "Sign in to share: preview links live on your composed server. See Sign in, top right."
+      }
+      onClick={onToggle}
+    >
+      Share
+    </button>
   );
 }
 
@@ -69,15 +71,9 @@ function CopyUrl({ url }: { url: string }) {
 }
 
 /** Links of the open document: list, create (pinned by default, live, expiry) and revoke. */
-export function SharePanel({
-  id,
-  transport,
-  onError,
-}: {
-  id: string;
-  transport: EditorTransport | null;
-  onError: (message: string) => void;
-}) {
+export function SharePanel({ id, transport }: { id: string; transport: EditorTransport | null }) {
+  const [notice, setNotice] = useState<NoticeContent>();
+  const onError = useCallback((e: unknown) => setNotice(describe(e)), []);
   const [links, setLinks] = useState<Link[]>();
   const [mode, setMode] = useState<"pinned" | "live">("pinned");
   const [expires, setExpires] = useState("");
@@ -89,7 +85,7 @@ export function SharePanel({
     setLinks(result.links);
   }, [id, transport]);
   useEffect(() => {
-    refresh().catch((e) => onError(String(e)));
+    refresh().catch(onError);
   }, [refresh, onError]);
   const create = async () => {
     if (!transport) return;
@@ -101,10 +97,10 @@ export function SharePanel({
         ...(expires ? { expiresIn: expires } : {}),
       })) as { url: string };
       setCreated(result.url);
-      onError("");
+      setNotice(undefined);
       await refresh();
     } catch (e) {
-      onError(String(e));
+      onError(e);
     } finally {
       setBusy(false);
     }
@@ -113,8 +109,9 @@ export function SharePanel({
     try {
       await transport?.operation("share.revoke", { link });
       await refresh();
+      setNotice(undefined);
     } catch (e) {
-      onError(String(e));
+      onError(e);
     }
   };
   return (
@@ -149,6 +146,7 @@ export function SharePanel({
         </label>
         <button disabled={busy}>{busy ? "Creating…" : "Create link"}</button>
       </form>
+      {notice && <Notice notice={notice} onDismiss={() => setNotice(undefined)} />}
       {created && (
         <p className="share-created">
           New link: <CopyUrl url={created} />

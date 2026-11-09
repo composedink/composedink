@@ -95,7 +95,7 @@ try {
   await expect(strip.getByRole("textbox", { name: "Title" })).toHaveValue("Memo");
   await expect(strip.getByRole("textbox", { name: "Reader" })).toHaveValue("blog readers");
   await expect(editor).toContainText("Synergy first, by the way.");
-  await expect(page.getByTestId("kind")).toHaveText("memo");
+  await expect(page.getByTestId("kind")).toHaveText("Kind: Memo");
   await expect(page.getByTestId("kind-warning")).toHaveCount(0);
   // The kind's rules run: a warn rule underlines; a soft rule only marks the gutter.
   await expect(page.locator('.cm-lint[data-code="jargon"]')).toHaveText("Synergy");
@@ -103,7 +103,8 @@ try {
   await expect(page.locator('.cm-lint[data-code="aside"]')).toHaveCount(0);
   await expect(page.locator(".cm-lint[data-severity=soft]")).toHaveCount(0);
   await expect(page.locator(".cm-soft-marker")).toHaveCount(1);
-  await expect(page.getByTestId("soft-count")).toHaveText("1 note");
+  // The status bar counts rhythm notes only (plan 18); a custom soft rule lists in the panel.
+  await expect(page.getByTestId("soft-count")).toHaveCount(0);
   expect(JSON.parse(cli(["lint", "memo-doc"])).map((d: { code: string }) => d.code)).toContain(
     "jargon",
   );
@@ -137,7 +138,7 @@ try {
   const before = await counts();
   await editor.fill("It was written quickly.");
   await expect(status).toHaveText("Saved");
-  await expect(page.getByTestId("word-count")).toHaveText("4 words");
+  await expect(page.getByTestId("word-count")).toHaveText(/^4 \/ \d+ words$/);
   await expect.poll(async () => (await counts()).replies).toBeGreaterThan(before.replies);
   await page.waitForTimeout(1000);
   await expect(page.locator(".cm-lint")).toHaveCount(0);
@@ -163,14 +164,14 @@ try {
     "true",
   );
   await expect(feedback).toBeHidden();
-  await expect(page.getByTestId("word-count")).toHaveText("4 words");
+  await expect(page.getByTestId("word-count")).toHaveText(/^4 \/ \d+ words$/);
   await page.getByRole("button", { name: "Zen", exact: true }).click();
   await expect(page.locator('.cm-lint[data-code="style:adverb"]')).toHaveText("quickly");
   expect(await page.evaluate(() => localStorage.getItem("composed.zen"))).toBe("false");
   // A kind missing on this device: post rules with a visible warning, recorded id retained.
   await page.goto(`http://127.0.0.1:${env.COMPOSED_PORT}/?doc=gone-doc`);
   await expect(page.getByTestId("kind-warning")).toContainText('Kind "gone" is not configured');
-  await expect(page.getByTestId("kind")).toHaveText("gone");
+  await expect(page.getByTestId("kind")).toHaveText("Kind: Gone");
   await expect(editor).toContainText("Synergy first");
   await expect.poll(async () => (await counts()).replies).toBeGreaterThan(0);
   await expect(page.locator('.cm-lint[data-code="jargon"]')).toHaveCount(0);

@@ -84,9 +84,7 @@ try {
   await expect.poll(() => calls).toBe(1);
   await editor.press("ControlOrMeta+a");
   await editor.press("ArrowRight");
-  await expect(page.getByRole("region", { name: "Source", exact: true }).locator("p")).toHaveText(
-    "Cursor 36",
-  );
+  await expect(page.locator(".source-editor")).toHaveAttribute("data-selection", "36-36");
   await page.keyboard.insertText(" Human edit.");
   await expect(page.getByRole("status")).toHaveText("Saved");
   await expect
@@ -129,7 +127,7 @@ try {
   fail = true;
   await editor.press("ControlOrMeta+a");
   await editor.press("ControlOrMeta+Shift+r");
-  await expect(page.getByRole("alert")).toContainText("ProviderFailed");
+  await expect(page.getByRole("alert")).toHaveAttribute("data-code", "ProviderFailed");
   expect(JSON.parse(cli("cat", "editor", "--json")).alts).toHaveLength(0);
   fail = false;
   await editor.press("ControlOrMeta+Shift+r");

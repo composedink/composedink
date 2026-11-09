@@ -122,13 +122,18 @@ try {
   await editor.fill("# Packaged desktop\n\n" + sentence + "\n\nA spare sentence.");
   await expect(page.getByRole("status")).toHaveText("Saved");
   // The packaged studio page shows the server session; this home never signed in.
-  await expect(page.getByTestId("session")).toContainText("Signed out");
+  await expect(page.getByTestId("session")).toHaveText("Not signed in · Sign in");
   proof.signedOutStatus = true;
-  // Sharing needs a session: the packaged signed-out page disables Share and shows the fix.
-  await expect(page.getByRole("button", { name: "Share", exact: true })).toBeDisabled();
-  await expect(page.getByTestId("share-fix")).toHaveText(
-    "Sign in to share — fix: composed login <server>",
+  // Sharing needs a session: the packaged signed-out page disables Share and says why (plan 18:
+  // the button's tooltip, and the header's Sign in disclosure with the command).
+  const share = page.getByRole("button", { name: "Share", exact: true });
+  await expect(share).toBeDisabled();
+  await expect(share).toHaveAttribute("title", /^Sign in to share/);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("dialog", { name: "Sign in" })).toContainText(
+    "composed devices pair",
   );
+  await page.keyboard.press("Escape");
   proof.signedOutShareDisabled = true;
   const read = () => run("cat", "tracer", "--json").then((s) => JSON.parse(s));
   assert.match((await read()).text, new RegExp(sentence));

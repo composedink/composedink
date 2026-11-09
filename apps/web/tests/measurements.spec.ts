@@ -137,12 +137,11 @@ try {
   ]);
   await list.getByRole("button").nth(3).click();
   await expect(list).toBeHidden();
-  await expect(page.getByText("21 UTF-16 units selected: Five six seven eight.")).toBeVisible();
+  const selected = () => page.evaluate(() => getSelection()?.toString());
+  await expect.poll(selected).toBe("Five six seven eight.");
   await spark.click();
   await list.getByRole("button").first().click();
-  await expect(
-    page.getByText(`${long.length} UTF-16 units selected: ${long}`, { exact: true }),
-  ).toBeVisible();
+  await expect.poll(selected).toBe(long);
 
   // An edit invalidates the open list; the next accepted result redraws the bars.
   await spark.click();

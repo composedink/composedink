@@ -3,7 +3,7 @@ import { exportPair } from "./intents.ts";
 import { receipts } from "./receipts.ts";
 import { basename } from "node:path";
 import { fault } from "./compact.ts";
-import { mkdir, open, rename, unlink, readdir, readFile } from "node:fs/promises";
+import { mkdir, open, rename, unlink, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { randomUUID, hash } from "node:crypto";
 export async function atomicWrite(path: string, bytes: Uint8Array | string, mode?: number) {
@@ -84,6 +84,15 @@ export async function openStore(home: string) {
       } finally {
         await dir.close();
       }
+    },
+    /** When the document's newest committed segment (snapshot or update) was written, in ms. */
+    async updatedAt(id: string) {
+      const path = directory(id);
+      let latest = (await stat(join(path, "snapshot.loro"))).mtimeMs;
+      for (const name of await readdir(join(path, "updates")))
+        if (/^\d+\.loro$/.test(name))
+          latest = Math.max(latest, (await stat(join(path, "updates", name))).mtimeMs);
+      return Math.round(latest);
     },
     async append(id: string, bytes: Uint8Array) {
       const path = join(directory(id), "updates");

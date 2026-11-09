@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { authority, openStore, bind } from "../src/node.ts";
@@ -366,7 +366,7 @@ it.each([
   ["an ambiguous quote", "ambiguous"],
   ["HTTP 401", { status: 401, content: "private" }],
   ["HTTP 500", { status: 500, content: "private" }],
-] as const)("%s fails visibly with no partial result, persisted as failed", async (_, reply) => {
+] as const)("%s fails visibly; the request that reached nobody is removed", async (_, reply) => {
   const f = await fixture(SOURCE + "\n\nRepeat. Repeat.");
   try {
     f.double.reply((brief) => {
@@ -390,16 +390,37 @@ it.each([
     expect(f.a.read("p").alts).toEqual([]);
     expect(await f.threads()).toEqual([]);
     expect(await f.stash()).toEqual([]);
-    const [request] = f.requests();
-    expect(request.state).toEqual({
-      status: "failed",
-      message: expect.stringMatching(/^ProviderFailed:.*fix: /),
-    });
-    expect(JSON.stringify(request.state)).not.toContain("private");
-    // The receipt replays the failed request; asking again is a new request that can succeed.
-    expect(await f.ask({ request: "bad" })).toMatchObject({ state: { status: "failed" } });
+    // The document keeps no trace of the request, so no other device is greeted by it.
+    expect(f.requests()).toEqual([]);
+    expect(JSON.stringify(f.a.get("p").toJSON())).not.toContain("private");
+    // A retry of the same request fails the same way; asking again is a new request that can succeed.
+    await expect(f.ask({ request: "bad" })).rejects.toThrow(/^ProviderFailed:.*fix: /);
+    expect(f.double.calls()).toBe(1);
     f.double.reply(answering());
     expect(await f.ask({ request: "again" })).toMatchObject({ state: { status: "answered" } });
+  } finally {
+    await f.close();
+  }
+});
+
+it("with no writing model set up, a model request is refused and the document is unchanged", async () => {
+  const f = await fixture();
+  try {
+    await rm(join(f.home, "config.json"));
+    const before = f.a.get("p").version();
+    await expect(f.ask({ request: "none" })).rejects.toThrow(
+      "ProviderFailed: no writing model is set up on this device; fix: add rewrite.endpoint and rewrite.model to $COMPOSED_HOME/config.json",
+    );
+    expect(f.a.get("p").version().compare(before)).toBe(0);
+    expect(f.requests()).toEqual([]);
+    expect(f.double.calls()).toBe(0);
+    // An invalid setting says what is wrong.
+    await writeFile(join(f.home, "config.json"), JSON.stringify({ rewrite: { model: "m" } }));
+    await expect(f.ask()).rejects.toThrow(/ProviderFailed: the writing model settings .*endpoint/);
+    expect(f.requests()).toEqual([]);
+    // A restart finds nothing to fail or remove.
+    const restarted = await authority(await openStore(f.home));
+    expect(restarted.get("p").getMap("requests").toJSON()).toEqual({});
   } finally {
     await f.close();
   }
@@ -414,7 +435,7 @@ it("timeouts and cancellation before commit fail; a committed answer wins a late
     await expect(timedOut).rejects.toThrow("ProviderFailed");
     slow.release();
     await slow.done;
-    expect(f.requests()[0].state).toMatchObject({ status: "failed" });
+    expect(f.requests()).toEqual([]);
     const held = f.double.hold();
     const controller = new AbortController();
     const cancelled = f.ask({ request: "cancel" }, controller.signal);
@@ -424,7 +445,7 @@ it("timeouts and cancellation before commit fail; a committed answer wins a late
     held.release();
     await held.done;
     expect(f.a.read("p").alts).toEqual([]);
-    expect(f.requests()[1].state).toMatchObject({ status: "failed" });
+    expect(f.requests()).toEqual([]);
     f.double.reply(answering([{ quote: "beta", text: "kept" }]));
     const late = new AbortController();
     const answered = await f.ask({ request: "late" }, late.signal);

@@ -10,7 +10,8 @@ import { lint } from "./lint.ts";
 import { apply } from "../model/apply.ts";
 import { propose, flip, resolve } from "../model/alternatives.ts";
 import { ghost } from "../model/marks.ts";
-import { cut, restore, stashList } from "../model/stash.ts";
+import { cut, removeStash, restore, stashList } from "../model/stash.ts";
+import { listDocs } from "../list.ts";
 import { authorSchema, selectionSchema, type Author } from "../model/selection.ts";
 import {
   openThread,
@@ -185,6 +186,18 @@ export const registry = [
   operation("stash.list", z.object({ doc: z.string() }), false, ["stash", "list"], (a, i) =>
     stashList(a.get(i.doc)),
   ),
+  operation(
+    "stash.remove",
+    z.object({ doc: z.string(), item: z.string().min(1) }),
+    true,
+    ["stash", "remove"],
+    // Removing an entry that is already gone writes nothing and adds no undo step.
+    (a, i) =>
+      stashList(a.get(i.doc)).some((v) => v.id === i.item)
+        ? a.change(i.doc, (d) => removeStash(d, i.item))
+        : { item: i.item, removed: false },
+  ),
+  operation("doc.list", z.object({}), false, ["list"], (a) => listDocs(a)),
   operation(
     "export",
     z.object({

@@ -8,6 +8,7 @@ import {
   createRequest,
   feedbackRequest,
   recipientSchema,
+  removeRequest,
   settleRequest,
   type RequestState,
   type ReviewAnswer,
@@ -43,6 +44,8 @@ export async function createFeedback(a: Authority, i: FeedbackInput, by: Author)
     for (const link of links)
       if (!active.has(link)) throw Error(`UnknownLink: ${link}; fix: composed share list ${i.id}`);
   }
+  // A request the model cannot receive is refused before anything is written.
+  if (i.to.includes("model")) await loadRewriteConfig(a.store.home);
   const questions =
     i.questions ??
     (await resolveKind(a.store.home, String(doc.getMap("meta").get("kind")))).kind.config.questions;
@@ -124,12 +127,26 @@ async function review(
     };
     return { id, brief, replay: undefined };
   });
-  if (started.replay !== undefined) return current(a, i.id, started.replay);
+  const completionOf = (id: string) => ({
+    key: `feedback:${id}:answer`,
+    hash: payloadHash("feedback.answer", { id: i.id, request: id }),
+  });
+  if (started.replay !== undefined) {
+    const id = started.replay;
+    if (a.get(i.id).getMap("requests").get(id) !== undefined) return current(a, i.id, id);
+    // The request reached nobody and was removed: a retry with the same id fails the same way.
+    const { key, hash } = completionOf(id);
+    const failed = z
+      .object({ state: z.object({ message: z.string() }) })
+      .safeParse(a.store.journal.lookup(key, hash)?.result);
+    throw Error(
+      failed.data?.state.message ?? `ProviderFailed: the request was not answered; fix: ${retry}`,
+    );
+  }
   const { id, brief } = started;
   // Only the model is asked here; link guests answer on the link page, so the request stays pending.
   if (!i.to.includes("model")) return current(a, i.id, id);
-  const completion = `feedback:${id}:answer`;
-  const completionHash = payloadHash("feedback.answer", { id: i.id, request: id });
+  const { key: completion, hash: completionHash } = completionOf(id);
   let outcome: { model: string; answers: Awaited<ReturnType<typeof reviewProvider>> } | Error;
   try {
     const config = await loadRewriteConfig(a.store.home);
@@ -197,15 +214,19 @@ async function review(
       }
     }
     const failure = outcome;
+    const message = failure.message.startsWith("ProviderFailed:")
+      ? failure.message
+      : `ProviderFailed: ${failure.message}; fix: ${retry}`;
+    // A model-only request that failed reached nobody: remove it in a commit of its own, so it
+    // never greets another device. A request also addressed to links stays, marked failed.
+    const links = i.to.some((to) => to !== "model");
     await a.transaction(completion, completionHash, () =>
       a.change(i.id, (d) => {
-        const message = failure.message.startsWith("ProviderFailed:")
-          ? failure.message
-          : `ProviderFailed: ${failure.message}; fix: ${retry}`;
-        settleRequest(d, id, { status: "failed", message });
+        if (links) settleRequest(d, id, { status: "failed", message });
+        else removeRequest(d, id);
         return { request: id, state: { status: "failed", message } };
       }),
     );
-    throw failure;
+    throw failure.message === message ? failure : Error(message);
   });
 }

@@ -91,3 +91,11 @@ export function restore(doc: LoroDoc, id: string, at: z.infer<typeof selectionSc
   doc.getMovableList("stash").delete(index, 1);
   doc.commit();
 }
+/** Deletes a stash entry by id; removing an entry that is already gone changes nothing. */
+export function removeStash(doc: LoroDoc, id: string) {
+  const index = stashList(doc).findIndex((v) => v.id === id);
+  if (index < 0) return { item: id, removed: false };
+  doc.getMovableList("stash").delete(index, 1);
+  doc.commit();
+  return { item: id, removed: true };
+}

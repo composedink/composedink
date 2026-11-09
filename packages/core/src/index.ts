@@ -37,3 +37,12 @@ export interface ThreadView {
   state: ThreadState;
   messages: ThreadMessage[];
 }
+export { bodyWords } from "./words.ts";
+/** One row of `doc.list`: newest first by `updatedAt` (milliseconds since the epoch). */
+export interface DocSummary {
+  id: string;
+  title: string;
+  kind: string;
+  words: number;
+  updatedAt: number;
+}

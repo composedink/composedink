@@ -7,6 +7,7 @@ import { mcp } from "./mcp.ts";
 import { registry } from "@composedink/core/node";
 import { call, composedHome } from "./client.ts";
 import { studio } from "./studio.ts";
+import { listTable } from "./list.ts";
 const args = process.argv.slice(2);
 try {
   if (args[0] === "desktop") await desktop(composedHome());
@@ -189,6 +190,12 @@ try {
       case "stash.list":
         input = { doc: positional[0] };
         break;
+      case "stash.remove":
+        input = { doc: positional[0], item: positional[1] };
+        break;
+      case "doc.list":
+        input = {};
+        break;
       case "thread.open":
         input = {
           id: positional[0],
@@ -289,7 +296,9 @@ try {
         ...(values.includes("--request") ? { request: option("--request") + ":from" } : {}),
       });
     }
-    if (
+    if (operation.name === "doc.list" && !args.includes("--json"))
+      process.stdout.write(listTable(result));
+    else if (
       operation.name === "doc.read" &&
       !args.includes("--json") &&
       result &&

@@ -12,18 +12,30 @@ export const rewriteConfig = z.object({
 });
 export const rewriteCount = z.number().int().min(1).max(16).default(3);
 const failed = (reason: string, fix: string) => new Error(`ProviderFailed: ${reason}; fix: ${fix}`);
+const setUp = "add rewrite.endpoint and rewrite.model to $COMPOSED_HOME/config.json";
+/**
+ * The device's writing model. Rewrites and model feedback both check it before doing anything, so
+ * a device without one fails before any document write.
+ */
 export async function loadRewriteConfig(home: string) {
+  let device: unknown;
   try {
-    const device = z
-      .object({ rewrite: rewriteConfig })
-      .parse(JSON.parse(await readFile(join(home, "config.json"), "utf8")));
-    return device.rewrite;
+    device = JSON.parse(await readFile(join(home, "config.json"), "utf8"));
   } catch {
-    throw failed(
-      "missing or invalid provider configuration",
-      "set rewrite.endpoint and rewrite.model in $COMPOSED_HOME/config.json; tokenRef names an environment variable",
-    );
+    device = undefined;
   }
+  const configured =
+    !!device && typeof device === "object" && "rewrite" in device && device.rewrite !== undefined;
+  if (!configured) throw failed("no writing model is set up on this device", setUp);
+  const parsed = z.object({ rewrite: rewriteConfig }).safeParse(device);
+  if (!parsed.success)
+    throw failed(
+      `the writing model settings in $COMPOSED_HOME/config.json are invalid (${parsed.error.issues
+        .map((i) => `${i.path.join(".")}: ${i.message}`)
+        .join("; ")})`,
+      `${setUp}; tokenRef names an environment variable`,
+    );
+  return parsed.data.rewrite;
 }
 type Message = { role: "system" | "user"; content: string };
 /**

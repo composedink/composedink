@@ -49,9 +49,10 @@ export function paragraphRules(
       "style:passive",
       "Consider naming who performs this action.",
     );
-  // "really" and "very" belong to filler; this legacy list keeps only the other adverbs.
+  // Hedges and intensifiers ("really", "actually", "basically", …) belong to filler; this legacy
+  // list keeps only the other adverbs, so one word never draws two notes.
   for (const m of p.prose.matchAll(
-    /\b(?:quickly|slowly|clearly|simply|actually|basically|extremely|suddenly|carefully|easily|obviously)\b/gi,
+    /\b(?:quickly|slowly|clearly|simply|extremely|suddenly|carefully|easily|obviously)\b/gi,
   ))
     add(
       m.index,

@@ -41,6 +41,33 @@ it("cuts and restores marked text by stable ID, rejects deleted anchors and undo
   }
 });
 
+it("removes a stash entry by id, idempotently, and operation undo restores it", async () => {
+  const home = await mkdtemp(join(tmpdir(), "stash-remove-"));
+  try {
+    const a = await authority(await openStore(home)),
+      run = bind(a);
+    await run("doc.create", { slug: "p" });
+    await a.change("p", (d) => replaceText(d, "Keep this. Cut this."));
+    const base = a.read("p").base;
+    const { item } = (await run("stash.add", { doc: "p", at: { base, quote: " Cut this." } })) as {
+      item: string;
+    };
+    expect(await run("stash.list", { doc: "p" })).toHaveLength(1);
+    expect(await run("stash.remove", { doc: "p", item }, "s")).toEqual({ item, removed: true });
+    expect(await run("stash.list", { doc: "p" })).toEqual([]);
+    const head = a.read("p").base;
+    expect(await run("stash.remove", { doc: "p", item }, "s")).toEqual({ item, removed: false });
+    expect(a.read("p").base).toBe(head);
+    await undoSession(a, "s");
+    expect(await run("stash.list", { doc: "p" })).toMatchObject([{ id: item, text: " Cut this." }]);
+    // The undo stack held one step: a second undo has nothing left from this session.
+    await expect(undoSession(a, "s")).rejects.toThrow("NothingToUndo");
+    expect(a.read("p").text).toBe("Keep this.");
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 function container(d: import("loro-crdt").LoroDoc) {
   return d.getText("mdx");
 }

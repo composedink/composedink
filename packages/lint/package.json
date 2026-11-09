@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./prose": "./src/prose.ts",
     "./worker": "./src/worker.ts",
     "./node-worker": "./src/node-worker.ts"
   },

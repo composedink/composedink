@@ -107,3 +107,9 @@ export function failOrphaned(doc: LoroDoc) {
     });
   return orphaned.length;
 }
+/** Removes a request nobody received, so it never reaches another device. */
+export function removeRequest(doc: LoroDoc, id: string) {
+  feedbackRequest(doc, id);
+  doc.getMap(KEYS.requests).delete(id);
+  doc.commit();
+}

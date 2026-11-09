@@ -18,10 +18,10 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Task 1 — Core: list documents, remove stash items, fail before persisting an undeliverable request
 
-- [ ] `doc.list` (read-only, no input): `{docs: {id, title, kind, words, updatedAt}[]}` sorted by `updatedAt` descending. `title` is the frontmatter `title` else the slug; `kind` from `meta` else `post`; `words` counts prose with frontmatter excluded (reuse one word-count function, exported from core so the web status bar and the list agree); `updatedAt` is the store's latest update time for the doc. Registered as read-only like `doc.read`, exposed to CLI as `composed list` (table; `--json`) and to MCP. Tests: empty home; three docs in order; a doc with broken frontmatter still lists with its slug as title.
-- [ ] `stash.remove {doc, item}`: deletes the stash entry by id; idempotent; on the operation-undo stack like `stash.restore`. CLI `composed stash remove <doc> <item>`. Tests: remove, remove again, undo restores.
-- [ ] `feedback.request` validates the provider configuration (the same check `alt.rewrite` performs) **before** writing the request container; with no provider it throws `ProviderFailed: no writing model is set up on this device; fix: add rewrite.endpoint and rewrite.model to $COMPOSED_HOME/config.json` and the document is unchanged. When every recipient delivery fails after the request was written (transport or provider error), the request is removed in the same commit that records nothing else, so a failed request never greets another device. The error still reaches the caller. Tests: no provider → doc unchanged; provider 500 → doc unchanged, error thrown; success path unchanged.
-- [ ] Lint: the prose pass masks a closed frontmatter block entirely, YAML-valid or not (Harper never lints `---`); a block that is opened but never closed is prose. `filler` default phrases become `very, really, quite, just, basically, actually, perhaps, maybe, sort of, kind of, a bit, I think, I guess, in my opinion`, matched case-insensitively at word boundaries. Tests: `I think maybe` yields two filler diagnostics; `**very**` yields one `filler` and one `bold.inline` on the same range (both are correct; the editor merges underlines in Task 5); broken frontmatter yields sentences from the body.
+- [x] `doc.list` (read-only, no input): `{docs: {id, title, kind, words, updatedAt}[]}` sorted by `updatedAt` descending. `title` is the frontmatter `title` else the slug; `kind` from `meta` else `post`; `words` counts prose with frontmatter excluded (reuse one word-count function, exported from core so the web status bar and the list agree); `updatedAt` is the store's latest update time for the doc. Registered as read-only like `doc.read`, exposed to CLI as `composed list` (table; `--json`) and to MCP. Tests: empty home; three docs in order; a doc with broken frontmatter still lists with its slug as title.
+- [x] `stash.remove {doc, item}`: deletes the stash entry by id; idempotent; on the operation-undo stack like `stash.restore`. CLI `composed stash remove <doc> <item>`. Tests: remove, remove again, undo restores.
+- [x] `feedback.request` validates the provider configuration (the same check `alt.rewrite` performs) **before** writing the request container; with no provider it throws `ProviderFailed: no writing model is set up on this device; fix: add rewrite.endpoint and rewrite.model to $COMPOSED_HOME/config.json` and the document is unchanged. When every recipient delivery fails after the request was written (transport or provider error), the request is removed in the same commit that records nothing else, so a failed request never greets another device. The error still reaches the caller. Tests: no provider → doc unchanged; provider 500 → doc unchanged, error thrown; success path unchanged.
+- [x] Lint: the prose pass masks a closed frontmatter block entirely, YAML-valid or not (Harper never lints `---`); a block that is opened but never closed is prose. `filler` default phrases become `very, really, quite, just, basically, actually, perhaps, maybe, sort of, kind of, a bit, I think, I guess, in my opinion`, matched case-insensitively at word boundaries. Tests: `I think maybe` yields two filler diagnostics; `**very**` yields one `filler` and one `bold.inline` on the same range (both are correct; the editor merges underlines in Task 5); broken frontmatter yields sentences from the body.
 
 ### Task 2 — Web: home, new post, no fallback slug
 
@@ -75,15 +75,50 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Decisions
 
-| Decision | Why |
-| --- | --- |
-| Home is a view of the same page, chosen by the URL | the desktop shell navigates only inside the handshake origin; one bundle, no router dependency |
-| Settings strip writes frontmatter through the editor binding | one write path (typing through Loro) keeps undo, sync and the kind's frontmatter/meta split intact |
-| An undeliverable feedback request is not a document fact | a request that reached nobody has nothing another device should see; the error belongs to the caller |
-| Prose face is self-hosted Source Serif 4 variable | offline desktop app; OFL; one file; UI chrome stays system-ui so controls still read native |
-| Alternatives flip in place with a widget, the aside keeps a count | the design doc's "in place" promise; the aside list was a debug view |
-| Side-tab borders replaced by label colour and 1px borders | detector rule `side-tab`; severity stays visible through the label |
+| Decision                                                          | Why                                                                                                  |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Home is a view of the same page, chosen by the URL                | the desktop shell navigates only inside the handshake origin; one bundle, no router dependency       |
+| Settings strip writes frontmatter through the editor binding      | one write path (typing through Loro) keeps undo, sync and the kind's frontmatter/meta split intact   |
+| An undeliverable feedback request is not a document fact          | a request that reached nobody has nothing another device should see; the error belongs to the caller |
+| Prose face is self-hosted Source Serif 4 variable                 | offline desktop app; OFL; one file; UI chrome stays system-ui so controls still read native          |
+| Alternatives flip in place with a widget, the aside keeps a count | the design doc's "in place" promise; the aside list was a debug view                                 |
+| Side-tab borders replaced by label colour and 1px borders         | detector rule `side-tab`; severity stays visible through the label                                   |
 
 ### Implementation log
 
 (append per task: what shipped, evidence, deviations)
+
+### 2026-11-09 — Task 1: list, stash remove, undeliverable requests, lint
+
+- **`doc.list` shape**: `{docs: {id, title, kind, words, updatedAt}[]}` as this plan says. The
+  operations sketch in `docs/design/composed.md` still shows `doc.list` returning
+  `{slug, title?, doc}[]`; for posts `id` is the slug, so nothing is lost, but the sketch is now
+  out of date. Components are not listed. The template's own `title:` counts as a title (a new
+  `post` lists as "Untitled", a `weekly-update` as "Weekly update"); the slug is used only when
+  there is no usable `title`.
+- **`updatedAt`**: the store's new `updatedAt(id)` is the newest mtime of the document's snapshot
+  and numbered updates, so synced and typed changes both move a post up. Ties sort by id.
+- **Word count**: `bodyWords` (core `.`, `src/words.ts`) sums the lint prose pass's sentence words,
+  the same total the `budget` rule reads. Headings, code, JSX and a closed frontmatter block never
+  count. Lint gains a `./prose` export so core and the web do not pull Harper in for it.
+- **`stash.remove`** returns `{item, removed}`. Removing an id that is already gone writes nothing,
+  so it adds no undo step; the test proves one undo restores the entry and a second has nothing.
+- **Provider check**: `loadRewriteConfig` now says `no writing model is set up on this device; fix:
+  add rewrite.endpoint and rewrite.model to $COMPOSED_HOME/config.json` when `config.json` or its
+  `rewrite` key is missing, and names the invalid fields otherwise. `alt.rewrite` and
+  `feedback.request` share it; `createFeedback` runs it before writing when `to` includes `model`.
+- **Failed requests**: every model failure (transport, HTTP status, malformed or unresolvable
+  answer, timeout, cancellation) now removes a model-only request in the completion commit. A
+  request that also names a link keeps the old behaviour (settled `failed`), because its guests can
+  still answer. A retry with the same request id rethrows the recorded message instead of returning
+  a failed state. Plan 15's tests that asserted a persisted failure were updated accordingly.
+  Orphaned requests found at startup are still settled `failed` with the retry instruction: they
+  are not transport or provider errors, and this plan does not cover them (follow-up).
+- **Lint**: closed frontmatter (including an empty `---\n---` block and a closing fence with
+  trailing spaces) is masked whether or not it parses; the regex is exported as `FRONTMATTER`.
+  `filler` ships the fourteen phrases. `actually` and `basically` left the legacy `style:adverb`
+  list so one word never draws two notes (the plan names only filler; this follows the existing
+  comment that hedges belong to filler).
+- Evidence: `vp run @composedink/lint#test` 7 files / 153; `vp run @composedink/core#test`
+  35 files / 166; `vp run composed-cli#test` 7 files / 10 (new `tests/list.test.ts` covers the
+  table, `--json`, `stash remove` twice, the no-model refusal and MCP `doc_list`/`stash_remove`).

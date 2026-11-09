@@ -32,6 +32,13 @@ export interface Prose {
   readonly paragraphs: readonly Paragraph[];
   readonly sections: readonly Section[];
 }
+/**
+ * The frontmatter block at the start of a document: `---`, any lines, then a closing `---` line.
+ * A block that is opened but never closed is not frontmatter (it is prose).
+ */
+export const FRONTMATTER = /^---[ \t]*\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
+/** UTF-16 length of the closed frontmatter block at the start of `source`, or 0. */
+export const frontmatterLength = (source: string) => source.match(FRONTMATTER)?.[0].length ?? 0;
 const IMAGE_TAG = /^(?:img|picture|figure|video|svg|iframe)$/;
 /**
  * Masks syntax in place so every retained character keeps its original UTF-16 offset, then
@@ -51,7 +58,9 @@ export function analyze(source: string): Prose {
       hide(m.index, m.index + m[0].length);
     }
   };
-  mask(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/g);
+  // A closed frontmatter block is never prose, whether or not its YAML parses.
+  const front = frontmatterLength(source);
+  if (front) hide(0, front);
   let fence: { marker: string; count: number; from: number } | undefined;
   for (const line of source.matchAll(/^.*(?:\n|$)/gm)) {
     const token = line[0].match(/^ {0,3}(`{3,}|~{3,})(.*)/);

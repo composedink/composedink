@@ -50,14 +50,14 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Task 5 — Web: layout, typography, feedback grouping
 
-- [ ] Prose typeface: add `@fontsource-variable/source-serif-4` (OFL) to the catalog and import it in `main.tsx`; the editor content uses it at 19px / 1.65 with a measure of 70ch (max-width on `.cm-content`, centred in its column); UI chrome stays system-ui. Line numbers are off. Headings in the source get weight, not just a mark colour. Theme the caret, selection, focus ring and underline offset from the palette.
-- [ ] The comment column is `display: none` until a thread is shown or a composer is open; the editor takes the width. The `Show [Open]` filter appears only when there is at least one thread.
-- [ ] The aside keeps **Writing feedback**, **Stash** and (when any) **Alternatives count**; **Preview**, **Block usages** and **Dependencies** move into one collapsed disclosure titled **Blog preview and components** at the bottom of the aside. Zen hides the whole aside and the Settings strip; the status bar keeps words, save state and Zen.
-- [ ] Writing feedback groups diagnostics by rule: one row per rule with its message template, a count and a **Dismiss all**; a row expands to its instances (click one to jump). Severity is shown by the label colour and a 1px border, not a 3px side rule; the same applies to `.alternative`, `.thread`, `.request` and `.share-panel` (detector rule `side-tab`, five findings in `style.css`). Two diagnostics on one range draw one underline (the stronger severity).
-- [ ] Breakpoint: the split folds to one column below 1000px; the header never wraps **Undo operation** or **Share** onto two lines (wrap the whole action group instead). Check 900, 1250 and 1440 wide with the critique's prose (`/tmp/critique-a` screenshots show the before).
-- [ ] Preview URL: `inputmode="url"`, placeholder `http://localhost:3000/posts/<slug>`, and a hint when the value lacks a scheme. The intro sentence is rewritten so it does not leave one word on the last line.
-- [ ] Stash entries show the text in the prose face, a **Remove** (Task 1 op) and **Insert**; no monospace `pre`.
-- [ ] e2e: comment column absent with no threads and present after one; feedback rows grouped with counts; zen hides the aside; detector `impeccable detect --json apps/web/src` reports 0 `side-tab` findings (run it from `apps/web`; record the output in the log).
+- [x] Prose typeface: add `@fontsource-variable/source-serif-4` (OFL) to the catalog and import it in `main.tsx`; the editor content uses it at 19px / 1.65 with a measure of 70ch (max-width on `.cm-content`, centred in its column); UI chrome stays system-ui. Line numbers are off. Headings in the source get weight, not just a mark colour. Theme the caret, selection, focus ring and underline offset from the palette.
+- [x] The comment column is `display: none` until a thread is shown or a composer is open; the editor takes the width. The `Show [Open]` filter appears only when there is at least one thread.
+- [x] The aside keeps **Writing feedback**, **Stash** and (when any) **Alternatives count**; **Preview**, **Block usages** and **Dependencies** move into one collapsed disclosure titled **Blog preview and components** at the bottom of the aside. Zen hides the whole aside and the Settings strip; the status bar keeps words, save state and Zen.
+- [x] Writing feedback groups diagnostics by rule: one row per rule with its message template, a count and a **Dismiss all**; a row expands to its instances (click one to jump). Severity is shown by the label colour and a 1px border, not a 3px side rule; the same applies to `.alternative`, `.thread`, `.request` and `.share-panel` (detector rule `side-tab`, five findings in `style.css`). Two diagnostics on one range draw one underline (the stronger severity).
+- [x] Breakpoint: the split folds to one column below 1000px; the header never wraps **Undo operation** or **Share** onto two lines (wrap the whole action group instead). Check 900, 1250 and 1440 wide with the critique's prose (`/tmp/critique-a` screenshots show the before).
+- [x] Preview URL: `inputmode="url"`, placeholder `http://localhost:3000/posts/<slug>`, and a hint when the value lacks a scheme. The intro sentence is rewritten so it does not leave one word on the last line.
+- [x] Stash entries show the text in the prose face, a **Remove** (Task 1 op) and **Insert**; no monospace `pre`.
+- [x] e2e: comment column absent with no threads and present after one; feedback rows grouped with counts; zen hides the aside; detector `impeccable detect --json apps/web/src` reports 0 `side-tab` findings (run it from `apps/web`; record the output in the log).
 
 ### Task 6 — Web: alternatives in place
 
@@ -241,3 +241,62 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
   `NothingToUndo`; over budget; login command with a known server; screenshots
   `plan-18-ask-no-model.png`, `-shortcuts.png`, `-sign-in.png`). `editor`, `rewrite`,
   `measurements`, `kinds-zen`, `session-status`, `threads-feedback` and `share` specs pass.
+
+### 2026-11-09 — Task 5: layout, typography, feedback grouping
+
+- **Typeface**: `@fontsource-variable/source-serif-4` (5.3.1, OFL) joins the catalog; `main.tsx`
+  imports its `opsz` and `opsz-italic` faces (weight and optical-size axes), self-hosted in the
+  bundle. `@lezer/highlight` also joins the catalog for the prose highlight style. The editor is
+  19px / 1.65 in the prose face with a 70ch measure, centred with its gutters; chrome stays
+  system-ui. Line numbers and the active-line band are gone. The highlight style gives headings
+  weight and size, makes Markdown marks recede, and keeps monospace for code only (unfolded
+  settings lines count as data). Caret (2px green), selection, focus rings, links and lint
+  underline offsets come from the palette variables.
+- **Contrast fixes** (all against `#faf9f5`): the soft gutter mark is a drawn ring in `#66704a`
+  (5.0:1; was the `◦` glyph in `#8a8f6a`, 3.2:1); ghosted text is `#5f6b64` with a dotted
+  underline (5.3:1; was 40% opacity, about 2.3:1); label text uses darker members of the same
+  families: warn `#a85800`, alternative `#6b5bb8`, thread `#8a5a00`, green `#3f6b5a`. The
+  original values stay for borders, underlines and highlights. The alternative gutter dot and the
+  All posts arrow are drawn (CSS and SVG) instead of Unicode glyphs.
+- **Layout**: header, settings strip, then a grid of the writing column and a 22rem aids column;
+  one column below 1000px. The header wraps its action group whole. Comment and Ask sit above the
+  text in the editor's own column, aligned to the measure. The comment column renders only when
+  the post has a comment or a comment is being written, and the comment filter moved from the
+  bottom of that column into the toolbar row (it appears with the first comment).
+- **Aids**: Writing feedback, Alternatives (when any; Task 6 replaces it), Stash, then the
+  collapsed **Blog preview and components** disclosure (preview address, rebuild diagnostics,
+  components, dependencies). The Preview intro now reads "See this post, components and all, on
+  your blog's dev server." The address field has `inputmode="url"`, the
+  `http://localhost:3000/posts/<slug>` placeholder, and a hint naming the fix when the scheme is
+  missing. Zen hides the aids, the strip, the toolbar and the comment column; the status bar keeps
+  words, save state (and sync when signed in) and Zen.
+- **Grouped feedback** (`FeedbackList.tsx`): one row per rule with a plain name (for example
+  "Hedges and intensifiers", "Long sentences"; Harper kinds in sentence case), a count and
+  **Dismiss all**; the row opens to its instances (the quoted text and the message), and an
+  instance jumps to its range. Severity is a label (Error, Note, Quiet) in the severity colour
+  with a 1px border; rule groups, `.alternative`, `.thread`, `.request` and `.share-panel` use
+  1px borders. Before the first lint result, or while a newer one is pending, an empty list says
+  "Reading the draft…", not "Nothing to note". A visually hidden polite live region announces the
+  note count. Two diagnostics on one range draw one underline in the stronger severity, with
+  every code in `data-code` (space-separated) and every message in its title.
+- **Stash**: entries in the prose face with their provenance ("Cut 3 min ago", "Not kept", "Its
+  text was deleted"), **Insert** and **Remove**; an empty stash says what lands there. **Stash
+  selection** is disabled with a reason until there is a selection.
+- **Fold fix found here**: with this editor setup Chrome reports a plain Backspace as `input.type`,
+  and Task 3's exception for typed replacements let Backspace after the folded block delete the
+  closing fence. The guard now accepts a typed change only when its deleted range contains the
+  whole closing `---` (only a replaced selection does that; the tracer's `fill` diff does), and a
+  keymap makes Backspace right after the block, or Delete right before or after it, a no-op.
+  The settings spec's Backspace check passes again. That spec's word-count assertions
+  (`13 words`) also needed Task 4's `13 / 1200 words` format; Task 4 did not re-run it.
+- **Specs moved**: `lint` and `measurements` open a rule's row before clicking its instances and
+  read the severity label from the row; `threads-feedback` finds the comment filter in the
+  toolbar.
+- **Detector**: `impeccable detect --json src` from `apps/web` (skill 4.7.0's launcher) printed
+  `[]` and exited 0; before this task it reported 5 `side-tab` findings (exit 2).
+- Evidence: `tests/layout.spec.ts` with the critique's prose (`tests/fixtures/critique-prose.mdx`)
+  passes (`test-results/plan-18-layout.json`: measure 73ch at 1250 and 1440, 61ch at 900 with the
+  comment column open; filler group of 6; stash in the prose face with Remove; preview hint;
+  comment column on the first comment; zen status bar `165 / 1200 words`, `Saved`, `Zen`;
+  screenshots `plan-18-layout-900.png`, `-1250.png`, `-1250-comment.png`, `-1440.png`,
+  `-feedback-open.png`, `-zen.png`). All other web specs pass in this tree.

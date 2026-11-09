@@ -23,8 +23,8 @@ import { gutter, GutterMarker } from "@codemirror/view";
 class Dot extends GutterMarker {
   toDOM() {
     const dot = document.createElement("span");
-    dot.textContent = "●";
-    dot.title = "Alternative — Alt ↑ / ↓, Mod Enter to keep";
+    dot.className = "cm-alt-dot";
+    dot.title = "Alternative versions here: ⌥↑ / ⌥↓ to flip, ⌘⏎ to keep";
     return dot;
   }
 }

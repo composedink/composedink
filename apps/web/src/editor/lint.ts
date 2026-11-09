@@ -122,8 +122,8 @@ export function lintFeedback(
         };
       }),
     ],
-    dismiss(d: Diagnostic) {
-      dismissed.add(diagnosticKey(d));
+    dismiss(items: readonly Diagnostic[]) {
+      for (const d of items) dismissed.add(diagnosticKey(d));
       render();
     },
     setZen(on: boolean) {

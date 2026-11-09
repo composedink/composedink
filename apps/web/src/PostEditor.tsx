@@ -1,7 +1,9 @@
 import { rewriteKeys, rewriteSelection } from "./editor/rewrite";
 import { lintFeedback, lintBase, type Measured } from "./editor/lint";
-import type { Diagnostic, LintSettings, LintSnapshot, Sentence } from "@composedink/lint";
+import type { Diagnostic, LintSettings, LintSnapshot } from "@composedink/lint";
 import { SentenceSparkline } from "./SentenceSparkline";
+import { FeedbackList } from "./FeedbackList";
+import { ago } from "./time";
 import { parseSchema } from "@composedink/blocks";
 import { dimControls } from "./editor/dim";
 import { readZen, writeZen, zenKeys } from "./editor/zen";
@@ -39,10 +41,16 @@ import {
   CommentComposer,
   FeedbackPanel,
   ThreadColumn,
+  ThreadFilterSelect,
   shownThreads,
   type ThreadFilter,
 } from "./ThreadColumn";
 
+const REASON: Record<string, string> = {
+  cut: "Cut",
+  alt: "Not kept",
+  detached: "Its text was deleted",
+};
 type Slot = "page" | "rewrite" | "alternative" | "stash" | "feedback" | "action";
 type Inspection = {
   deps: unknown;
@@ -58,7 +66,10 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
   const diagnosticBase = useRef("");
   const [measured, setMeasured] = useState<Measured & { current: boolean }>();
   const feedback = useRef<ReturnType<typeof lintFeedback> | null>(null);
-  const [stash, setStash] = useState<{ id: string; text: string }[]>([]);
+  const [stash, setStash] = useState<{ id: string; text: string; reason?: string; at?: number }[]>(
+    [],
+  );
+  const [composing, setComposing] = useState(false);
   const transport = useRef<EditorTransport | null>(null);
   const [alts, setAlts] = useState<Alt[]>([]);
   const liveAlts = useRef<Alt[]>([]);
@@ -262,7 +273,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
             .getMovableList("stash")
             .toArray()
             .filter(
-              (v): v is { id: string; text: string } =>
+              (v): v is { id: string; text: string; reason?: string; at?: number } =>
                 !!v &&
                 typeof v === "object" &&
                 "id" in v &&
@@ -395,6 +406,8 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
   const budget = typeof reading.budget === "number" ? reading.budget : undefined;
   const over = budget ? words - budget : 0;
   const problem = frontmatterProblem(source);
+  // The comment column takes space only once there is something to show in it.
+  const showComments = !zen && (threads.length > 0 || composing);
   const editSetting = (field: Field, value: string | number) => {
     const v = editorView.current;
     if (!v) return;
@@ -405,7 +418,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
     });
   };
   // Offsets are only valid at the base they were measured at; never select unrelated prose.
-  const jump = (sentence: Sentence, base: string) => {
+  const jump = (sentence: { from: number; to: number }, base: string) => {
     const v = editorView.current,
       c = transport.current;
     if (!v || !c || lintBase(c.doc) !== base || sentence.to > v.state.doc.length) return;
@@ -414,6 +427,34 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
       effects: EditorView.scrollIntoView(sentence.from, { y: "center" }),
     });
     v.focus();
+  };
+  const propose = (d: Diagnostic) => {
+    const c = transport.current;
+    const base = diagnosticBase.current;
+    if (!c || d.replacement === undefined || base !== lintBase(c.doc)) return;
+    void c
+      .flush()
+      .then(() => {
+        if (base !== lintBase(c.doc)) return;
+        return c.operation("alt.propose", {
+          doc: id,
+          at: { base, view: "full", from: d.from, to: d.to },
+          versions: [d.replacement],
+          by: { kind: "human" },
+        });
+      })
+      .then(clear("feedback"), fail("feedback"));
+  };
+  const stashOp = (
+    name: string,
+    input: (at: Awaited<ReturnType<typeof captureSelection>>) => object,
+  ) => {
+    const v = editorView.current,
+      c = transport.current;
+    if (v && c)
+      void captureSelection(v, c)
+        .then((at) => c.operation(name, input(at)))
+        .then(clear("stash"), fail("stash"));
   };
   async function action(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -429,10 +470,18 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
       fail("action")(e);
     }
   }
+  const previewUrl = preview.trim();
+  const previewHint =
+    previewUrl && !/^https?:\/\//.test(previewUrl)
+      ? `Start the address with http:// or https://, for example http://${previewUrl.replace(/^\/+/, "")}`
+      : undefined;
   return (
-    <main>
+    <main className={zen ? "editor zen" : "editor"}>
       <header className="editor-header">
         <a className="back" href="/">
+          <svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14">
+            <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          </svg>
           All posts
         </a>
         <h1 title={id}>{title}</h1>
@@ -468,42 +517,45 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         />
       )}
       {sharing && session?.signedIn && !zen && <SharePanel id={id} transport={transport.current} />}
-      {rewriting && (
-        <p className="working">
-          Rewriting selection…{" "}
-          <button onClick={() => rewriteAbort.current?.abort()}>Cancel rewrite</button>
-        </p>
-      )}
-      {notice("rewrite")}
-      <div className={zen ? "split zen" : "split"}>
-        <section aria-label="Source">
-          <h2>Source</h2>
-          <div className="thread-toolbar" hidden={zen}>
-            <CommentComposer
-              id={id}
-              view={editorView.current}
-              transport={transport.current}
-              hasSelection={hasSelection}
-              onOpened={setActive}
-            />
-            <FeedbackPanel
-              id={id}
-              view={editorView.current}
-              transport={transport.current}
-              kind={kind?.kind ?? "post"}
-              requests={requests}
-              threads={threads}
-              alts={alts}
-              onThread={(thread) => {
-                const target = threads.find((t) => t.thread === thread);
-                if (target?.state === "resolved" && filter === "open") setFilter("all");
-                setActive(thread);
-              }}
-            />
-          </div>
-          <div className="source-row">
-            <div className="source-editor" ref={parent} />
-            {!zen && (
+      <div className="workspace">
+        <section className="writing" aria-label="Writing">
+          <div className={showComments ? "source-row with-comments" : "source-row"}>
+            <div className="editor-column">
+              <div className="writing-tools" hidden={zen}>
+                <CommentComposer
+                  id={id}
+                  view={editorView.current}
+                  transport={transport.current}
+                  hasSelection={hasSelection}
+                  onOpened={setActive}
+                  onDraft={setComposing}
+                />
+                <FeedbackPanel
+                  id={id}
+                  view={editorView.current}
+                  transport={transport.current}
+                  kind={kind?.kind ?? "post"}
+                  requests={requests}
+                  threads={threads}
+                  alts={alts}
+                  onThread={(thread) => {
+                    const target = threads.find((t) => t.thread === thread);
+                    if (target?.state === "resolved" && filter === "open") setFilter("all");
+                    setActive(thread);
+                  }}
+                />
+                {threads.length > 0 && <ThreadFilterSelect filter={filter} onFilter={setFilter} />}
+              </div>
+              {rewriting && (
+                <p className="working">
+                  Rewriting selection…{" "}
+                  <button onClick={() => rewriteAbort.current?.abort()}>Cancel rewrite</button>
+                </p>
+              )}
+              {notice("rewrite")}
+              <div className="source-editor" ref={parent} />
+            </div>
+            {showComments && (
               <ThreadColumn
                 id={id}
                 view={editorView.current}
@@ -511,201 +563,206 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 threads={threads}
                 requests={requests}
                 filter={filter}
-                onFilter={setFilter}
                 active={active}
                 onActive={setActive}
               />
             )}
           </div>
         </section>
-        <aside aria-label="Preview">
-          <h2>Preview</h2>
-          <p>Open the post on your blog’s dev server to see its components.</p>
-          <label>
-            Blog preview URL{" "}
-            <input type="url" value={preview} onChange={(e) => setPreview(e.target.value)} />
-          </label>
-          {/^https?:\/\//.test(preview) && (
-            <p>
-              <a href={preview} target="_blank" rel="noreferrer">
-                Open blog preview
-              </a>
-            </p>
-          )}
-          {Array.isArray(previewDiagnostics) && previewDiagnostics.length > 0 && (
-            <div className="preview-diagnostics">
-              <p>The last component rebuild reported:</p>
-              <ul>
-                {previewDiagnostics.map((d: unknown, i) => (
-                  <li key={i}>
-                    {d && typeof d === "object" && "message" in d
-                      ? String(d.message)
-                      : JSON.stringify(d)}
-                  </li>
+        {!zen && (
+          <aside className="aids" aria-label="Writing aids">
+            <h2>Writing feedback</h2>
+            <FeedbackList
+              diagnostics={diagnostics}
+              text={source}
+              checking={!measured?.current}
+              notices={
+                (problem || notices.feedback) && (
+                  <>
+                    {problem && (
+                      <Notice
+                        className="settings-problem"
+                        notice={{
+                          code: "SettingsMalformed",
+                          title: `The post's settings block is malformed (line ${problem.line}): ${problem.message}`,
+                          detail:
+                            "Words, rhythm and feedback still read the body; the settings are ignored until the block is fixed.",
+                        }}
+                        actions={
+                          <button
+                            type="button"
+                            onClick={() => editorView.current && unfold(editorView.current)}
+                          >
+                            Unfold
+                          </button>
+                        }
+                      />
+                    )}
+                    {notice("feedback")}
+                  </>
+                )
+              }
+              onJump={(d) => jump(d, diagnosticBase.current)}
+              onDismiss={(items) => feedback.current?.dismiss(items)}
+              onPropose={propose}
+            />
+            {alts.length > 0 && (
+              <>
+                <h2>Alternatives</h2>
+                {alts.map((alt) => (
+                  <article className="alternative" key={alt.id}>
+                    <span>
+                      Alternative {alt.active + 1}/{alt.count}
+                    </span>
+                    {(["prev", "next", "keep", "ghost"] as const).map((action) => (
+                      <button
+                        key={action}
+                        onClick={() =>
+                          void transport.current
+                            ?.operation(
+                              action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
+                              action === "keep" || action === "ghost"
+                                ? {
+                                    doc: id,
+                                    alt: alt.id,
+                                    rest: action === "ghost" ? "ghost" : "stash",
+                                  }
+                                : { doc: id, alt: alt.id, to: action },
+                            )
+                            .then(clear("alternative"), fail("alternative"))
+                        }
+                      >
+                        {action === "keep"
+                          ? "Keep"
+                          : action === "ghost"
+                            ? "Keep and ghost the rest"
+                            : action === "prev"
+                              ? "↑"
+                              : "↓"}
+                      </button>
+                    ))}
+                  </article>
                 ))}
-              </ul>
-            </div>
-          )}
-          <div className="panels" hidden={zen}>
-            <h3>Writing feedback</h3>
-            <section aria-label="Writing feedback">
-              {problem && (
-                <Notice
-                  className="settings-problem"
-                  notice={{
-                    code: "SettingsMalformed",
-                    title: `The post's settings block is malformed (line ${problem.line}): ${problem.message}`,
-                    detail:
-                      "Words, rhythm and feedback still read the body; the settings are ignored until the block is fixed.",
-                  }}
-                  actions={
-                    <button
-                      type="button"
-                      onClick={() => editorView.current && unfold(editorView.current)}
-                    >
-                      Unfold
-                    </button>
-                  }
-                />
+                {notice("alternative")}
+              </>
+            )}
+            <h2>Stash</h2>
+            <section className="stash" aria-label="Stash">
+              <button
+                disabled={!hasSelection}
+                title={
+                  hasSelection
+                    ? "Cut the selection into the stash"
+                    : "Select text to cut it into the stash"
+                }
+                onClick={() => stashOp("stash.add", (at) => ({ doc: id, at }))}
+              >
+                Stash selection
+              </button>
+              {notice("stash")}
+              {stash.length === 0 ? (
+                <p className="muted empty-note">
+                  Cut text and the versions you do not keep land here, to bring back later.
+                </p>
+              ) : (
+                <ul className="stash-list">
+                  {stash.map((item) => (
+                    <li className="stash-item" key={item.id}>
+                      <p className="stash-text">{item.text}</p>
+                      <p className="stash-meta">
+                        {(item.reason && REASON[item.reason]) || "Stashed"}{" "}
+                        {item.at ? ago(item.at, Date.now()) : ""}
+                      </p>
+                      <span className="stash-actions">
+                        <button
+                          title="Insert at the caret"
+                          onClick={() =>
+                            stashOp("stash.restore", (at) => ({
+                              doc: id,
+                              item: item.id,
+                              at: { ...at, to: at.from },
+                            }))
+                          }
+                        >
+                          Insert
+                        </button>
+                        <button
+                          className="quiet"
+                          onClick={() =>
+                            void transport.current
+                              ?.operation("stash.remove", { doc: id, item: item.id })
+                              .then(clear("stash"), fail("stash"))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
-              {notice("feedback")}
-              {diagnostics.map((d, i) => (
-                <article
-                  className="diagnostic"
-                  key={`${d.code}:${d.from}:${i}`}
-                  data-code={d.code}
-                  data-severity={d.severity}
-                  data-from={d.from}
-                  data-to={d.to}
-                >
-                  <p>
-                    <span className="severity">{d.severity}</span> {d.message}
-                  </p>
-                  <button onClick={() => feedback.current?.dismiss(d)}>Dismiss</button>
-                  {d.replacement !== undefined && (
-                    <button
-                      onClick={() => {
-                        const c = transport.current;
-                        const base = diagnosticBase.current;
-                        if (c && base === lintBase(c.doc))
-                          void c
-                            .flush()
-                            .then(() => {
-                              if (base !== lintBase(c.doc)) return;
-                              return c.operation("alt.propose", {
-                                doc: id,
-                                at: {
-                                  base,
-                                  view: "full",
-                                  from: d.from,
-                                  to: d.to,
-                                },
-                                versions: [d.replacement],
-                                by: { kind: "human" },
-                              });
-                            })
-                            .then(clear("feedback"), fail("feedback"));
-                      }}
-                    >
-                      Propose “{d.replacement}”
-                    </button>
-                  )}
-                </article>
-              ))}
             </section>
-            <h3>Alternatives</h3>
-            {alts.map((alt) => (
-              <article className="alternative" key={alt.id}>
-                <span>
-                  ● Alternative {alt.active + 1}/{alt.count}
-                </span>
-                {(["prev", "next", "keep", "ghost"] as const).map((action) => (
-                  <button
-                    key={action}
-                    onClick={() =>
-                      void transport.current
-                        ?.operation(
-                          action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
-                          action === "keep" || action === "ghost"
-                            ? { doc: id, alt: alt.id, rest: action === "ghost" ? "ghost" : "stash" }
-                            : { doc: id, alt: alt.id, to: action },
-                        )
-                        .then(clear("alternative"), fail("alternative"))
-                    }
-                  >
-                    {action === "keep"
-                      ? "Keep"
-                      : action === "ghost"
-                        ? "Keep and ghost the rest"
-                        : action === "prev"
-                          ? "↑"
-                          : "↓"}
-                  </button>
-                ))}
-              </article>
-            ))}
-            {notice("alternative")}
-            <h3>Stash</h3>
-            <button
-              onClick={() => {
-                const v = editorView.current,
-                  c = transport.current;
-                if (v && c)
-                  void captureSelection(v, c)
-                    .then((at) => c.operation("stash.add", { doc: id, at }))
-                    .then(clear("stash"), fail("stash"));
-              }}
-            >
-              Stash selection
-            </button>
-            {notice("stash")}
-            {stash.map((item) => (
-              <article className="stash-item" key={item.id}>
-                <pre>{item.text}</pre>
-                <button
-                  onClick={() => {
-                    const v = editorView.current,
-                      c = transport.current;
-                    if (v && c)
-                      void captureSelection(v, c)
-                        .then((at) =>
-                          c.operation("stash.restore", {
-                            doc: id,
-                            item: item.id,
-                            at: { ...at, to: at.from },
-                          }),
-                        )
-                        .then(clear("stash"), fail("stash"));
-                  }}
-                >
-                  Insert
-                </button>
-                <button
-                  onClick={() =>
-                    void transport.current
-                      ?.operation("stash.remove", { doc: id, item: item.id })
-                      .then(clear("stash"), fail("stash"))
-                  }
-                >
-                  Remove
-                </button>
-              </article>
-            ))}
-          </div>
-          <h3>Block usages</h3>
-          {inspection?.blocks.map((block, i) => (
-            <article className="chip" key={i}>
-              <strong>
-                &lt;{block.tag} /&gt; @{block.version}
-              </strong>
-              <pre>{JSON.stringify(block.props, null, 2)}</pre>
-              <p>{block.validation}</p>
-            </article>
-          ))}
-          <h3>Dependencies</h3>
-          <pre data-testid="deps">{JSON.stringify(inspection?.deps, null, 2)}</pre>
-          {panels}
-        </aside>
+            <details className="components">
+              <summary>Blog preview and components</summary>
+              <p>See this post, components and all, on your blog’s dev server.</p>
+              <label className="field">
+                <span className="field-label">Preview address</span>
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={preview}
+                  placeholder={`http://localhost:3000/posts/${id}`}
+                  aria-invalid={!!previewHint}
+                  aria-describedby="preview-hint"
+                  onChange={(e) => setPreview(e.target.value)}
+                />
+                {previewHint && (
+                  <span className="field-hint" id="preview-hint">
+                    {previewHint}
+                  </span>
+                )}
+              </label>
+              {/^https?:\/\//.test(previewUrl) && (
+                <p>
+                  <a href={previewUrl} target="_blank" rel="noreferrer">
+                    Open the blog preview
+                  </a>
+                </p>
+              )}
+              {Array.isArray(previewDiagnostics) && previewDiagnostics.length > 0 && (
+                <div className="preview-diagnostics">
+                  <p>The last component rebuild reported:</p>
+                  <ul>
+                    {previewDiagnostics.map((d: unknown, i) => (
+                      <li key={i}>
+                        {d && typeof d === "object" && "message" in d
+                          ? String(d.message)
+                          : JSON.stringify(d)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <h3>Components in this post</h3>
+              {inspection?.blocks.length ? (
+                inspection.blocks.map((block, i) => (
+                  <article className="chip" key={i}>
+                    <strong>
+                      &lt;{block.tag} /&gt; @{block.version}
+                    </strong>
+                    <pre>{JSON.stringify(block.props, null, 2)}</pre>
+                    <p>{block.validation}</p>
+                  </article>
+                ))
+              ) : (
+                <p className="muted">No components used yet.</p>
+              )}
+              <h3>Dependencies</h3>
+              <pre data-testid="deps">{JSON.stringify(inspection?.deps, null, 2)}</pre>
+              {panels}
+            </details>
+          </aside>
+        )}
       </div>
       <footer className="statusbar" aria-label="Status bar">
         <span
@@ -717,12 +774,13 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
         </span>
         <p role="status">{status}</p>
         <SessionStatus session={session} />
-        {kind && <span data-testid="kind">Kind: {kindName(kind.kind)}</span>}
-        {kind?.warnings.map((warning) => (
-          <span className="warning" data-testid="kind-warning" key={warning} title={warning}>
-            {warning}
-          </span>
-        ))}
+        {!zen && kind && <span data-testid="kind">Kind: {kindName(kind.kind)}</span>}
+        {!zen &&
+          kind?.warnings.map((warning) => (
+            <span className="warning" data-testid="kind-warning" key={warning} title={warning}>
+              {warning}
+            </span>
+          ))}
         {!zen && rhythm > 0 && (
           <span data-testid="soft-count">
             {rhythm} {rhythm === 1 ? "rhythm note" : "rhythm notes"}
@@ -735,7 +793,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
             onJump={(sentence) => jump(sentence, measured.base)}
           />
         )}
-        <Shortcuts />
+        {!zen && <Shortcuts />}
         <button className="zen-toggle" aria-pressed={zen} onClick={toggleZen} title="Zen (⌘⇧.)">
           Zen
         </button>

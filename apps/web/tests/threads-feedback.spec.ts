@@ -254,12 +254,12 @@ try {
   await column.locator(`[data-thread="${beta}"]`).getByRole("button", { name: "Resolve" }).click();
   await expect(column.locator(`.thread-anchored [data-thread="${beta}"]`)).toHaveCount(0);
   await expect(page.locator(`.cm-thread[data-thread="${beta}"]`)).toHaveCount(0);
-  await column.getByRole("combobox", { name: "Comment filter" }).selectOption("resolved");
+  await page.getByRole("combobox", { name: "Comment filter" }).selectOption("resolved");
   await expect(column.locator(`.thread-anchored [data-thread="${beta}"]`)).toHaveAttribute(
     "data-state",
     "resolved",
   );
-  await column.getByRole("combobox", { name: "Comment filter" }).selectOption("open");
+  await page.getByRole("combobox", { name: "Comment filter" }).selectOption("open");
 
   // Deleting all of gamma detaches its thread to the bottom group, with no highlight, for good.
   await select(page, "gamma");

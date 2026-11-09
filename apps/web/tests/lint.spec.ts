@@ -70,15 +70,18 @@ try {
   await expect(feedback.locator('[data-code="style:adverb"]')).toHaveAttribute("data-from", "35");
   await expect(page.locator('.cm-lint[data-code="style:simpler"]')).toHaveText("utilize");
   const before = JSON.parse(cli("cat", "editor", "--json")).text;
+  // Plan 18: feedback groups by rule; a rule's row opens to its instances.
+  await feedback.locator('.rule-group[data-rule="style:simpler"] .rule-toggle').click();
   await feedback.getByRole("button", { name: "Propose “use”", exact: true }).click();
   await expect(page.locator(".alternative")).toHaveCount(1);
   expect(JSON.parse(cli("cat", "editor", "--json")).text).toBe(before);
   await page.locator(".alternative").getByRole("button", { name: "↓", exact: true }).click();
   await expect(editor).toContainText("to use tools.");
   await expect(feedback.locator('[data-code="style:adverb"]')).toHaveCount(1);
+  await feedback.locator('.rule-group[data-rule="style:adverb"] .rule-toggle').click();
   await feedback
     .locator('[data-code="style:adverb"]')
-    .getByRole("button", { name: "Dismiss" })
+    .getByRole("button", { name: "Dismiss", exact: true })
     .click();
   await expect(feedback.locator('[data-code="style:adverb"]')).toHaveCount(0);
   await page.reload();

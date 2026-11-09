@@ -14,6 +14,29 @@ import type { EditorTransport } from "./editor/transport";
 import { describe, Notice, type NoticeContent } from "./Notice";
 
 export type ThreadFilter = "open" | "resolved" | "all";
+/** Which comments the column and highlights show; offered once there is at least one comment. */
+export function ThreadFilterSelect({
+  filter,
+  onFilter,
+}: {
+  filter: ThreadFilter;
+  onFilter: (filter: ThreadFilter) => void;
+}) {
+  return (
+    <label className="thread-filter">
+      Comments{" "}
+      <select
+        aria-label="Comment filter"
+        value={filter}
+        onChange={(e) => onFilter(e.target.value as ThreadFilter)}
+      >
+        <option value="open">Open</option>
+        <option value="resolved">Resolved</option>
+        <option value="all">All</option>
+      </select>
+    </label>
+  );
+}
 export const shownThreads = (threads: Thread[], filter: ThreadFilter) =>
   threads.filter((t) => t.state !== "detached" && (filter === "all" || t.state === filter));
 type Common = {
@@ -35,8 +58,18 @@ export function CommentComposer({
   transport,
   hasSelection,
   onOpened,
-}: Common & { hasSelection: boolean; onOpened: (thread: string) => void }) {
-  const [draft, setDraft] = useState<{ base: string; quote: string }>();
+  onDraft,
+}: Common & {
+  hasSelection: boolean;
+  onOpened: (thread: string) => void;
+  /** Whether a comment is being written: the comment column makes room while it is. */
+  onDraft?: (open: boolean) => void;
+}) {
+  const [draft, setDraftState] = useState<{ base: string; quote: string }>();
+  const setDraft = (next: { base: string; quote: string } | undefined) => {
+    setDraftState(next);
+    onDraft?.(next !== undefined);
+  };
   const [text, setText] = useState("");
   const { shown, fail, clear } = useNotice();
   return (
@@ -193,14 +226,12 @@ export function ThreadColumn({
   threads,
   requests,
   filter,
-  onFilter,
   active,
   onActive,
 }: Common & {
   threads: Thread[];
   requests: FeedbackRequest[];
   filter: ThreadFilter;
-  onFilter: (filter: ThreadFilter) => void;
   active: string | null;
   onActive: (thread: string) => void;
 }) {
@@ -270,18 +301,7 @@ export function ThreadColumn({
       <div className="thread-anchored" ref={box} style={{ height }}>
         {shown.map((t) => card(t, true))}
       </div>
-      <label className="thread-filter">
-        Show{" "}
-        <select
-          aria-label="Comment filter"
-          value={filter}
-          onChange={(e) => onFilter(e.target.value as ThreadFilter)}
-        >
-          <option value="open">Open</option>
-          <option value="resolved">Resolved</option>
-          <option value="all">All</option>
-        </select>
-      </label>
+
       {detached.length > 0 && (
         <section aria-label="Detached comments" className="thread-detached">
           <h3>Detached</h3>

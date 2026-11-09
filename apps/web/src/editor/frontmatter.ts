@@ -1,5 +1,5 @@
 import { Annotation, EditorState, RangeSet, StateEffect, StateField } from "@codemirror/state";
-import { Decoration, EditorView, WidgetType, type DecorationSet } from "@codemirror/view";
+import { Decoration, EditorView, WidgetType, keymap, type DecorationSet } from "@codemirror/view";
 import { frontmatterBlock, frontmatterProblem } from "@composedink/core";
 /**
  * The settings block folds to one marker reading "settings": the caret skips it, typing cannot land
@@ -82,10 +82,10 @@ const fold = StateField.define<Fold>({
 const parses = (state: EditorState) => !frontmatterProblem(state.doc.toString());
 /**
  * Typing, pasting, dropping and deleting never change a folded block, unless they replace all of it
- * (select all, then type). The folded span is atomic, so a selection can only start before it or
- * after it: typed input that removes text through the block's end replaced a selection holding the
- * whole block. CodeMirror reports such input as a minimal diff, which can start inside the block.
- * Deletions need the selection itself to cover the block, so Backspace after it never eats it.
+ * (select all, then type). CodeMirror reads input as a minimal DOM diff, labels plain Backspace as
+ * typed input, and under scripted input the select-all can reach the diff before the selection
+ * does. So the change itself decides: a deletion that contains the whole closing fence can only
+ * come from a selection holding the block. Everything else that touches the block is refused.
  */
 const guard = EditorState.changeFilter.of((tr) => {
   if (tr.annotation(settingsEdit) || !tr.startState.field(fold).folded) return true;
@@ -94,14 +94,33 @@ const guard = EditorState.changeFilter.of((tr) => {
   if (!s) return true;
   const { from, to } = tr.startState.selection.main;
   if (from === 0 && to >= s.to) return true;
-  const typed = tr.isUserEvent("input");
+  const fence = { from: s.block.close, to: s.block.close + 3 };
   let allowed = true;
   tr.changes.iterChangedRanges((a, b) => {
     const touches = (a < s.to + 1 && b > 0) || (a === 0 && b === 0);
-    if (touches && !(typed && b > a && b >= s.to)) allowed = false;
+    if (touches && !(a <= fence.from && b >= fence.to)) allowed = false;
   });
   return allowed;
 });
+/** Backspace right after the folded block, or Delete right before or after it, does nothing. */
+const keys = keymap.of([
+  {
+    key: "Backspace",
+    run: (view) => {
+      const s = view.state.field(fold).folded && span(view.state);
+      const { empty, head } = view.state.selection.main;
+      return !!s && empty && head > 0 && head <= s.to + 1;
+    },
+  },
+  {
+    key: "Delete",
+    run: (view) => {
+      const s = view.state.field(fold).folded && span(view.state);
+      const { empty, head } = view.state.selection.main;
+      return !!s && empty && (head === 0 || head === s.to);
+    },
+  },
+]);
 export function unfold(view: EditorView) {
   const s = span(view.state);
   view.dispatch({
@@ -113,4 +132,4 @@ export function unfold(view: EditorView) {
   view.focus();
 }
 export const isFolded = (view: EditorView) => view.state.field(fold).folded;
-export const frontmatterFold = [fold, guard];
+export const frontmatterFold = [fold, guard, keys];

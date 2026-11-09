@@ -4,6 +4,8 @@ import type { DocSummary } from "@composedink/core";
 import { Home } from "./Home";
 import { PostEditor } from "./PostEditor";
 import { StudioClient } from "./studio";
+import "@fontsource-variable/source-serif-4/opsz.css";
+import "@fontsource-variable/source-serif-4/opsz-italic.css";
 import "./style.css";
 
 /** The URL decides: no `doc` shows Home; `?doc=<slug>` opens it, or Home with a notice if absent. */

@@ -93,7 +93,8 @@ try {
   await expect(budget).toHaveAttribute("data-from", String(main.indexOf("Notes")));
   await expect(budget).toHaveAttribute("data-to", String(main.indexOf("Notes") + 1));
   await expect(budget).toContainText("35 words is 5 over the 30-word budget.");
-  await expect(budget.locator(".severity")).toHaveText("soft");
+  // Plan 18: severity is the rule row's label; instances sit under the row.
+  await expect(feedback.locator('.rule-group[data-rule="budget"] .severity')).toHaveText("Quiet");
   const rhythm = feedback.locator('[data-code="rhythm"]');
   await expect(rhythm).toHaveAttribute("data-severity", "soft");
   await expect(rhythm).toHaveAttribute("data-from", String(main.indexOf("It is very")));
@@ -105,9 +106,9 @@ try {
   await expect(filler).toHaveClass(/cm-lint-warn/);
   await expect(filler).toHaveAttribute("data-from", String(main.indexOf("very")));
   await expect(filler).toHaveAttribute("data-to", String(main.indexOf("very") + 4));
-  await expect(feedback.locator('[data-code="filler"] .severity')).toHaveText("warn");
-  await expect(budget).toBeVisible();
-  await expect(rhythm).toBeVisible();
+  await expect(feedback.locator('.rule-group[data-rule="filler"] .severity')).toHaveText("Note");
+  await expect(feedback.locator('.rule-group[data-rule="budget"]')).toBeVisible();
+  await expect(feedback.locator('.rule-group[data-rule="rhythm"]')).toBeVisible();
   await expect(page.locator(".cm-lint[data-severity=soft]")).toHaveCount(0);
   await expect(page.locator(".cm-soft-marker")).toHaveCount(2);
 

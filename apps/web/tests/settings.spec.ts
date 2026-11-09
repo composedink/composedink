@@ -50,7 +50,7 @@ await withStudio("settings", async ({ origin, page: open, cli, json, shot, evide
 
   // Unfold, break the YAML by typing: one notice, counts and rhythm still read the body.
   const words = page.getByTestId("word-count");
-  await expect(words).toContainText("13 words");
+  await expect(words).toHaveText("13 / 1200 words");
   await expect(page.getByTestId("sparkline").locator(".bar")).toHaveCount(3);
   await editor.locator(".cm-settings-fold").click();
   await expect(editor).toContainText("budget: 1200");
@@ -60,7 +60,7 @@ await withStudio("settings", async ({ origin, page: open, cli, json, shot, evide
   const notice = feedback.getByRole("alert");
   await expect(notice).toHaveCount(1);
   await expect(notice).toContainText("The post's settings block is malformed (line 6):");
-  await expect(words).toContainText("13 words");
+  await expect(words).toHaveText("13 / 1200 words");
   await expect(page.getByTestId("sparkline").locator(".bar")).toHaveCount(3);
   await expect(page.getByText("YAMLParseError")).toHaveCount(0);
   await expect(strip.getByRole("spinbutton", { name: "Budget" })).toBeDisabled();

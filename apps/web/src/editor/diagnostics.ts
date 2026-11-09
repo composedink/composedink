@@ -3,7 +3,30 @@ import { Decoration, EditorView, GutterMarker, gutter } from "@codemirror/view";
 import type { Diagnostic } from "@composedink/lint";
 export const setDiagnostics = StateEffect.define<readonly Diagnostic[]>();
 const inRange = (d: Diagnostic, length: number) => d.from < d.to && d.from >= 0 && d.to <= length;
-/** Underlines for error and warn diagnostics; soft ones never underline. */
+const RANK = { error: 0, warn: 1, soft: 2 } as const;
+/**
+ * Underlines for error and warn diagnostics; soft ones never underline. Diagnostics on one range
+ * draw one underline in the stronger severity, with every message in its title and every code in
+ * `data-code` (space-separated).
+ */
+export function underlines(diagnostics: readonly Diagnostic[], length: number) {
+  const ranges = new Map<string, Diagnostic[]>();
+  for (const d of diagnostics) {
+    if (d.severity === "soft" || !inRange(d, length)) continue;
+    const key = `${d.from}:${d.to}`;
+    ranges.set(key, [...(ranges.get(key) ?? []), d]);
+  }
+  return [...ranges.values()].map((same) => {
+    const strongest = same.reduce((a, b) => (RANK[b.severity] < RANK[a.severity] ? b : a));
+    return {
+      from: strongest.from,
+      to: strongest.to,
+      severity: strongest.severity,
+      codes: [...new Set(same.map((d) => d.code))],
+      messages: [...new Set(same.map((d) => d.message))],
+    };
+  });
+}
 export const diagnosticMarks = StateField.define({
   create: () => Decoration.none,
   update(value, tr) {
@@ -11,20 +34,18 @@ export const diagnosticMarks = StateField.define({
     for (const effect of tr.effects)
       if (effect.is(setDiagnostics))
         value = Decoration.set(
-          effect.value
-            .filter((d) => d.severity !== "soft" && inRange(d, tr.newDoc.length))
-            .map((d) =>
-              Decoration.mark({
-                class: `cm-lint cm-lint-${d.severity}`,
-                attributes: {
-                  title: d.message,
-                  "data-code": d.code,
-                  "data-severity": d.severity,
-                  "data-from": String(d.from),
-                  "data-to": String(d.to),
-                },
-              }).range(d.from, d.to),
-            ),
+          underlines(effect.value, tr.newDoc.length).map((u) =>
+            Decoration.mark({
+              class: `cm-lint cm-lint-${u.severity}`,
+              attributes: {
+                title: u.messages.join("\n"),
+                "data-code": u.codes.join(" "),
+                "data-severity": u.severity,
+                "data-from": String(u.from),
+                "data-to": String(u.to),
+              },
+            }).range(u.from, u.to),
+          ),
           true,
         );
     return value;
@@ -42,7 +63,7 @@ class SoftMarker extends GutterMarker {
     const marker = document.createElement("span");
     marker.className = "cm-soft-marker";
     marker.title = this.messages;
-    marker.textContent = "◦";
+    marker.setAttribute("aria-label", this.messages);
     return marker;
   }
 }

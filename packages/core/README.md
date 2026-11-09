@@ -17,6 +17,21 @@ if (lock.kind === "owner") {
 
 A `connect` result supplies the studio socket metadata; use the CLI transport instead of opening another writer. Inline ownership is for short commands. Studio owns long-running previews. `authority.db` holds only the kernel lock. `state.db` indexes store-local receipts, history and intents; `state/receipts` envelopes atomically commit document bytes, results and prepared export effects. A failed durable commit requires restart before further writes. Full-history snapshots retain old bases through compaction. Corrupt committed segments and unexpected outside edits raise RecoveryRequired and preserve the evidence.
 
+List the posts on this home, newest first, as a table or JSON (`doc.list`: `{docs: {id, title,
+kind, words, updatedAt}[]}`; the title is the frontmatter `title`, else the slug; words are
+prose words, the same count the editor and the `budget` rule use):
+
+```sh
+composed list
+composed list --json
+```
+
+Remove a stash entry for good (idempotent; operation undo restores it):
+
+```sh
+composed stash remove draft <item>
+```
+
 Run `mise exec -- vp run @composedink/core#durability` for real-process election, kill-point recovery, receipts and historical-base coverage.
 
 Model rewrites use an OpenAI-compatible endpoint. Create `$COMPOSED_HOME/config.json`
@@ -89,19 +104,25 @@ composed feedback answers draft <request>
 ```
 
 Without `--question` the document kind's `questions` (the four seeded defaults) are
-asked. The request is stored as pending before the provider is called, so another
-device sees it. The brief is the clean text (dim excluded), the kind's
+asked. A request to the model checks the writing model's configuration first: with none
+set up it fails with `ProviderFailed: no writing model is set up on this device; fix: add
+rewrite.endpoint and rewrite.model to $COMPOSED_HOME/config.json` and the document is not
+touched. Otherwise the request is stored as pending before the provider is called, so
+another device sees it. The brief is the clean text (dim excluded), the kind's
 reader/medium/budget, the effective ruleset including disabled rules (the model is told
 not to raise them), and the questions. The model must answer every question once; its
 notes become threads linked to the question and its rewrites become alternatives
 through the normal proposal path, attributed to the model. Nothing is inserted into
 the prose; accept a rewrite with `alt.flip`/`alt.resolve`. Every quote must resolve
 uniquely in the captured clean base, or the request fails with nothing applied. A
-failure (provider error, timeout, cancellation, malformed answer, bad quote) is stored
-as `failed` with its fix; ask again with a new request. A request still pending when
-the authority restarts becomes `failed` instead of calling the provider again.
-`--request` replays the same request ID and its current state after a lost
-acknowledgement; duplicate in-flight calls share one provider call.
+failure (provider error, timeout, cancellation, malformed answer, bad quote) reaches the
+caller with its fix, and a request addressed only to the model is removed in the same
+commit: a request that reached nobody is not a document fact, so it never greets another
+device. A request that also names a shared link stays, marked `failed`, because its guests
+can still answer. A request still pending when the authority restarts becomes `failed`
+instead of calling the provider again. `--request` replays the same request ID after a
+lost acknowledgement (a removed request fails again with the same message); duplicate
+in-flight calls share one provider call.
 
 ### Sharing (P2 contract)
 

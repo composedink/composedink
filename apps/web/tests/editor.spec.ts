@@ -93,7 +93,7 @@ try {
   await expect(editor).not.toContainText("Local");
   await expect(page.getByRole("status")).toHaveText("Saved");
   results.keystrokeUndo = true;
-  await page.getByText("Workspace actions", { exact: true }).click();
+  await page.getByText("Developer actions", { exact: true }).click();
   await page.getByRole("combobox", { name: "Action" }).selectOption("deps.add");
   await page.getByLabel("Input (JSON)").fill(
     JSON.stringify({

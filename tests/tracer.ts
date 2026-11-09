@@ -217,7 +217,8 @@ try {
   await expect(page.getByRole("status")).toHaveText("Saved");
   expect(await cli(["cat", "tracer"])).toBe(source + "Offline edit");
   await stop(owner.child);
-  await expect(page.getByRole("status")).toContainText("Unsaved");
+  // Plan 18: disconnected with nothing pending reads "Offline"; pending edits add "Unsaved changes".
+  await expect(page.getByRole("status")).toContainText("Offline");
   await page.locator(".cm-content").fill(source);
   owner = await studio();
   await expect(page.getByRole("status")).toHaveText("Saved", { timeout: 20000 });

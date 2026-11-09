@@ -67,11 +67,11 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Task 7 — Workspace actions, docs, gates
 
-- [ ] The JSON console becomes **Developer actions**, collapsed, last in the page, hidden in zen, with the keystroke sentence removed (Shortcuts owns it). Tests that drive it keep working.
-- [ ] `apps/desktop-rune/README.md`: the "no listing operation" sentence now points at `doc.list`. Core README: `composed list`, `composed stash remove`, and the feedback-request behaviour.
-- [ ] Gates, in this order, foreground and sequential: `mise exec -- vp check --fix`; `mise exec -- vp run -r test`; `mise exec -- vp run composed-web#e2e`; `mise exec -- vp run composed-web#build`; `mise exec -- vp run host-tanstack#e2e`; `mise exec -- vp run composed-desktop#smoke` (the runtime part must pass; the GUI part may report `skipped: gui session locked`). Never run `vp run -r test` at the same time as an e2e.
-- [ ] Impeccable detector from `apps/web`: `.../impeccable detect --json src` exits 0.
-- [ ] `docs/plans/README.md`: add row 18 (`in progress` → `done` with the date) and the gate row.
+- [x] The JSON console becomes **Developer actions**, collapsed, last in the page, hidden in zen, with the keystroke sentence removed (Shortcuts owns it). Tests that drive it keep working.
+- [x] `apps/desktop-rune/README.md`: the "no listing operation" sentence now points at `doc.list`. Core README: `composed list`, `composed stash remove`, and the feedback-request behaviour.
+- [x] Gates, in this order, foreground and sequential: `mise exec -- vp check --fix`; `mise exec -- vp run -r test`; `mise exec -- vp run composed-web#e2e`; `mise exec -- vp run composed-web#build`; `mise exec -- vp run host-tanstack#e2e`; `mise exec -- vp run composed-desktop#smoke` (the runtime part must pass; the GUI part may report `skipped: gui session locked`). Never run `vp run -r test` at the same time as an e2e.
+- [x] Impeccable detector from `apps/web`: `.../impeccable detect --json src` exits 0.
+- [x] `docs/plans/README.md`: add row 18 (`in progress` → `done` with the date) and the gate row.
 
 ### Decisions
 
@@ -332,3 +332,65 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
   two stash items, no alternatives; hover shows it and the menu ghosts the rest; screenshots
   `plan-18-alternative-widget.png`, `plan-18-alternative-menu.png`). `alternatives`, `dim`,
   `lint`, `rewrite`, `threads-feedback` and `kinds-zen` specs pass. Detector still `[]`, exit 0.
+
+### 2026-11-09 — Task 7: workspace actions, docs, gates
+
+- **Developer actions**: the JSON console is a collapsed `<details>` titled "Developer actions",
+  last on the page and hidden in zen; the keystroke sentence is gone (Shortcuts owns it). It
+  gains "List posts" (`doc.list`) and "Remove stash entry" (`stash.remove`). `editor.spec.ts` opens
+  it by its new name; everything it drives still works.
+- **Docs**: `apps/desktop-rune/README.md`'s discovery note now names `doc.list` and its shape
+  (one sentence). `packages/core/README.md` documents `composed list` (`--json`), `composed stash
+  remove`, the no-model refusal before any write, and the removal of a model-only request that
+  reached nobody. `docs/plans/README.md` row 18 reads `done 2026-11-09`; its gate row was already
+  present (plan 18's own commit), and `vp check --fix` re-aligned the table.
+- **Tracer gate**: `tests/tracer.ts` asserted that a stopped studio reads "Unsaved" while nothing
+  was pending. Plan 18's status reads `Offline` in that state (and `Offline · Unsaved changes` with
+  edits pending, which its earlier offline assertion still matches), so that one assertion now
+  expects "Offline". Root file outside the plan's list; recorded as a deviation.
+- **Desktop package**: the smoke runs the packaged `Composed.app`, so `vp run
+  composed-desktop#package` ran first (as in plan 17's final gate) to bundle this tree's web
+  assets.
+- **Placeholders** are themed (`--muted`, 5.6:1 on white), and the last raw hex values in
+  `style.css` became palette variables.
+
+### 2026-11-09 — Verification (final tree, foreground and sequential, in the plan's order)
+
+Logs are in `test-results/plan-18-gates/`.
+
+1. `mise exec -- vp check --fix`: pass, 254 files, no warnings (`1-check.log`).
+2. `mise exec -- vp run -r test`: pass, 9/9 (core 36 files / 169, lint 7 / 153, server 8 / 40,
+   web 6 / 13, cli 7 / 10, root and the rest 2 / 3, 2 / 3, 1 / 1) (`2-test.log`).
+3. `mise exec -- vp run composed-web#e2e`: pass, 15/15 specs, including plan 18's `home`,
+   `settings`, `errors`, `layout` and `alternatives-inplace` (`3-web-e2e.log`). This one command ran
+   as a background shell job because it outlasts the 10-minute foreground limit; nothing else ran
+   until it finished.
+4. `mise exec -- vp run composed-web#build`: pass; 12 Source Serif 4 `woff2` files in
+   `dist/assets` (`4-web-build.log`; the existing >500 kB chunk warning remains).
+5. `mise exec -- vp run host-tanstack#e2e`: **first run failed** at `tests/tracer.ts:220`
+   (`expected "Unsaved", received "Offline"`, see Task 7); after that assertion changed, pass
+   with all six tracer assertions, `6-ms` 885 (`5-host-tanstack-e2e.log`).
+6. `mise exec -- vp run composed-desktop#package` then `mise exec -- vp run composed-desktop#smoke`:
+   pass, 2/2. Runtime proof (`test-results/plan-11-smoke-1794260161526`): `signedOutStatus`,
+   `signedOutShareDisabled`, `homeOnColdOpen`, `selectedDocumentDeviceState`,
+   `persistenceAcrossSidecarRelaunch`, `studioLoadsNoRemotes` all true. The GUI step reported
+   `skipped: gui session locked`, so `desktop-gui.ts`'s new step (open the post from Home through
+   Accessibility before typing) is unverified. The page logged one console line, "Failed to load
+   resource: 404", which is not a page error; the resource was not identified (likely
+   `/favicon.ico`, the page declares no icon).
+7. `impeccable detect --json src` from `apps/web` (skill 4.7.0 launcher): exit 0, `[]`, zero
+   findings (`7-impeccable-detect.json`). Before Task 5: exit 2, five `side-tab` findings.
+
+Not run (outside this plan's gates): `sync-e2e` and `share-e2e`, whose scripts this plan edited
+for the new signed-in tooltip, "Not signed in · Sign in" and the Share tooltip.
+
+Follow-ups:
+
+- Orphaned model requests (pending at an authority restart) are still settled `failed` and kept;
+  plan 18 removes only requests whose delivery failed in the call.
+- `docs/design/composed.md`'s operations sketch still shows the old `doc.list` shape.
+- Writing feedback clears while a re-lint runs after each edit (existing behaviour); rows could
+  stay, marked stale.
+- Home re-lists on focus; the socket has no document events for a list view.
+- Run `sync-e2e`, `share-e2e` and the GUI half of the desktop smoke on an unlocked session.
+- The unidentified 404 in the packaged page.

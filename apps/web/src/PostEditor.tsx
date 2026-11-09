@@ -795,21 +795,23 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
           Zen
         </button>
       </footer>
-      <details>
-        <summary>Workspace actions</summary>
-        <p>Keystrokes: ⌘Z / Ctrl+Z. Operation undo uses the separate button above.</p>
+      {/* Raw operations for developers; writers never need them. */}
+      <details className="developer-actions" hidden={zen}>
+        <summary>Developer actions</summary>
         <form onSubmit={(event) => void action(event)}>
           <label>
             Action{" "}
             <select name="operation" aria-label="Action">
               {[
                 ["doc.create", "Create post"],
+                ["doc.list", "List posts"],
                 ["doc.read", "Read post"],
                 ["doc.apply", "Apply text"],
                 ["alt.propose", "Propose alternative"],
                 ["alt.flip", "Flip alternative"],
                 ["alt.resolve", "Keep alternative"],
                 ["stash.list", "List stash"],
+                ["stash.remove", "Remove stash entry"],
                 ["component.create", "Create component"],
                 ["component.read", "Read component"],
                 ["component.write", "Write component files"],

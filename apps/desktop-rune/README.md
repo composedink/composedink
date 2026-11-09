@@ -22,8 +22,8 @@ socket and protocol (`apps/web/src/editor/transport.ts`):
   and a status bar with save state and word count. `poll` is the controller loop: local typing,
   then studio frames, then the post list.
 - **Discovery** (`home.rs`): reads `$COMPOSED_HOME/owner.json` and `session.token` to find the
-  socket, and lists posts from `docs/` directory names (read-only). The studio has no listing
-  operation yet; a `doc.list` op would replace the directory read.
+  socket, and lists posts from `docs/` directory names (read-only). Studio now has `doc.list`
+  (`{docs: {id, title, kind, words, updatedAt}[]}`, newest first); it can replace the directory read.
 
 ## Run
 

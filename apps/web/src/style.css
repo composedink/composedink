@@ -76,6 +76,10 @@ select {
   background: var(--surface);
   padding: 0.3rem 0.5rem;
 }
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
 input[aria-invalid="true"] {
   border-color: var(--error);
 }
@@ -941,6 +945,35 @@ textarea {
   }
 }
 
+/* Developer actions: raw operations, collapsed, last on the page, hidden in zen. */
+.developer-actions {
+  margin: 1.5rem 0 2rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.developer-actions[open] {
+  color: var(--ink);
+}
+.developer-actions summary {
+  cursor: pointer;
+}
+.developer-actions form {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 40rem;
+  margin-top: 0.75rem;
+}
+.developer-actions label {
+  display: grid;
+  gap: 0.25rem;
+}
+.developer-actions textarea {
+  font-family: var(--mono);
+}
+.developer-actions button {
+  justify-self: start;
+}
+
 /* Status bar */
 .statusbar {
   position: sticky;
@@ -1092,8 +1125,8 @@ kbd {
   overflow-y: auto;
   margin: 0;
   padding: 0.5rem 0.5rem 0.5rem 2.5rem;
-  border: 1px solid #b6c4ba;
-  background: #faf9f5;
+  border: 1px solid var(--rule);
+  background: var(--paper);
 }
 .sentence-list button {
   display: block;
@@ -1105,7 +1138,7 @@ kbd {
 }
 .sentence-list button:hover,
 .sentence-list button:focus-visible {
-  background: #e8eee9;
+  background: var(--green-wash);
 }
 .sentence-list .words {
   font-variant-numeric: tabular-nums;
@@ -1135,7 +1168,7 @@ kbd {
   margin: 0;
 }
 .thread.active {
-  border-color: #25332e;
+  border-color: var(--ink);
   box-shadow: 0 1px 4px rgb(0 0 0 / 15%);
 }
 .thread[data-state="resolved"] {
@@ -1143,7 +1176,7 @@ kbd {
 }
 .thread blockquote {
   margin: 0 0 0.25rem;
-  color: #5f6b64;
+  color: var(--dim-ink);
   font-style: italic;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1163,7 +1196,7 @@ kbd {
 }
 .thread-detached {
   margin-top: 1rem;
-  border-top: 1px solid #b6c4ba;
+  border-top: 1px solid var(--rule);
 }
 .cm-thread {
   background: rgb(240 205 90 / 35%);
@@ -1242,7 +1275,7 @@ kbd {
   margin-block: 0.4rem;
 }
 .share-links li.revoked {
-  color: #5b6b61;
+  color: var(--muted);
 }
 .share-url {
   display: inline-flex;
@@ -1256,6 +1289,6 @@ kbd {
     monospace;
 }
 .message .author-tag {
-  color: #5b6b61;
+  color: var(--muted);
   font-size: 13px;
 }

@@ -1,6 +1,6 @@
 # composed-cli
 
-Run with mise's Node 22.22.3 using `apps/cli/bin/composed`. Short commands acquire inline ownership when studio is absent. `composed preview <doc> --to <directory>` automatically starts `composed studio --headless`; studio serves the editor on 4747 and artifacts on 4848. Set COMPOSED_HOME to isolate the workspace and COMPOSED_PORT / COMPOSED_ARTIFACT_PORT to override ports.
+Run with mise's Node 22.22.3 using `apps/cli/bin/composed`. Short commands acquire inline ownership when studio is absent. `composed preview <doc> --to <directory>` automatically starts `composed studio --headless`; studio serves the editor on 4747 and artifacts on 4848. Set COMPOSED_HOME to isolate the workspace and COMPOSED_PORT / COMPOSED_ARTIFACT_PORT to override ports, and COMPOSED_HOST to a LAN address to open the editor from other devices on a trusted network (the studio then answers that one origin only, and anyone who can reach it can read the session token).
 
 Every mutation accepts `--request <id>`. Retry an identical request to recover its original durable result; changing semantic arguments with the same ID yields RequestConflict. Stop studio with SIGTERM; the kernel releases ownership even after SIGKILL.
 

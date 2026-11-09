@@ -29,7 +29,11 @@ export async function studio(home: string) {
   await mkdir(home, { recursive: true });
   const port = Number(process.env.COMPOSED_PORT ?? 4747);
   const artifactPort = Number(process.env.COMPOSED_ARTIFACT_PORT ?? 4848);
-  const origin = `http://127.0.0.1:${port}`;
+  // COMPOSED_HOST=<LAN address> serves the editor to other devices on the network. The Host and
+  // Origin checks and the CSP follow it, so the studio still answers one origin only; anyone who
+  // can reach that address can read the session token, so use it on trusted networks.
+  const host = process.env.COMPOSED_HOST ?? "127.0.0.1";
+  const origin = `http://${host}:${port}`;
   const token = randomBytes(32).toString("base64url");
   const ownership = await acquire(home, "studio");
   if (ownership.kind === "connect") return;
@@ -67,8 +71,8 @@ export async function studio(home: string) {
     if (packaged)
       res.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' data: ws://127.0.0.1:" +
-          port +
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; connect-src 'self' data: ws://" +
+          new URL(origin).host +
           "; frame-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
       );
     if (req.url === "/session") {
@@ -274,8 +278,8 @@ export async function studio(home: string) {
     }
   });
   await Promise.all([
-    new Promise<void>((r) => server.listen(port, "127.0.0.1", r)),
-    new Promise<void>((r) => artifacts.listen(artifactPort, "127.0.0.1", r)),
+    new Promise<void>((r) => server.listen(port, host, r)),
+    new Promise<void>((r) => artifacts.listen(artifactPort, host, r)),
   ]);
   await ownership.ready();
   console.log(JSON.stringify({ ready: true, origin, artifactPort }));

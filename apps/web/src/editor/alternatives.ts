@@ -20,6 +20,7 @@ export function alternativeKeys(
 }
 
 import { gutter, GutterMarker } from "@codemirror/view";
+import { setAlternatives } from "./alternative-widget";
 class Dot extends GutterMarker {
   toDOM() {
     const dot = document.createElement("span");
@@ -32,6 +33,9 @@ const dot = new Dot();
 export function alternativeGutter(current: () => Alt[]) {
   return gutter({
     class: "cm-alternatives",
+    // Proposals arrive without a text change: redraw when the alternatives themselves change.
+    lineMarkerChange: (update) =>
+      update.transactions.some((tr) => tr.effects.some((e) => e.is(setAlternatives))),
     lineMarker: (_view, line) =>
       current().some((a) => a.from >= line.from && a.from <= line.to) ? dot : null,
   });

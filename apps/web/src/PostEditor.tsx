@@ -16,6 +16,7 @@ import { Shortcuts } from "./Shortcuts";
 import { kindName } from "./NewPost";
 import { selection as captureSelection } from "./editor/selection";
 import { alternativeKeys, alternativeGutter, type Alt } from "./editor/alternatives";
+import { alternativeWidget, setAlternatives, type AltAction } from "./editor/alternative-widget";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EditorView } from "@codemirror/view";
 import { LoroDoc } from "loro-crdt";
@@ -46,6 +47,14 @@ import {
   type ThreadFilter,
 } from "./ThreadColumn";
 
+/** Flip (next, prev) or resolve (keep, ghost) one alternative. */
+const altOperation = (connection: EditorTransport, alt: string, action: AltAction) =>
+  connection.operation(
+    action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
+    action === "keep" || action === "ghost"
+      ? { doc: connection.id, alt, rest: action === "ghost" ? "ghost" : "stash" }
+      : { doc: connection.id, alt, to: action },
+  );
 const REASON: Record<string, string> = {
   cut: "Cut",
   alt: "Not kept",
@@ -217,6 +226,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 .catch(fail("page"));
             }),
             alternativeGutter(() => liveAlts.current),
+            alternativeWidget((alt, action) => altOperation(connection, alt, action)),
             threadHighlights(() => ({
               shown: zenNow.current ? [] : shownThreads(liveThreads.current, filterNow.current),
               active: activeNow.current,
@@ -234,14 +244,11 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
             alternativeKeys(
               () => liveAlts.current,
               (alt, action) => {
-                void connection
-                  .operation(
-                    action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
-                    action === "keep" || action === "ghost"
-                      ? { doc: id, alt, rest: action === "ghost" ? "ghost" : "stash" }
-                      : { doc: id, alt, to: action },
-                  )
-                  .then(clear("alternative"), fail("alternative"));
+                void connection;
+                altOperation(connection, alt, action).then(
+                  clear("alternative"),
+                  fail("alternative"),
+                );
               },
             ),
             EditorView.updateListener.of((update) => {
@@ -346,7 +353,7 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
                 );
                 liveAlts.current = valid;
                 setAlts(valid);
-                view?.dispatch({});
+                view?.dispatch({ effects: setAlternatives.of(valid) });
               }
               const lintBlocks: NonNullable<LintSnapshot["blocks"]>[number][] = [];
               const blocks: Inspection["blocks"] = [];
@@ -425,6 +432,19 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
     v.dispatch({
       selection: { anchor: sentence.from, head: sentence.to },
       effects: EditorView.scrollIntoView(sentence.from, { y: "center" }),
+    });
+    v.focus();
+  };
+  // The caret moves to the next alternative after it (wrapping), where the widget appears.
+  const nextAlternative = () => {
+    const v = editorView.current;
+    if (!v || !alts.length) return;
+    const head = v.state.selection.main.head;
+    const sorted = [...alts].sort((a, b) => a.from - b.from);
+    const target = sorted.find((a) => a.from > head) ?? sorted[0];
+    v.dispatch({
+      selection: { anchor: target.from },
+      effects: EditorView.scrollIntoView(target.from, { y: "center" }),
     });
     v.focus();
   };
@@ -609,40 +629,17 @@ export function PostEditor({ id, panels }: { id: string; panels?: ReactNode }) {
             {alts.length > 0 && (
               <>
                 <h2>Alternatives</h2>
-                {alts.map((alt) => (
-                  <article className="alternative" key={alt.id}>
-                    <span>
-                      Alternative {alt.active + 1}/{alt.count}
-                    </span>
-                    {(["prev", "next", "keep", "ghost"] as const).map((action) => (
-                      <button
-                        key={action}
-                        onClick={() =>
-                          void transport.current
-                            ?.operation(
-                              action === "keep" || action === "ghost" ? "alt.resolve" : "alt.flip",
-                              action === "keep" || action === "ghost"
-                                ? {
-                                    doc: id,
-                                    alt: alt.id,
-                                    rest: action === "ghost" ? "ghost" : "stash",
-                                  }
-                                : { doc: id, alt: alt.id, to: action },
-                            )
-                            .then(clear("alternative"), fail("alternative"))
-                        }
-                      >
-                        {action === "keep"
-                          ? "Keep"
-                          : action === "ghost"
-                            ? "Keep and ghost the rest"
-                            : action === "prev"
-                              ? "↑"
-                              : "↓"}
-                      </button>
-                    ))}
-                  </article>
-                ))}
+                <section className="alt-summary" aria-label="Alternatives">
+                  <p data-testid="alt-count">
+                    {alts.length} {alts.length === 1 ? "alternative" : "alternatives"} in this post
+                  </p>
+                  <button
+                    title="Move the caret to the next alternative; flip it there with ⌥↑ / ⌥↓"
+                    onClick={nextAlternative}
+                  >
+                    Next
+                  </button>
+                </section>
                 {notice("alternative")}
               </>
             )}

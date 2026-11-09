@@ -599,6 +599,97 @@ dialog.new-post h2 {
   text-decoration-color: var(--error);
 }
 
+/* The in-place alternative widget, above the range under the caret or pointer. */
+.cm-tooltip:has(> .alt-widget) {
+  border: none;
+  background: transparent;
+}
+.alt-widget {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.3rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+  border: 1px solid var(--alt);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgb(37 51 46 / 14%);
+  font: 14px/1.4 var(--chrome);
+  color: var(--ink);
+}
+.alt-widget button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  min-height: 1.75rem;
+  padding: 0 0.45rem;
+  border-color: transparent;
+  background: transparent;
+}
+.alt-widget button:hover:not(:disabled) {
+  background: var(--green-wash);
+  border-color: var(--rule);
+}
+.alt-widget .keep {
+  border-color: var(--control);
+  font-weight: 600;
+}
+.alt-count {
+  margin-right: 0.25rem;
+  color: var(--alt-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.alt-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 2;
+  padding: 0.25rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgb(37 51 46 / 14%);
+}
+.alt-menu[hidden] {
+  display: none;
+}
+.alt-menu button {
+  white-space: nowrap;
+}
+.alt-widget .alt-error {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  width: max-content;
+  max-width: 24rem;
+  margin: 0;
+}
+.alt-widget .alt-error[hidden] {
+  display: none;
+}
+.cm-alt-range {
+  background: rgb(136 114 213 / 9%);
+  box-shadow: inset 0 -1px 0 var(--alt);
+}
+.alt-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--alt);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.alt-summary p {
+  margin: 0;
+  color: var(--alt-ink);
+  font-weight: 600;
+}
+
 /* The aids column: feedback, alternatives, stash, then the components disclosure. */
 .aids {
   border-left: 1px solid var(--rule);
@@ -756,22 +847,6 @@ dialog.new-post h2 {
 }
 .instance-actions button {
   padding: 0.05rem 0.5rem;
-}
-.alternative {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.6rem;
-  margin-bottom: 0.4rem;
-  border: 1px solid var(--alt);
-  border-radius: 6px;
-  background: var(--surface);
-}
-.alternative > span {
-  margin-right: auto;
-  color: var(--alt-ink);
-  font-weight: 600;
 }
 .stash .notice {
   margin: 0.5rem 0;

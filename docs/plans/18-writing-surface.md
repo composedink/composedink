@@ -61,9 +61,9 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
 
 ### Task 6 — Web: alternatives in place
 
-- [ ] When the caret is inside an alternative range (or the pointer hovers it), a small widget appears above the range: `2 / 3`, `↑`, `↓`, **Keep**, and a **…** menu with **Keep and ghost the rest**. The widget is keyboard reachable (Tab from the editor when visible) and the existing ⌥↑/⌥↓/⌘⏎ keep working. The gutter dot stays as the at-a-glance marker.
-- [ ] The aside's Alternatives list is removed; the aside shows "3 alternatives" with a **Next** action that moves the caret to the next range (so Alex can walk them).
-- [ ] e2e: propose via CLI, caret into the range → widget visible with `1 / 3`; click ↓ → text changes and `2 / 3`; Keep → widget gone, stash has two items; keyboard path still passes `alternatives.spec.ts`.
+- [x] When the caret is inside an alternative range (or the pointer hovers it), a small widget appears above the range: `2 / 3`, `↑`, `↓`, **Keep**, and a **…** menu with **Keep and ghost the rest**. The widget is keyboard reachable (Tab from the editor when visible) and the existing ⌥↑/⌥↓/⌘⏎ keep working. The gutter dot stays as the at-a-glance marker.
+- [x] The aside's Alternatives list is removed; the aside shows "3 alternatives" with a **Next** action that moves the caret to the next range (so Alex can walk them).
+- [x] e2e: propose via CLI, caret into the range → widget visible with `1 / 3`; click ↓ → text changes and `2 / 3`; Keep → widget gone, stash has two items; keyboard path still passes `alternatives.spec.ts`.
 
 ### Task 7 — Workspace actions, docs, gates
 
@@ -300,3 +300,35 @@ The Tauri app renders `apps/web`; nothing in `apps/desktop` changes except the s
   comment column on the first comment; zen status bar `165 / 1200 words`, `Saved`, `Zen`;
   screenshots `plan-18-layout-900.png`, `-1250.png`, `-1250-comment.png`, `-1440.png`,
   `-feedback-open.png`, `-zen.png`). All other web specs pass in this tree.
+
+### 2026-11-09 — Task 6: alternatives in place
+
+- **Widget** (`editor/alternative-widget.ts`): a CodeMirror tooltip above the alternative under the
+  caret, or under the pointer (it stays while the pointer moves onto it, and leaves 0.5 s after the
+  pointer leaves both). It shows `2 / 3`, previous and next (drawn chevrons named "Previous version"
+  and "Next version", with ⌥↑/⌥↓ in their tooltips), **Keep**, and a **More choices** menu holding
+  **Keep and ghost the rest**. While it shows, the alternative's range has a light alternative-colour
+  wash, and the gutter dot stays. The widget keeps one tooltip object per alternative, so focus
+  stays on a button across flips; Keep returns focus to the text; Escape closes the menu, then
+  returns to the text. A failed flip or keep shows a notice inside the widget (same `describe`
+  copy and styling as the React notices); keyboard flips that fail use the aside's alternatives
+  slot.
+- **Keyboard**: Tab from the text reaches the widget. The folded `settings` marker was the first
+  tab stop inside the editable content and caught Tab, so it is now `tabIndex=-1`; Enter with the
+  caret on the marker's line unfolds the block instead (the settings strip and the malformed
+  notice's Unfold remain).
+- **Aside**: the alternatives list is gone; when any exist the aside reads "N alternatives in this
+  post" with **Next**, which moves the caret to the next range after it (wrapping) so the widget
+  appears there. The gutter now redraws when new alternatives arrive (a proposal changes no
+  text, so before this the dot waited for the next keystroke).
+- **Specs moved**: `alternatives`, `dim`, `lint`, `rewrite` and `threads-feedback` drove the aside
+  list (`.alternative`, "1/2", ↓, Keep, Keep and ghost the rest). They now assert the aside count
+  and use **Next** plus the widget's buttons and menu; the keyboard paths in `alternatives.spec.ts`
+  are unchanged. `dim.spec.ts` clicks into the text before ⌘A after pressing Undo operation (focus
+  was on the button, and Stash selection is now disabled without a selection).
+- Evidence: `tests/alternatives-inplace.spec.ts` passes (`test-results/plan-18-alternatives-inplace.json`:
+  widget at `1 / 3` above the line after Next; Next version → `2 / 3` and the text changes; Tab
+  from the text reaches Previous version, Enter flips back, Escape returns; Keep → widget gone,
+  two stash items, no alternatives; hover shows it and the menu ghosts the rest; screenshots
+  `plan-18-alternative-widget.png`, `plan-18-alternative-menu.png`). `alternatives`, `dim`,
+  `lint`, `rewrite`, `threads-feedback` and `kinds-zen` specs pass. Detector still `[]`, exit 0.

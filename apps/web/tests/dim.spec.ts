@@ -77,20 +77,27 @@ try {
     "--version",
     "Agent sentence.",
   );
-  await expect(page.locator(".alternative")).toContainText("1/2");
-  await page.locator(".alternative").getByRole("button", { name: "↓", exact: true }).click();
+  // Plan 18: the aside counts alternatives; the widget above the range flips them in place.
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
+  await page
+    .getByRole("region", { name: "Alternatives" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  const widget = page.locator(".alt-widget");
+  await expect(widget.locator(".alt-count")).toHaveText("1 / 2");
+  await widget.getByRole("button", { name: "Next version" }).click();
   await expect(editor)
     .toContainText("Agent sentence.")
     .catch(async (e) => {
       console.log(await page.locator("body").innerText());
       throw e;
     });
-  await page.locator(".alternative").getByRole("button", { name: "↑", exact: true }).click();
+  await widget.getByRole("button", { name: "Previous version" }).click();
   expect(JSON.parse(cli("cat", "editor", "--json")).dim.length).toBeGreaterThan(0);
   await editor.press("ControlOrMeta+a");
   await editor.press("ArrowLeft");
   await editor.press("ControlOrMeta+Shift+Enter");
-  await expect(page.locator(".alternative")).toHaveCount(0);
+  await expect(page.getByTestId("alt-count")).toHaveCount(0);
   await expect(editor)
     .toContainText("First sentence.Agent sentence.")
     .catch(async (e) => {
@@ -98,9 +105,14 @@ try {
       throw e;
     });
   await page.getByRole("button", { name: "Undo operation", exact: true }).click();
-  await expect(page.locator(".alternative")).toHaveCount(1);
-  await page.getByRole("button", { name: "Keep and ghost the rest", exact: true }).click();
-  await expect(page.locator(".alternative")).toHaveCount(0);
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
+  await page
+    .getByRole("region", { name: "Alternatives" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  await widget.getByRole("button", { name: "More choices" }).click();
+  await page.getByRole("menuitem", { name: "Keep and ghost the rest", exact: true }).click();
+  await expect(page.getByTestId("alt-count")).toHaveCount(0);
   await editor.press("ControlOrMeta+a");
   await page.getByRole("button", { name: "Stash selection", exact: true }).click();
   await expect(editor).toHaveText("");
@@ -113,6 +125,9 @@ try {
       throw e;
     });
   await expect(page.locator(".stash-item")).toHaveCount(0);
+  // Focus is on Undo operation: click back into the text before selecting it (plan 18 enables
+  // Stash selection only with a selection).
+  await editor.click();
   await editor.press("ControlOrMeta+a");
   await page.getByRole("button", { name: "Stash selection", exact: true }).click();
   await expect(page.locator(".stash-item")).toHaveCount(1);
@@ -151,13 +166,17 @@ try {
     "--version",
     "Crossing replacement.",
   );
-  await expect(page.locator(".alternative")).toHaveCount(1);
-  await page.locator(".alternative").getByRole("button", { name: "↓", exact: true }).click();
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
+  await page
+    .getByRole("region", { name: "Alternatives" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  await page.locator(".alt-widget").getByRole("button", { name: "Next version" }).click();
   await expect(editor).toContainText("Crossing replacement.");
   await editor.press("ControlOrMeta+a");
   await page.keyboard.insertText("Typed across boundary.");
   await expect(page.getByRole("status")).toHaveText("Saved");
-  await expect(page.locator(".alternative")).toHaveCount(0);
+  await expect(page.getByTestId("alt-count")).toHaveCount(0);
   expect(JSON.parse(cli("stash", "list", "editor"))).toMatchObject([
     { text: "First sentence.", dim: [[0, 15]] },
   ]);

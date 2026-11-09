@@ -58,12 +58,13 @@ try {
     "--version",
     "Agent sentence.",
   );
-  await expect(page.locator(".alternative")).toContainText("1/2");
+  // Plan 18: the aside counts alternatives; the widget above the range flips them in place.
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
   await editor.press("ControlOrMeta+a");
   await editor.press("ArrowLeft");
   await editor.press("Alt+ArrowDown");
   await expect(editor).toContainText("Agent sentence.");
-  await expect(page.locator(".alternative")).toContainText("2/2");
+  await expect(page.locator(".alt-widget .alt-count")).toHaveText("2 / 2");
   await editor.press("ControlOrMeta+End");
   await page.keyboard.insertText(" Later typing.");
   await expect(page.getByRole("status")).toHaveText("Saved");
@@ -71,11 +72,18 @@ try {
   await expect(editor).toContainText("First sentence.");
   await expect(editor).toContainText("Later typing.");
   await page.reload();
-  await expect(page.locator(".alternative")).toContainText("1/2");
-  await page.locator(".alternative").getByRole("button", { name: "↓", exact: true }).click();
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
+  await page
+    .getByRole("region", { name: "Alternatives" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  const widget = page.locator(".alt-widget");
+  await expect(widget.locator(".alt-count")).toHaveText("1 / 2");
+  await widget.getByRole("button", { name: "Next version" }).click();
   await expect(editor).toContainText("Agent sentence.");
-  await page.locator(".alternative").getByRole("button", { name: "Keep", exact: true }).click();
-  await expect(page.locator(".alternative")).toHaveCount(0);
+  await widget.getByRole("button", { name: "Keep", exact: true }).click();
+  await expect(page.getByTestId("alt-count")).toHaveCount(0);
+  await expect(widget).toHaveCount(0);
   expect(JSON.parse(cli("stash", "list", "editor"))).toMatchObject([{ text: "First sentence." }]);
   await page.screenshot({ path: join(root, "test-results/plan-04-alternatives.png") });
   await writeFile(

@@ -73,9 +73,13 @@ try {
   // Plan 18: feedback groups by rule; a rule's row opens to its instances.
   await feedback.locator('.rule-group[data-rule="style:simpler"] .rule-toggle').click();
   await feedback.getByRole("button", { name: "Propose “use”", exact: true }).click();
-  await expect(page.locator(".alternative")).toHaveCount(1);
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
   expect(JSON.parse(cli("cat", "editor", "--json")).text).toBe(before);
-  await page.locator(".alternative").getByRole("button", { name: "↓", exact: true }).click();
+  await page
+    .getByRole("region", { name: "Alternatives" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  await page.locator(".alt-widget").getByRole("button", { name: "Next version" }).click();
   await expect(editor).toContainText("to use tools.");
   await expect(feedback.locator('[data-code="style:adverb"]')).toHaveCount(1);
   await feedback.locator('.rule-group[data-rule="style:adverb"] .rule-toggle').click();

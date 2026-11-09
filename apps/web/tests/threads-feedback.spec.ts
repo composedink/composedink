@@ -316,13 +316,14 @@ try {
     page.locator(`.cm-thread[data-thread="${await note.getAttribute("data-thread")}"]`),
   ).toHaveText("Delta");
   await answers.first().getByRole("button", { name: "Show suggested rewrite (1)" }).click();
-  await expect(page.locator(".alternative")).toContainText("1/2");
+  // Showing the rewrite puts the caret in it: the in-place widget (plan 18) shows its versions.
+  await expect(page.locator(".alt-widget .alt-count")).toHaveText("1 / 2");
   expect(cli("cat", "talk", "--json").text).toBe(typed);
   // Acceptance is explicit through the existing alternative controls.
   await editor.press("Alt+ArrowDown");
   await expect(editor).toContainText("Delta, briefly.");
   await editor.press("ControlOrMeta+Enter");
-  await expect(page.locator(".alternative")).toHaveCount(0);
+  await expect(page.getByTestId("alt-count")).toHaveCount(0);
   await expect
     .poll(() => cli("cat", "talk", "--json").text)
     .toBe(typed.replace("Delta epsilon zeta.", "Delta, briefly."));

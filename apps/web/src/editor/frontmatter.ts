@@ -26,6 +26,9 @@ class Marker extends WidgetType {
     button.textContent = "settings";
     button.title = "The post's settings block. Click to show and edit it as text.";
     button.setAttribute("aria-label", "Show the settings block");
+    // Out of the tab order: Tab from the text goes on to the alternative widget and the page.
+    // From the keyboard, Enter on the marker's line unfolds it (and the settings strip edits it).
+    button.tabIndex = -1;
     button.addEventListener("mousedown", (event) => {
       event.preventDefault();
       unfold(view);
@@ -102,8 +105,21 @@ const guard = EditorState.changeFilter.of((tr) => {
   });
   return allowed;
 });
-/** Backspace right after the folded block, or Delete right before or after it, does nothing. */
+/**
+ * Backspace right after the folded block, or Delete right before or after it, does nothing; Enter
+ * on the marker's line unfolds it.
+ */
 const keys = keymap.of([
+  {
+    key: "Enter",
+    run: (view) => {
+      const s = view.state.field(fold).folded && span(view.state);
+      const { empty, head } = view.state.selection.main;
+      if (!s || !empty || (head !== 0 && head !== s.to)) return false;
+      unfold(view);
+      return true;
+    },
+  },
   {
     key: "Backspace",
     run: (view) => {

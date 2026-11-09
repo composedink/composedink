@@ -91,7 +91,13 @@ try {
     .poll(() => JSON.parse(cli("cat", "editor", "--json")).text)
     .toBe("Original sentence.\n\nOther paragraph. Human edit.");
   release();
-  await expect(page.locator(".alternative")).toContainText("1/4");
+  // Plan 18: the aside counts alternatives; the widget above the range shows its versions.
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
+  await page
+    .getByRole("region", { name: "Alternatives" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  await expect(page.locator(".alt-widget .alt-count")).toHaveText("1 / 4");
   expect(JSON.parse(cli("cat", "editor", "--json")).text).toBe(
     "Original sentence.\n\nOther paragraph. Human edit.",
   );
@@ -100,7 +106,7 @@ try {
   await editor.press("Alt+ArrowDown");
   await expect(editor).toContainText("Version A");
   await editor.press("ControlOrMeta+Enter");
-  await expect(page.locator(".alternative")).toHaveCount(0);
+  await expect(page.getByTestId("alt-count")).toHaveCount(0);
   expect(JSON.parse(cli("stash", "list", "editor"))).toHaveLength(3);
   gate = new Promise<void>((r) => {
     release = r;
@@ -131,9 +137,14 @@ try {
   expect(JSON.parse(cli("cat", "editor", "--json")).alts).toHaveLength(0);
   fail = false;
   await editor.press("ControlOrMeta+Shift+r");
-  await expect(page.locator(".alternative")).toContainText("1/4");
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
   await page.reload();
-  await expect(page.locator(".alternative")).toContainText("1/4");
+  await expect(page.getByTestId("alt-count")).toHaveText("1 alternative in this post");
+  await page
+    .getByRole("region", { name: "Alternatives" })
+    .getByRole("button", { name: "Next" })
+    .click();
+  await expect(page.locator(".alt-widget .alt-count")).toHaveText("1 / 4");
   await page.screenshot({ path: join(root, "test-results/plan-07-alternatives.png") });
   await writeFile(
     join(root, "test-results/plan-07-alternatives.json"),
